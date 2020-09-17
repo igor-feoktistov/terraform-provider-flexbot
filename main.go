@@ -1,7 +1,7 @@
 package main
 
 import (
-	"flexbot/terraform/provider"
+	"terraform-provider-flexbot/provider"
 	"github.com/hashicorp/terraform/plugin"
 )
 
