@@ -1,12 +1,12 @@
 package main
 
 import (
-	"terraform-provider-flexbot/provider"
+	"flexbot/terraform/provider"
 	"github.com/hashicorp/terraform/plugin"
 )
 
 func main() {
 	plugin.Serve(&plugin.ServeOpts{
-		ProviderFunc: provider.Provider,
+		ProviderFunc: flexbot.Provider,
 	})
 }
