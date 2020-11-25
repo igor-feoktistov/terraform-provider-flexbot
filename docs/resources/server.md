@@ -49,6 +49,10 @@ resource "flexbot_server" "k8s-node1" {
       "curl ${data.rancher2_setting.docker_install_url.value} | sh",
       "${rancher2_cluster.cluster.cluster_registration_token[0].node_command} --etcd --controlplane"
     ]
+    # Optional - commands to re-size boot disk on host
+    ssh_node_bootdisk_resize_commands = ["sudo /usr/sbin/growbootdisk"]
+    # Optional - commands to re-size data disk on host
+    ssh_node_datadisk_resize_commands = ["sudo /usr/sbin/growdatadisk"]
   }
 
   # Required - cDOT storage

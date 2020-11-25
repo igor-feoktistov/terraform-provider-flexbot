@@ -12,11 +12,12 @@ type UpdateManager struct {
 	Sync      sync.Mutex
 	LastError error
 }
-	
+
 type FlexbotConfig struct {
 	FlexbotProvider       *schema.ResourceData
 	RancherConfig         *rancher.Config
 	RancherNodeDrainInput *rancherManagementClient.NodeDrainInput
+	NodeGraceTimeout      int
 	UpdateManager         UpdateManager
 }
 
