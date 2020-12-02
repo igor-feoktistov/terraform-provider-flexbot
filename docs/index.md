@@ -45,6 +45,7 @@ provider "flexbot" {
   }
   # Rancher API
   rancher_api {
+    enabled = true
     api_url = "https://rancher.example.com"
     token_key = "token-xxxx"
     insecure = true
