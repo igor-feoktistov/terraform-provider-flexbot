@@ -150,7 +150,7 @@ resource "flexbot_server" "k8s-node1" {
     restore = true
     # Optional - by default it finds latest snapshot created by the provider
     #            if you set auto_snapshot_on_update to true for storage.
-    # List of all available snapshots you can find in state (look for snapshosts[]) for the resource.
+    # List of all available snapshots you can find in state file (look for snapshosts[]) for the resource.
     snapshot_name = "k8s-node1.snap.1"
   }
 

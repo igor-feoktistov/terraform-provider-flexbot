@@ -1,3 +1,14 @@
+## 1.5.3 (December 8, 2020)
+
+FEATURES:
+
+ENHANCEMENTS:
+
+* Improved Rancher node use case logic for server updates.
+* Code optimization for Rancher
+
+BUG FIXES:
+
 ## 1.5.1 (December 2, 2020)
 
 FEATURES:

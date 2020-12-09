@@ -222,13 +222,13 @@ resource "flexbot_server" "k8s-node1" {
   }
 
   # Restore from snapshot
-  # Optional - restore image LUN's from snapshot.
+  # Optional - restore server LUN's from snapshot.
   restore {
     # Make sure to set "restore=false" once it's completed.
     restore = true
     # Optional - by default it finds latest snapshot created by the provider
     #            if you set auto_snapshot_on_update to true for storage.
-    # List of available snapshots you can find in state (look for snapshosts[]) for the resource.
+    # List of all available snapshots you can find in state file (look for snapshosts[]) for the resource.
     snapshot_name = "k8s-node1.snap.1"
   }
 
