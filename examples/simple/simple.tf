@@ -103,8 +103,9 @@ resource "flexbot_server" "k8s-node1" {
       #model = "UCSB-B200-M[45]"
       # Number of CPUs, supports range
       #num_of_cpus = "2"
-      # Number of cores, support range
+      # Number of cores, supports range
       #num_of_cores = "36"
+      #num_of_cores = "24-36"
       # Total memory in MB, supports range
       total_memory = "65536-262144"
     }
