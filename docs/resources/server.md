@@ -1,3 +1,7 @@
+---
+page_title: "server Resource"
+---
+
 # Server Resource
 
 Provides main Server resource to build Linux node on FlexPod.

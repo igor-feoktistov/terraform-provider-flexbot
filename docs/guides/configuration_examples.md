@@ -10,6 +10,7 @@ Make sure to update respective `terraform.tfvars` files with your own infrastruc
 ## Examples
 
 * [simple](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/simple) Simple configuration with a lot of comments.
+* [repo](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/repo) Manages images and templates repositories.
 * [host-flexbot](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/host-flexbot) Provisions multiple servers the same configuration in one shot.
 * [rke-flexbot](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/rke-flexbot) Provisions RKE cluster.
 * [rancher-server-flexbot](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/rancher-server-flexbot) Provisions Rancher Server on top of RKE cluster.
