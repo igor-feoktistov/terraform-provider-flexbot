@@ -1,3 +1,17 @@
+## 1.6.1 (January 4, 2021)
+
+FEATURES:
+
+ENHANCEMENTS:
+* IPAM code optimization to make it more "plugin" friendly.
+* Code sync-up with latest changes in kdomanski/iso9660 package.
+
+BUG FIXES:
+* Fixed the issue when under certain conditions change in blade_spec would
+  trigger blade re-assignment in spite of current blade meets all criteria
+  in newly provided blade_spec.
+
+
 ## 1.6.0 (December 18, 2020)
 
 FEATURES:

@@ -78,14 +78,12 @@ resource "flexbot_repo" "repo" {
   }
   image_repo {
     name = "ubuntu-18.04.05.02-iboot"
-    location = ""
   }
   template_repo {
     name = "rhel7.8.01-cloud-init.template"
   }
   template_repo {
     name = "ubuntu-18.04.05.02-cloud-init.template"
-    location = ""
   }
 }
 ```
