@@ -1,4 +1,4 @@
---
+---
 page_title: "flexbot_crypt Data Source"
 ---
 
