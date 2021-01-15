@@ -50,6 +50,8 @@ provider "flexbot" {
     token_key = "token-xxxx"
     insecure = true
     cluster_id = rancher2_cluster.cluster.id
+    node_grace_timeout = 60
+    wait_for_node_timeout = 1800
     drain_input {
       force = true
       delete_local_data = true
@@ -65,7 +67,7 @@ provider "flexbot" {
 
 The following arguments are supported:
 
-* `pass_phrase` - (Optional) Password phrase to decrypt passwords in credentials (if encrypted). Use 'flexbot --op=encryptString [--passphrase=<password phrase>]' CLI to generate encrypted passwords values.
+* `pass_phrase` - (Optional) Password phrase to decrypt passwords in credentials (if encrypted). See `flexbot_crypt` datasource example on how to generate encrypted user / password values.
 * `ipam` - (Required) IPAM is implemented via pluggable providers. Only "Infoblox" and "Internal" providers are supported at this time. "Internal" provider expects you to supply "ip" and "fqdn" in network configurations.
 * `compute` - (Required) UCS compute, credentials to access UCSM
 * `storage` - (Required) cDOT storage, credentials to access cDOT cluster or SVM

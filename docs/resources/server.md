@@ -32,6 +32,9 @@ resource "flexbot_server" "k8s-node1" {
       # Number of cores, supports range
       #num_of_cores = "36"
       #num_of_cores = "24-36"
+      # Number of threads, supports range
+      #num_of_threads = "72"
+      #num_of_threads = "48-72"
       # Total memory in MB, supports range
       total_memory = "65536-262144"
     }
