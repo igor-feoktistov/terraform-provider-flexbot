@@ -5,7 +5,7 @@ page_title: "flexbot_crypt Data Source"
 # flexbot_crypt Data Source
 
 Use this data source to retrieve decrypted token and access keys.
-`flexbot_crypt` uses AES encryption with 256-bit keys generated via SHA256 sum.
+Data-source `flexbot_crypt` uses AES encryption with 256-bit keys generated via SHA256 sum.
 
 ## Example Usage
 
