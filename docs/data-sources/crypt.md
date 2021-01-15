@@ -9,7 +9,7 @@ Data-source `flexbot_crypt` uses AES encryption with 256-bit keys generated via 
 
 ## Example Usage
 
-```
+```hcl
 provider "flexbot" {
   alias = "crypt"
   pass_phrase = var.pass_phrase
