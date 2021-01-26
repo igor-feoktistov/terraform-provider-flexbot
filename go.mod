@@ -1,4 +1,4 @@
-module terraform-provider-flexbot
+module github.com/igor-feoktistov/terraform-provider-flexbot
 
 go 1.14
 
@@ -28,7 +28,6 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce // indirect
 	github.com/igor-feoktistov/go-ontap-sdk v0.0.0-20200617012018-b98da3bc2dea
 	github.com/igor-feoktistov/go-ucsm-sdk v0.0.0-20210112011426-6d1ec944f812
-	github.com/igor-feoktistov/terraform-provider-flexbot v1.6.2
 	github.com/infobloxopen/infoblox-go-client v1.1.0
 	github.com/kdomanski/iso9660 v0.2.0
 	github.com/klauspost/compress v1.11.7 // indirect
@@ -53,7 +52,7 @@ require (
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/mod v0.4.1 // indirect
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect
-	golang.org/x/oauth2 v0.0.0-20210125201302-af13f521f196 // indirect
+	golang.org/x/oauth2 v0.0.0-20210126194326-f9ce19ea3013 // indirect
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
 	golang.org/x/text v0.3.5 // indirect
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect

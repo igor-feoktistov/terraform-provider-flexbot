@@ -446,8 +446,6 @@ github.com/igor-feoktistov/go-ontap-sdk v0.0.0-20200617012018-b98da3bc2dea h1:lR
 github.com/igor-feoktistov/go-ontap-sdk v0.0.0-20200617012018-b98da3bc2dea/go.mod h1:oOr8HpXRFz2R8XSZ5vRoNCoScHqGbe2ze1BrxcCohcE=
 github.com/igor-feoktistov/go-ucsm-sdk v0.0.0-20210112011426-6d1ec944f812 h1:LeK682yTdbdIyDYumvqTulITZXnerqpfXfmR8WwktTU=
 github.com/igor-feoktistov/go-ucsm-sdk v0.0.0-20210112011426-6d1ec944f812/go.mod h1:4mJNNQkZ0NRrVHsO/7lRbNLvt/x0cZYIbaJ/+Is2UCE=
-github.com/igor-feoktistov/terraform-provider-flexbot v1.6.2 h1:+E55yn7cve2qPks7S3iayuJe9/RrnxIrhqL0RCUeLvA=
-github.com/igor-feoktistov/terraform-provider-flexbot v1.6.2/go.mod h1:8smXrWqwQgvx2QWluNQCJyUfLV9G6fNZ1ljRsPxvLcE=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/imdario/mergo v0.3.6/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/imdario/mergo v0.3.7/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
@@ -887,8 +885,8 @@ golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d/go.mod h1:gOpvHmFTYa4Iltr
 golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
 golang.org/x/oauth2 v0.0.0-20201109201403-9fd604954f58/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
 golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
-golang.org/x/oauth2 v0.0.0-20210125201302-af13f521f196 h1:w0u30BeG/TALEc6xVf1Klaz2+etRR4K6jxhRkWCqt4g=
-golang.org/x/oauth2 v0.0.0-20210125201302-af13f521f196/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
+golang.org/x/oauth2 v0.0.0-20210126194326-f9ce19ea3013 h1:55H5j7lotzuFCEOKDsMch+fRNUQ9DgtyHOUP31FNqKc=
+golang.org/x/oauth2 v0.0.0-20210126194326-f9ce19ea3013/go.mod h1:KelEdhl1UZF7XfJ4dDtk6s++YSgaE7mD/BuKKDLBl4A=
 golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181108010431-42b317875d0f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=

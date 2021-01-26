@@ -1,3 +1,7 @@
+---
+page_title: "Infrastructure Requirements"
+---
+
 # Infrastructure Requirements
 
 ## cDOT Storage Requirements
@@ -23,19 +27,19 @@ See below screenshots with configuration details.
 ### iSCSI vNIC's
 
 <p align="center">
-    <img src="https://github.com/igor-feoktistov/terraform-provider-flexbot/blob/master/docs/images/SPT-details1.png">
+    <img src="https://raw.githubusercontent.com/igor-feoktistov/terraform-provider-flexbot/master/docs/images/SPT-details1.png">
 </p>
 
 ### Boot Order
 
 <p align="center">
-    <img src="https://github.com/igor-feoktistov/terraform-provider-flexbot/blob/master/docs/images/SPT-details2.png">
+    <img src="https://raw.githubusercontent.com/igor-feoktistov/terraform-provider-flexbot/master/docs/images/SPT-details2.png">
 </p>
 
 ### iSCSI Boot Parameters
 
 <p align="center">
-    <img src="https://github.com/igor-feoktistov/terraform-provider-flexbot/blob/master/docs/images/SPT-details3.png">
+    <img src="https://raw.githubusercontent.com/igor-feoktistov/terraform-provider-flexbot/master/docs/images/SPT-details3.png">
 </p>
 
 ## Images
