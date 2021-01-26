@@ -14,8 +14,8 @@ Compared to other bare-metal tools it does not require any additional infrastruc
 Requirements
 ------------
 
-- [Terraform](https://www.terraform.io/downloads.html) 0.13.x
-- [Go](https://golang.org/doc/install) 1.14 (to build flexbot CLI and the provider plugin)
+- [Terraform](https://www.terraform.io/downloads.html) 0.13.x or later
+- [Go](https://golang.org/doc/install) 1.14 or later (to build flexbot CLI and the provider plugin)
 
 Building the provider
 ---------------------
