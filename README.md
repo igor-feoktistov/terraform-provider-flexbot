@@ -20,9 +20,8 @@ Requirements
 Building the provider
 ---------------------
 
-Clone [terraform-provider-flexbot project repository](https://github.com/igor-feoktistov/terraform-provider-flexbot).
-
-Enter `terraform-provider-flexbot` directory and run `make` to build the provider.
+* Clone [terraform-provider-flexbot project repository](https://github.com/igor-feoktistov/terraform-provider-flexbot) to: `$GOPATH/src`.
+* Enter `$GOPATH/src/terraform-provider-flexbot` directory and run `make` to build the provider.
 
 
 Using the provider
