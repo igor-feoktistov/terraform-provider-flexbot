@@ -10,10 +10,10 @@ import (
 	"time"
 	"golang.org/x/crypto/ssh"
 
-	"flexbot/pkg/config"
-	"flexbot/pkg/ipam"
-	"flexbot/pkg/ontap"
-	"flexbot/pkg/ucsm"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ipam"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
 	"github.com/denisbrodbeck/machineid"
         "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )

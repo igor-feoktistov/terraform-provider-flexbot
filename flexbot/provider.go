@@ -6,9 +6,9 @@ import (
 	"strings"
 	"encoding/base64"
 
-	"flexbot/pkg/util/crypt"
-	"flexbot/pkg/rancher"
-	nodeConfig "flexbot/pkg/config"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
+	nodeConfig "github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/denisbrodbeck/machineid"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
         "github.com/hashicorp/terraform-plugin-sdk/terraform"

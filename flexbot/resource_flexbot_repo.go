@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"flexbot/pkg/config"
-	"flexbot/pkg/ontap"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
 	"github.com/denisbrodbeck/machineid"
         "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )

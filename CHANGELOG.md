@@ -1,3 +1,13 @@
+## 1.6.3 (January 26, 2021)
+
+FEATURES:
+* This release consolidates source code from `flexboot` project to a single tree on `terraform-provider-flexbot` and obsoletes `flexbot` CLI tool.
+
+ENHANCEMENTS:
+
+BUG FIXES:
+
+
 ## 1.6.2 (January 14, 2021)
 
 FEATURES:

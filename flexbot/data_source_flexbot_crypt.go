@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"encoding/base64"
 
-	"flexbot/pkg/util/crypt"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 	"github.com/denisbrodbeck/machineid"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )

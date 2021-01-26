@@ -3,8 +3,8 @@ package flexbot
 import (
 	"sync"
 	
-	"flexbot/pkg/rancher"
-	"flexbot/pkg/config"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
