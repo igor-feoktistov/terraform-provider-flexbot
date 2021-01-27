@@ -15,7 +15,7 @@ Requirements
 ------------
 
 - [Terraform](https://www.terraform.io/downloads.html) 0.13.x or later
-- [Go](https://golang.org/doc/install) 1.14 or later (to build flexbot CLI and the provider plugin)
+- [Go](https://golang.org/doc/install) 1.14 or later
 
 Building the provider
 ---------------------
