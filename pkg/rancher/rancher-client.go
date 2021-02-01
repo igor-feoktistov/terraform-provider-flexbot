@@ -332,6 +332,16 @@ func (client *Client) ClusterWaitForState(clusterId string, states string, timeo
         return
 }
 
+func (client *Client) NodeGetState(nodeId string) (state string, err error) {
+	var node *managementClient.Node
+        if node, err = client.Management.Node.ByID(nodeId); err != nil {
+		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+        } else {
+    		state = node.State
+        }
+        return
+}
+
 func (client *Client) NodeWaitForState(nodeId string, states string, timeout int) (err error) {
 	var node *managementClient.Node
 	var nodeLastState string
@@ -339,7 +349,7 @@ func (client *Client) NodeWaitForState(nodeId string, states string, timeout int
     	for time.Now().Before(giveupTime) {
             	if node, err = client.Management.Node.ByID(nodeId); err != nil {
 			err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
-            		return err
+            		return
             	}
             	for _, state := range strings.Split(states, ",") {
             		if node.State == state {
@@ -369,7 +379,16 @@ func (client *Client) NodeCordonDrain(nodeId string, nodeDrainInput *managementC
 	_, ok = node.Actions["drain"]
     	if ok {
 		if err = client.Management.Node.ActionDrain(node, nodeDrainInput); err == nil {
-			err = client.NodeWaitForState(nodeId, "drained", int(nodeDrainInput.Timeout + nodeDrainInput.GracePeriod))
+			if err = client.NodeWaitForState(nodeId, "draining,drained", int(nodeDrainInput.Timeout + nodeDrainInput.GracePeriod)); err == nil {
+				if err = client.NodeWaitForState(nodeId, "drained", int(nodeDrainInput.Timeout + nodeDrainInput.GracePeriod)); err != nil {
+					var state string
+					if state, err = client.NodeGetState(nodeId); err == nil {
+						if !(state == "cordoned" || state == "drained") {
+							err = fmt.Errorf("expected node state either \"cordoned\" or \"drained\"", err)
+						}
+					}
+				}
+			}
 		}
 	}
 	if err != nil {

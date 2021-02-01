@@ -26,6 +26,7 @@ variable "nodes" {
         model = string
         total_memory = string
       })
+      powerstate = string
       os_image = string
       seed_template = string
       boot_lun_size = number

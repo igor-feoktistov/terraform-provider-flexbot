@@ -136,9 +136,9 @@ provider "flexbot" {
     drain_input {
       force = true
       delete_local_data = true
-      grace_period = 60
+      grace_period = 30
       ignore_daemon_sets = true
-      timeout = 1800
+      timeout = 300
     }
   }
 }
@@ -157,6 +157,7 @@ resource "flexbot_server" "master" {
       model = each.value.blade_spec.model
       total_memory = each.value.blade_spec.total_memory
     }
+    powerstate = each.value.powerstate
     safe_removal = false
     wait_for_ssh_timeout = 1800
     ssh_user = var.node_config.compute.ssh_user
@@ -254,6 +255,7 @@ resource "flexbot_server" "worker" {
       model = each.value.blade_spec.model
       total_memory = each.value.blade_spec.total_memory
     }
+    powerstate = each.value.powerstate
     safe_removal = false
     wait_for_ssh_timeout = 1800
     ssh_user = var.node_config.compute.ssh_user

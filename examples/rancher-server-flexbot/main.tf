@@ -66,6 +66,7 @@ resource "flexbot_server" "node" {
       model = each.value.blade_spec.model
       total_memory = each.value.blade_spec.total_memory
     }
+    powerstate = each.value.powerstate
     safe_removal = false
     wait_for_ssh_timeout = 1800
     ssh_user = var.node_config.compute.ssh_user
