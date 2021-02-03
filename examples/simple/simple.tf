@@ -181,6 +181,10 @@ resource "flexbot_server" "k8s-node1" {
       # IPAM allocates IP for node interface
       # Required - Subnet in CIDR format for IPAM IP allocation
       subnet = "192.168.1.0/24"
+      # Optional - IP range to allocate IP from
+      # IPAM allocates IP from subnet if "ip_range" is not specified
+      # For Infoblox plugin it should match "Start-End" IP's of IPv4 Reserved Range
+      #ip_range = "192.168.1.32-192.168.1.64"
       # Required - default GW IP address
       gateway = "192.168.1.1"
       # Optional - Arguments for node resolver configuration.
@@ -199,6 +203,10 @@ resource "flexbot_server" "k8s-node1" {
       # IPAM allocates IP for iSCSI interface
       # Required - Subnet in CIDR format for IPAM IP allocation
       subnet = "192.168.2.0/24"
+      # Optional - IP range to allocate IP from
+      # IPAM allocates IP from subnet if "ip_range" is not specified
+      # For Infoblox plugin it should match "Start-End" IP's of IPv4 Reserved Range
+      #ip_range = "192.168.2.32-192.168.2.64"
     }
     # Optional, but highly suggested - iSCSI initiator network #2
     iscsi_initiator {
@@ -211,6 +219,10 @@ resource "flexbot_server" "k8s-node1" {
       # IPAM allocates IP for iSCSI interface
       # Required - Subnet in CIDR format for IPAM IP allocation
       subnet = "192.168.3.0/24"
+      # Optional - IP range to allocate IP from
+      # IPAM allocates IP from subnet if "ip_range" is not specified
+      # For Infoblox plugin it should match "Start-End" IP's of IPv4 Reserved Range
+      #ip_range = "192.168.3.32-192.168.3.64"
     }
   }
 
