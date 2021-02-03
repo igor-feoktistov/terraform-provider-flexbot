@@ -29,11 +29,100 @@ type HostRecord struct {
 	Name string `json:"names,omitempty"`
 }
 
+type IpRange struct {
+	Ref         string `json:"_ref,omitempty"`
+	Network     string `json:"network,omitempty"`
+	NetworkView string `json:"network_view,omitempty"`
+	StartAddr   string `json:"start_addr,omitempty"`
+	EndAddr     string `json:"end_addr,omitempty"`
+	Comment     string `json:"comment,omitempty"`
+}
+
 type InfobloxProvider struct {
 	HostConfig  ibclient.HostConfig
 	DnsView     string
 	NetworkView string
 	DnsZone     string
+}
+
+func validateIpRange(c *ibclient.Connector, networkView string, networkCidr string, rangeStr string) (err error) {
+	var re *regexp.Regexp
+	re = regexp.MustCompile(`(\d+\.\d+\.\d+\.\d+)\s*-\s*(\d+\.\d+\.\d+\.\d+)`)
+	var subMatch, path []string
+	var startAddr, endAddr string
+        subMatch = re.FindStringSubmatch(rangeStr)
+        if len(subMatch) == 3 {
+		startAddr = subMatch[1]
+		endAddr = subMatch[2]
+	} else {
+		err = fmt.Errorf("validateIpRange(): unexpected IP range format: %s", rangeStr)
+		return
+	}
+	path = []string{"wapi", "v" + c.HostConfig.Version, "range"}
+	var u url.URL
+	u = url.URL{
+		Scheme:   "https",
+		Host:     c.HostConfig.Host + ":" + c.HostConfig.Port,
+		Path:     strings.Join(path, "/"),
+		RawQuery: "start_addr=" + startAddr + "&end_addr=" + endAddr + "&network_view=" + networkView,
+	}
+	var req *http.Request
+	if req, err = http.NewRequest(http.MethodGet, u.String(), nil); err != nil {
+		err = fmt.Errorf("validateIpRange(): %s", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.SetBasicAuth(c.HostConfig.Username, c.HostConfig.Password)
+	var res []byte
+	if res, err = c.Requestor.SendRequest(req); err != nil {
+		err = fmt.Errorf("validateIpRange(): %s", err)
+		return
+	}
+	var ipRange []IpRange
+	if err = json.Unmarshal(res, &ipRange); err != nil {
+		err = fmt.Errorf("validateIpRange(): Unmarshal(): %s", string(res))
+		return
+	}
+	if !(len(ipRange) > 0 && len(ipRange[0].Network) > 0) {
+		err = fmt.Errorf("validateIpRange(): IP range \"%s\" not found", rangeStr)
+		return
+	}
+	if ipRange[0].Network != networkCidr {
+		err = fmt.Errorf("validateIpRange(): IP range \"%s\" does not belong to subnet \"%s\"", rangeStr, networkCidr)
+		return
+	}
+	re = regexp.MustCompile(`(range/\w+):\d+\.\d+\.\d+\.\d+.+`)
+	subMatch = re.FindStringSubmatch(ipRange[0].Ref)
+	if subMatch == nil {
+		err = fmt.Errorf("validateIpRange(): missing range ref in response")
+		return
+	}
+	path = []string{"wapi", "v" + c.HostConfig.Version, subMatch[1]}
+	u = url.URL{
+		Scheme:   "https",
+		Host:     c.HostConfig.Host + ":" + c.HostConfig.Port,
+		Path:     strings.Join(path, "/"),
+		RawQuery: "_function=next_available_ip&num=1",
+	}
+	if req, err = http.NewRequest(http.MethodPost, u.String(), nil); err != nil {
+		err = fmt.Errorf("validateIpRange(): %s", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.SetBasicAuth(c.HostConfig.Username, c.HostConfig.Password)
+	if res, err = c.Requestor.SendRequest(req); err != nil {
+		err = fmt.Errorf("validateIpRange(): %s", err)
+		return
+	}
+	var ipPool IpPool
+	if err = json.Unmarshal(res, &ipPool); err != nil {
+		err = fmt.Errorf("validateIpRange(): Unmarshal(): %s", string(res))
+		return
+	}
+        if len(ipPool.Ips) == 0 {
+    		err = fmt.Errorf("validateIpRange(): no IPs available in IP range \"%s\"", rangeStr)
+	}
+	return
 }
 
 func getAvailableIPs(conn *ibclient.Connector, network_view string, cidr string, numIPs int) (ippool IpPool, err error) {
@@ -229,7 +318,12 @@ func (p *InfobloxProvider) Allocate(nodeConfig *config.NodeConfig) (err error) {
 	var ipaddr string
 	var hostSuffix string = ""
 	for i, _ := range nodeConfig.Network.Node {
-		if ipaddr, err = p.AllocateIp(nodeConfig.Network.Node[i].Subnet, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone); err != nil {
+		if len(nodeConfig.Network.Node[i].IpRange) > 0 {
+			ipaddr, err = p.AllocateIp(nodeConfig.Network.Node[i].IpRange, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+		} else {
+			ipaddr, err = p.AllocateIp(nodeConfig.Network.Node[i].Subnet, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+		}
+		if err != nil {
 			return
 		}
 		nodeConfig.Network.Node[i].Ip = ipaddr
@@ -238,7 +332,12 @@ func (p *InfobloxProvider) Allocate(nodeConfig *config.NodeConfig) (err error) {
 	}
 	for i, _ := range nodeConfig.Network.IscsiInitiator {
 		hostSuffix = "-i" + strconv.Itoa(i+1)
-		if ipaddr, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].Subnet, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone); err != nil {
+		if len(nodeConfig.Network.IscsiInitiator[i].IpRange) > 0 {
+			ipaddr, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].IpRange, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+		} else {
+			ipaddr, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].Subnet, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+		}
+		if err != nil {
 			return
 		}
 		nodeConfig.Network.IscsiInitiator[i].Ip = ipaddr
@@ -296,13 +395,32 @@ func (p *InfobloxProvider) Discover(nodeConfig *config.NodeConfig) (err error) {
 }
 
 func (p *InfobloxProvider) AllocatePreflight(nodeConfig *config.NodeConfig) (err error) {
+	transportConfig := ibclient.NewTransportConfig("false", 20, 10)
+	requestBuilder := &ibclient.WapiRequestBuilder{}
+	requestor := &ibclient.WapiHttpRequestor{}
+	var conn *ibclient.Connector
+	if conn, err = ibclient.NewConnector(p.HostConfig, transportConfig, requestBuilder, requestor); err != nil {
+		err = fmt.Errorf("Discover: NewConnector(): %s", err)
+		return
+	}
+	defer conn.Logout()
 	for i, _ := range nodeConfig.Network.Node {
-		if _, err = p.AllocateIp(nodeConfig.Network.Node[i].Subnet, ""); err != nil {
+		if len(nodeConfig.Network.Node[i].IpRange) > 0 {
+			err = validateIpRange(conn, p.NetworkView, nodeConfig.Network.Node[i].Subnet, nodeConfig.Network.Node[i].IpRange)
+		} else {
+			_, err = p.AllocateIp(nodeConfig.Network.Node[i].Subnet, "")
+		}
+		if err != nil {
 			return
 		}
 	}
 	for i, _ := range nodeConfig.Network.IscsiInitiator {
-		if _, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].Subnet, ""); err != nil {
+		if len(nodeConfig.Network.IscsiInitiator[i].IpRange) > 0 {
+			err = validateIpRange(conn, p.NetworkView, nodeConfig.Network.IscsiInitiator[i].Subnet, nodeConfig.Network.IscsiInitiator[i].IpRange)
+		} else {
+			_, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].Subnet, "")
+		}
+		if err != nil {
 			return
 		}
 	}

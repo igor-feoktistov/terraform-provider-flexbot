@@ -1,3 +1,16 @@
+## 1.6.5 (February 3, 2021)
+
+FEATURES:
+* **New Parameter:** `ip_range` in `compute/network` - (Optional) Allows to allocate IP's from IP range if defined.
+
+ENHANCEMENTS:
+* Infoblox IPAM plugin is enhanced with allocation from IP range functionality.
+  IP will be allocated from IP range not entire subnet if `ip_range` parameter is defined.
+  IP range should belong to specified subnet.
+
+BUG FIXES:
+
+
 ## 1.6.4 (February 1, 2021)
 
 FEATURES:

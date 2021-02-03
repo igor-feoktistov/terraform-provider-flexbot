@@ -374,6 +374,20 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 										return
 									},
 								},
+								"ip_range": {
+									Type:     schema.TypeString,
+									Optional: true,
+									ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+										v := val.(string)
+										if len(v) > 0 {
+											matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+\.\d+\s*-\s*\d+\.\d+\.\d+\.\d+$`, v)
+											if !matched {
+												errs = append(errs, fmt.Errorf("unexpected IP range format: %q=%s", key, v))
+											}
+										}
+										return
+									},
+								},
 								"gateway": {
 									Type:     schema.TypeString,
 									Optional: true,
@@ -459,6 +473,20 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 										matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+\.\d+\/\d+$`, v)
 										if !matched {
 											errs = append(errs, fmt.Errorf("subnet %q=%s must be in CIDR format", key, v))
+										}
+										return
+									},
+								},
+								"ip_range": {
+									Type:     schema.TypeString,
+									Optional: true,
+									ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+										v := val.(string)
+										if len(v) > 0 {
+											matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+\.\d+\s*-\s*\d+\.\d+\.\d+\.\d+$`, v)
+											if !matched {
+												errs = append(errs, fmt.Errorf("unexpected IP range format: %q=%s", key, v))
+											}
 										}
 										return
 									},

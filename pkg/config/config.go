@@ -56,8 +56,9 @@ type NetworkInterface struct {
 	Macaddr    string `yaml:"macaddr,omitempty" json:"macaddr,omitempty"`
 	Ip         string `yaml:"ip,omitempty" json:"ip,omitempty"`
 	Fqdn       string `yaml:"fqdn,omitempty" json:"fqdn,omitempty"`
-	Subnet     string `yaml:"subnet" json:"subnet"`
+	Subnet     string `yaml:"subnet" json:"subnet" json:"subnet,omitempty"`
 	NetLen     string `yaml:"netlen,omitempty" json:"netlen,omitempty"`
+	IpRange    string `yaml:"ipRange,omitempty" json:"ipRange,omitempty"`
 	Gateway    string `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 	DnsServer1 string `yaml:"dnsServer1,omitempty" json:"dnsServer1,omitempty"`
 	DnsServer2 string `yaml:"dnsServer2,omitempty" json:"dnsServer2,omitempty"`
