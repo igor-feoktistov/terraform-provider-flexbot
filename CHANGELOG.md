@@ -1,3 +1,12 @@
+## 1.6.6 (February 3, 2021)
+
+FEATURES:
+
+ENHANCEMENTS:
+
+BUG FIXES:
+* release binaries for v1.6.5 were compiled from deprecated tree.
+
 ## 1.6.5 (February 3, 2021)
 
 FEATURES:
