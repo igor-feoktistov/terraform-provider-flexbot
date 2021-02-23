@@ -7,7 +7,7 @@ Terraform Flexbot Provider
 
 <img src="https://cdn.rawgit.com/hashicorp/terraform-website/master/content/source/assets/images/logo-hashicorp.svg" width="600px">
 
-Flexbot provider is a tool to build bare-metal Linux on [FlexPod](https://flexpod.com) (Cisco UCS and NetApp cDOT).
+Flexbot provider is a tool to build and manage bare-metal Linux on [FlexPod](https://flexpod.com) (Cisco UCS and NetApp cDOT).
 
 Compared to other bare-metal tools it does not require any additional infrastructure like PXE/DHCP servers.
 
@@ -28,7 +28,7 @@ Using the provider
 ------------------
 If you want to use the pre-built binaries published on [registry.terraform.io](https://registry.terraform.io/providers/igor-feoktistov/flexbot), just run `terraform init`.
 For the provider built from a source code, follow the instructions to [install it as a plugin](https://www.terraform.io/docs/language/providers/requirements.html).
-After placing it into your plugins directory, run `terraform init` to initialize it. Please see the examples in `examples` directory.
+After placing it into your plugins directory, run `terraform init` to initialize it. Please see the examples in [examples](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples) directory.
 
 Community
 ---------

@@ -4,7 +4,7 @@ page_title: "Flexbot Provider"
 
 # Flexbot Provider
 
-The [Flexbot](https://github.com/igor-feoktistov/flexbot) provider allows to build bare-metal Linux on [FlexPod](https://flexpod.com) (Cisco UCS and NetApp cDOT).
+The [Flexbot](https://github.com/igor-feoktistov/flexbot) provider allows to build and manage bare-metal Linux on [FlexPod](https://flexpod.com) (Cisco UCS and NetApp cDOT).
 
 Compared to other bare-metal tools it does not require any additional infrastructure like PXE/DHCP servers.
 
@@ -55,9 +55,9 @@ provider "flexbot" {
     drain_input {
       force = true
       delete_local_data = true
-      grace_period = 60
+      grace_period = 30
       ignore_daemon_sets = true
-      timeout = 1800
+      timeout = 300
     }
   }
 }
