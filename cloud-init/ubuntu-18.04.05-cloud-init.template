@@ -58,7 +58,6 @@ random_seed:
   command_required: true
 
 runcmd:
-  - apt update && apt install nfs-common -y
   - mkdir /kubernetes/kubelet
   - mkdir /kubernetes/docker
   - mkdir /kubernetes/log

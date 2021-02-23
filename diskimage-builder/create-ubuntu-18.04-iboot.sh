@@ -1,7 +1,5 @@
 #!/bin/sh
-#
-# Make sure to copy elements from elements/ubuntu-18.04 to diskimage-builder package tree.
-#
+
 export DIB_RELEASE=bionic
 export DIB_DEV_USER_USERNAME=devuser
 export DIB_DEV_USER_PWDLESS_SUDO=Yes
@@ -22,6 +20,12 @@ export DIB_BLOCK_DEVICE_CONFIG='
             fsck-passno: 1'
 disk-image-create vm block-device-mbr ubuntu \
   cloud-init-nocloud devuser iscsi-boot \
-  bootloader grub2 install-static \
-  -p multipath-tools -p multipath-tools-boot -p kpartx-boot \
+  bootloader grub2 install-static runtime-ssh-host-keys \
+  -p multipath-tools \
+  -p multipath-tools-boot \
+  -p kpartx-boot \
+  -p net-tools \
+  -p cloud-utils \
+  -p cloud-initramfs-growroot \
+  -p nfs-common \
   -t raw -o images/ubuntu-18.04.05.01-iboot.raw
