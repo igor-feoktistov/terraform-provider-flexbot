@@ -33,11 +33,11 @@ Network = { //schema - network
       Fqdn          = "k8s-node1-i1.example.com"             //schema - fqdn, computed
       Subnet        = "192.168.2.0/24"                       //schema - subnet
       InitiatorName = "iqn.2005-02.com.open-iscsi:k8s-node1" //computed
-      IscsiTarget   = {
-        NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32" //computed
+      IscsiTarget   = {                                      //computed
+        NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32"
         Interfaces [
-          "iscsi-lif1" //computed
-          "iscsi-lif2" //computed
+          "iscsi-lif1"
+          "iscsi-lif2"
         ]
       }
     },
@@ -47,11 +47,11 @@ Network = { //schema - network
       Fqdn          = "k8s-node1-i2.example.com"             //schema - fqdn, computed
       Subnet        = "192.168.3.0/24"                       //schema - subnet
       InitiatorName = "iqn.2005-02.com.open-iscsi:k8s-node1" //computed
-      IscsiTarget   = {
-        NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32" //computed
+      IscsiTarget   = {                                      //computed
+        NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32"
         Interfaces [
-          "iscsi-lif3" //computed
-          "iscsi-lif4" //computed
+          "iscsi-lif3"
+          "iscsi-lif4"
         ]
       }
     }
