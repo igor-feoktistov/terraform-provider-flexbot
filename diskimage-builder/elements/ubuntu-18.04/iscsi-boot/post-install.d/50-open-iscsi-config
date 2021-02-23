@@ -1,0 +1,70 @@
+#!/bin/bash
+
+if [ ${DIB_DEBUG_TRACE:-0} -gt 0 ]; then
+    set -x
+fi
+
+set -eu
+set -o pipefail
+
+echo "ISCSI_AUTO=true" > /etc/iscsi/iscsi.initramfs
+cat <<EOF > /etc/initramfs-tools/scripts/init-bottom/netplan-cleanup
+#!/bin/sh
+
+rm -f /run/netplan/*.yaml
+EOF
+chmod 755 /etc/initramfs-tools/scripts/init-bottom/netplan-cleanup
+cat <<EOF > /etc/multipath.conf
+defaults {
+    find_multipaths		yes
+    user_friendly_names		no
+    no_path_retry		queue
+    queue_without_daemon	no
+    flush_on_last_del		yes
+    max_fds			max
+    dev_loss_tmo		infinity
+    fast_io_fail_tmo		5
+    rr_min_io			128
+}
+blacklist {
+    devnode	"^hd[a-z]"
+    devnode	"^(ram|raw|loop|fd|md|dm-|sr|scd|st)[0-9]*"
+    devnode	"^cciss.*"
+}
+devices {
+    device {
+	vendor				"NETAPP"
+	product				"LUN.*"
+	path_grouping_policy		"group_by_prio"
+	path_checker			"tur"
+	features			"3 queue_if_no_path pg_init_retries 50"
+	hardware_handler		"1 alua"
+	prio				"alua"
+	failback			immediate
+	rr_weight			"uniform"
+	rr_min_io			128
+	flush_on_last_del		"yes"
+	dev_loss_tmo			"infinity"
+	user_friendly_names		no
+	retain_attached_hw_handler	yes
+	detect_prio 			yes
+    }
+}
+EOF
+cp -f /etc/multipath.conf /etc/cloud/templates/multipath.conf.tmpl
+cat <<EOF > /etc/sysctl.d/99-tuning.conf
+# Disabling IPv6
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+
+# Network performance
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.core.netdev_max_backlog = 250000
+EOF
+sed -i "s/node.session.cmds_max = [0-9]*/node.session.cmds_max = 512/" /etc/iscsi/iscsid.conf
+sed -i "s/node.session.queue_depth = [0-9]*/node.session.queue_depth = 128/" /etc/iscsi/iscsid.conf
+update-initramfs -u
