@@ -4,7 +4,7 @@ FlexBot supports `cloud-init` templates in GoLang template format.
 The following is a pseudo-structure which is a translation from `terraform` schema via HCL to `flexbot` internal representation.
 This pseudo-structure is presented in HCL just to abstract you from GoLang and focus on Terraform only.
 All variables of this pseudo-structure can be used in cloud-init templates.
-See [ubuntu-18.04.05-cloud-init.template](./ubuntu-18.04.05-cloud-init.template) as an example.
+See [ubuntu-18.04.05-cloud-init.template](./ubuntu-18.04.05-cloud-init.template) as an example cloud-init template for Rancher RKE node.
 
 ```hcl
 Compute = { //schema - compute
