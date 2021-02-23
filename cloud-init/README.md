@@ -71,7 +71,7 @@ Storage { //schema - storage
   }
 }
 
-CloudArgs = { //schema - cloud_args
+CloudArgs { //schema - cloud_args
   //user defined key/value pairs
   cloud_user = "ubuntu"
   ssh_pub_key = "ssh-rsa AAAAN3NyaC2yc3EAAAADR...<skip>"
