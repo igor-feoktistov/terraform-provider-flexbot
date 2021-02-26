@@ -28,28 +28,28 @@ Network = { //schema - network
   ]
   IscsiInitiator = [ //schema - iscsi_initiator
     {
-      Name          = "iscsi0"                               //schema - name
-      Ip            = "192.168.2.25"                         //schema - ip, computed
-      Fqdn          = "k8s-node1-i1.example.com"             //schema - fqdn, computed
-      Subnet        = "192.168.2.0/24"                       //schema - subnet
-      InitiatorName = "iqn.2005-02.com.open-iscsi:k8s-node1" //computed
-      IscsiTarget   = {                                      //computed
-        NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32"
-        Interfaces = [
+      Name          = "iscsi0"                                      //schema - name
+      Ip            = "192.168.2.25"                                //schema - ip, computed
+      Fqdn          = "k8s-node1-i1.example.com"                    //schema - fqdn, computed
+      Subnet        = "192.168.2.0/24"                              //schema - subnet
+      InitiatorName = "iqn.2005-02.com.open-iscsi:k8s-node1"        //schema - initiator_name, computed
+      IscsiTarget   = {                                             //schema - iscsi_target, computed
+        NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32" //schema - node_name, computed
+        Interfaces = [                                              //schema - interfaces, computed
           "iscsi-lif1"
           "iscsi-lif2"
         ]
       }
-    },
+    }
     {
-      Name          = "iscsi1"                               //schema - name
-      Ip            = "192.168.3.25"                         //schema - ip, computed
-      Fqdn          = "k8s-node1-i2.example.com"             //schema - fqdn, computed
-      Subnet        = "192.168.3.0/24"                       //schema - subnet
-      InitiatorName = "iqn.2005-02.com.open-iscsi:k8s-node1" //computed
-      IscsiTarget   = {                                      //computed
-        NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32"
-        Interfaces = [
+      Name          = "iscsi1"                                      //schema - name
+      Ip            = "192.168.3.25"                                //schema - ip, computed
+      Fqdn          = "k8s-node1-i2.example.com"                    //schema - fqdn, computed
+      Subnet        = "192.168.3.0/24"                              //schema - subnet
+      InitiatorName = "iqn.2005-02.com.open-iscsi:k8s-node1"        //schema - initiator_name, computed
+      IscsiTarget   = {                                             //schema - iscsi_target, computed
+        NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32" //schema - node_name, computed
+        Interfaces = [                                              //schema - interfaces, computed
           "iscsi-lif3"
           "iscsi-lif4"
         ]
