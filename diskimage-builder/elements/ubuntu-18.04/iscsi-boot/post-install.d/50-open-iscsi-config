@@ -53,17 +53,24 @@ devices {
 EOF
 cp -f /etc/multipath.conf /etc/cloud/templates/multipath.conf.tmpl
 cat <<EOF > /etc/sysctl.d/99-tuning.conf
+# Settings for Kubernetes
+vm.overcommit_memory=1
+vm.panic_on_oom=0
+kernel.panic=10
+kernel.panic_on_oops=1
+kernel.keys.root_maxbytes=25000000
+
 # Disabling IPv6
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
+net.ipv6.conf.lo.disable_ipv6=1
 
 # Network performance
-net.core.rmem_max = 16777216
-net.core.wmem_max = 16777216
-net.ipv4.tcp_rmem = 4096 87380 16777216
-net.ipv4.tcp_wmem = 4096 65536 16777216
-net.core.netdev_max_backlog = 250000
+net.core.rmem_max=16777216
+net.core.wmem_max=16777216
+net.ipv4.tcp_rmem=4096 87380 16777216
+net.ipv4.tcp_wmem=4096 65536 16777216
+net.core.netdev_max_backlog=250000
 EOF
 sed -i "s/node.session.cmds_max = [0-9]*/node.session.cmds_max = 512/" /etc/iscsi/iscsid.conf
 sed -i "s/node.session.queue_depth = [0-9]*/node.session.queue_depth = 128/" /etc/iscsi/iscsid.conf

@@ -35,7 +35,7 @@ Network = { //schema - network
       InitiatorName = "iqn.2005-02.com.open-iscsi:k8s-node1" //computed
       IscsiTarget   = {                                      //computed
         NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32"
-        Interfaces [
+        Interfaces = [
           "iscsi-lif1"
           "iscsi-lif2"
         ]
@@ -49,7 +49,7 @@ Network = { //schema - network
       InitiatorName = "iqn.2005-02.com.open-iscsi:k8s-node1" //computed
       IscsiTarget   = {                                      //computed
         NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32"
-        Interfaces [
+        Interfaces = [
           "iscsi-lif3"
           "iscsi-lif4"
         ]
@@ -58,20 +58,20 @@ Network = { //schema - network
   ]
 }
 
-Storage { //schema - storage
-  BootLun { //schema - boot_lun
+Storage = { //schema - storage
+  BootLun = { //schema - boot_lun
     Name = "k8s_node1_boot" //schema - name, computed
     Id = 0                  //schema - id, computed
     Size = 32               //schema - size
   }
-  DataLun { //schema - data_lun
+  DataLun = { //schema - data_lun
     Name = "k8s_node1_data" //schema - name, computed
     Id = 1                  //schema - id, computed
     Size = 128              //schema - size
   }
 }
 
-CloudArgs { //schema - cloud_args
+CloudArgs = { //schema - cloud_args
   //user defined key/value pairs
   cloud_user = "ubuntu"
   ssh_pub_key = "ssh-rsa AAAAN3NyaC2yc3EAAAADR...<skip>"
