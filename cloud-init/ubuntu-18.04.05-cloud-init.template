@@ -43,11 +43,19 @@ remotedisk_setup:
 groups:
   - docker
 
+system_info:
+  default_user:
+    groups:
+      - docker
+
 users:
   - name: {{index .CloudArgs "cloud_user"}}
     gecos: Default cloud user
     sudo: ALL=(ALL) NOPASSWD:ALL
-    groups: users, admin, docker
+    groups:
+      - users
+      - admin
+      - docker
     lock_passwd: true
     ssh_authorized_keys:
       - {{index .CloudArgs "ssh_pub_key"}}
@@ -66,5 +74,9 @@ runcmd:
   - ln -s /kubernetes/docker /var/lib/docker
   - ln -s /kubernetes/log /var/log/pods
   - ln -s /kubernetes/etcd /var/lib/etcd
+  - groupadd --gid 52034 etcd
+  - useradd --comment "etcd service account" --uid 52034 --gid 52034 etcd
+  - systemctl enable systemd-timesyncd.service
+  - systemctl start systemd-timesyncd.service
   - touch /etc/cloud/cloud-init.disabled
 {{end}}{{/* user-data template ends here */}}

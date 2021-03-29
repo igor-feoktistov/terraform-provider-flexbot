@@ -51,6 +51,7 @@ func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) 
             			nodeConfig.Compute.BladeAssigned = util.BladeSpec{
             				Dn: computeBlade.Dn,
             				Model: computeBlade.Model,
+            				Serial: computeBlade.Serial,
             				NumOfCpus: strconv.Itoa(computeBlade.NumOfCpus),
             				NumOfCores: strconv.Itoa(computeBlade.NumOfCores),
             				NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),
@@ -231,6 +232,7 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
         nodeConfig.Compute.BladeAssigned = util.BladeSpec{
     		Dn: computeBlade.Dn,
             	Model: computeBlade.Model,
+            	Serial: computeBlade.Serial,
             	NumOfCpus: strconv.Itoa(computeBlade.NumOfCpus),
             	NumOfCores: strconv.Itoa(computeBlade.NumOfCores),
             	NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),

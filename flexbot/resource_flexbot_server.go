@@ -892,6 +892,7 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	bladeAssigned := make(map[string]interface{})
 	bladeAssigned["dn"] = nodeConfig.Compute.BladeAssigned.Dn
 	bladeAssigned["model"] = nodeConfig.Compute.BladeAssigned.Model
+	bladeAssigned["serial"] = nodeConfig.Compute.BladeAssigned.Serial
 	bladeAssigned["num_of_cpus"] = nodeConfig.Compute.BladeAssigned.NumOfCpus
 	bladeAssigned["num_of_cores"] = nodeConfig.Compute.BladeAssigned.NumOfCores
 	bladeAssigned["num_of_threads"] = nodeConfig.Compute.BladeAssigned.NumOfThreads

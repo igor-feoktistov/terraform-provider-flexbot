@@ -1,3 +1,12 @@
+## 1.6.7 (March 29, 2021)
+
+ENHANCEMENTS:
+* New server attribute (computed) `blade_spec.blade_assigned.serial` captures blade serial number.
+
+BUG FIXES:
+* Fix in `repo` resource - removed failure condition for a brand new repo when repo volume does not exist yet.
+
+
 ## 1.6.6 (February 3, 2021)
 
 FEATURES:

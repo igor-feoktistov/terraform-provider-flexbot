@@ -201,7 +201,6 @@ func GetRepoImages(nodeConfig *config.NodeConfig) (imagesList []string, err erro
 		return
 	}
 	if !volExists {
-		err = fmt.Errorf("GetRepoImages: repo volume %s does not exist", nodeConfig.Storage.ImageRepoName)
 		return
 	}
 	options := &ontap.LunGetOptions{
@@ -337,7 +336,6 @@ func GetRepoTemplates(nodeConfig *config.NodeConfig) (templatesList []string, er
 		return
 	}
 	if !volExists {
-		err = fmt.Errorf("GetRepoTemplates: repo volume %s does not exist", nodeConfig.Storage.TemplateRepoName)
 		return
 	}
 	listDirOptions := &ontap.FileListDirectoryOptions {

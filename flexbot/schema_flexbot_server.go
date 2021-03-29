@@ -155,6 +155,11 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 									Optional: true,
 									Computed: true,
 								},
+								"serial": {
+									Type:     schema.TypeString,
+									Optional: true,
+									Computed: true,
+								},
 								"num_of_cpus": {
 									Type:     schema.TypeString,
 									Optional: true,
