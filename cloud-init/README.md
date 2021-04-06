@@ -23,7 +23,11 @@ Network = { //schema - network
       Gateway    = "192.168.1.1"           //schema - gateway
       DnsServer1 = "192.168.1.10"          //schema - dns_server1
       DnsServer2 = "192.168.4.10"          //schema - dns_server2
+      DnsServer3 = "192.168.5.10"          //schema - dns_server3
       DnsDomain  = "example.com"           //schema - dns_domain
+      Parameters = {                       //schema - parameters
+        mtu = "9000"
+      }
     }
   ]
   IscsiInitiator = [ //schema - iscsi_initiator

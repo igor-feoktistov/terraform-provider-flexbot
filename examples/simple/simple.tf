@@ -190,7 +190,12 @@ resource "flexbot_server" "k8s-node1" {
       # Optional - Arguments for node resolver configuration.
       dns_server1 = "192.168.1.10"
       dns_server2 = "192.168.4.10"
+      dns_server3 = "192.168.5.10"
       dns_domain = "example.com"
+      # Optional - Parameters are user defined key/value pairs to resolve in cloud-init template network interface settings
+      parameters = {
+        mtu = "9000"
+      }
     }
     # Required - iSCSI initiator network #1
     iscsi_initiator {

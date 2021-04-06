@@ -1,3 +1,11 @@
+## 1.6.8 (April 6, 2021)
+
+ENHANCEMENTS:
+* New server attribute `network.node.parameters` is a map with user defined key/value pairs to resolve in cloud-init template network interface settings.
+  See examples for more details.
+* New server attribute `network.node.dns_server3 to define third DNS server in node resolver configuration.`
+
+
 ## 1.6.7 (March 29, 2021)
 
 ENHANCEMENTS:
