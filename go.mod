@@ -6,6 +6,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/hashicorp/go-version v1.2.1
 	github.com/hashicorp/terraform-plugin-sdk v1.16.1
+	github.com/igor-feoktistov/go-ontap-rest v0.0.0-20210405160048-0856b1ad36dd
 	github.com/igor-feoktistov/go-ontap-sdk v0.0.0-20200617012018-b98da3bc2dea
 	github.com/igor-feoktistov/go-ucsm-sdk v0.0.0-20210329204932-1f83d3ad98f2
 	github.com/infobloxopen/infoblox-go-client v1.1.0

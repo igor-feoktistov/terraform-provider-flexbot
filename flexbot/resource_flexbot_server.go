@@ -842,7 +842,12 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 		nodeConfig.Network.Node[i].Gateway = node["gateway"].(string)
 		nodeConfig.Network.Node[i].DnsServer1 = node["dns_server1"].(string)
 		nodeConfig.Network.Node[i].DnsServer2 = node["dns_server2"].(string)
+		nodeConfig.Network.Node[i].DnsServer3 = node["dns_server3"].(string)
 		nodeConfig.Network.Node[i].DnsDomain = node["dns_domain"].(string)
+		nodeConfig.Network.Node[i].Parameters = make(map[string]string)
+		for paramKey, paramValue := range node["parameters"].(map[string]interface{}) {
+			nodeConfig.Network.Node[i].Parameters[paramKey] = paramValue.(string)
+		}
 	}
 	for i, _ := range network["iscsi_initiator"].([]interface{}) {
 		initiator := network["iscsi_initiator"].([]interface{})[i].(map[string]interface{})
@@ -855,6 +860,10 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 		nodeConfig.Network.IscsiInitiator[i].Gateway = initiator["gateway"].(string)
 		nodeConfig.Network.IscsiInitiator[i].DnsServer1 = initiator["dns_server1"].(string)
 		nodeConfig.Network.IscsiInitiator[i].DnsServer2 = initiator["dns_server2"].(string)
+		nodeConfig.Network.IscsiInitiator[i].Parameters = make(map[string]string)
+		for paramKey, paramValue := range initiator["parameters"].(map[string]interface{}) {
+			nodeConfig.Network.IscsiInitiator[i].Parameters[paramKey] = paramValue.(string)
+		}
 		nodeConfig.Network.IscsiInitiator[i].InitiatorName = initiator["initiator_name"].(string)
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget = &config.IscsiTarget{}
 		if len(initiator["iscsi_target"].([]interface{})) > 0 {

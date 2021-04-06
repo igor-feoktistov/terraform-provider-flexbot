@@ -8,6 +8,9 @@ ethernets:
   {{.Name}}:
     match:
       macaddress: {{.Macaddr}}
+    {{- range $paramName, $paramValue := .Parameters}}
+    {{$paramName}}: {{$paramValue}}
+    {{- end}}
     addresses:
     - {{.Ip}}/{{.NetLen}}
     {{- if .Gateway}}
@@ -15,7 +18,7 @@ ethernets:
     {{- end}}
     {{- if .DnsServer1}}
     nameservers:
-      addresses: [{{.DnsServer1}}{{if .DnsServer2}},{{.DnsServer2}}{{end}}]
+      addresses: [{{.DnsServer1}}{{if .DnsServer2}},{{.DnsServer2}}{{end}}{{if .DnsServer3}},{{.DnsServer3}}{{end}}]
       {{- if .DnsDomain}}
       search: [{{.DnsDomain}}]
       {{- end}}

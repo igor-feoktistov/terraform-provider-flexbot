@@ -53,6 +53,7 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 					"ssh_private_key": {
 						Type:     schema.TypeString,
 						Optional: true,
+						Sensitive: true,
 						Default:  "",
 					},
 					"ssh_node_init_commands": {
@@ -435,9 +436,28 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 										return
 									},
 								},
+								"dns_server3": {
+									Type:     schema.TypeString,
+									Optional: true,
+									ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+										v := val.(string)
+										if len(v) > 0 {
+											matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+\.\d+$`, v)
+											if !matched {
+												errs = append(errs, fmt.Errorf("value %q=%s must be in IP address format", key, v))
+											}
+										}
+										return
+									},
+								},
 								"dns_domain": {
 									Type:     schema.TypeString,
 									Optional: true,
+								},
+								"parameters": {
+									Type:     schema.TypeMap,
+									Optional: true,
+									Elem:     &schema.Schema{Type: schema.TypeString},
 								},
 							},
 						},
@@ -534,6 +554,11 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 										}
 										return
 									},
+								},
+								"parameters": {
+									Type:     schema.TypeMap,
+									Optional: true,
+									Elem:     &schema.Schema{Type: schema.TypeString},
 								},
 								"initiator_name": {
 									Type:     schema.TypeString,
