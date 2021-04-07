@@ -802,6 +802,7 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.Storage.CdotCredentials.Host = cdotCredentials["host"].(string)
 	nodeConfig.Storage.CdotCredentials.User = cdotCredentials["user"].(string)
 	nodeConfig.Storage.CdotCredentials.Password = cdotCredentials["password"].(string)
+	nodeConfig.Storage.CdotCredentials.ApiMethod = cdotCredentials["api_method"].(string)
 	nodeConfig.Storage.CdotCredentials.ZapiVersion = cdotCredentials["zapi_version"].(string)
 	nodeConfig.Compute.SpOrg = compute["sp_org"].(string)
 	nodeConfig.Compute.SpTemplate = compute["sp_template"].(string)
