@@ -4,6 +4,7 @@ import (
 	"time"
 	"fmt"
 	"strconv"
+	"strings"
 	"math"
 	"io"
 	"encoding/hex"
@@ -298,6 +299,30 @@ func (c *OntapZAPI) LunGetInfo(lunPath string) (lunInfo *LunInfo, err error) {
 	return
 }
 
+func (c *OntapZAPI) LunGetList(volumeName string) (lunList []string, err error) {
+	lunList = []string{}
+	options := &ontap.LunGetOptions{
+		MaxRecords: 1024,
+		Query: &ontap.LunQuery{
+			LunInfo: &ontap.LunInfo{
+				Volume: volumeName,
+			},
+		},
+	}
+	var response []*ontap.LunGetResponse
+	response, err = c.Client.LunGetIterAPI(options)
+	if err != nil {
+		err = fmt.Errorf("LunGetIterAPI() failure: %s", err)
+	} else {
+		for _, responseLun := range response {
+			for _, lun := range responseLun.Results.AttributesList.LunAttributes {
+				lunList = append(lunList, lun.Path[(strings.LastIndex(lun.Path, "/")+1):])
+			}
+		}
+	}
+	return
+}
+
 func (c *OntapZAPI) IscsiTargetGetName() (targetName string, err error) {
 	var iscsiNodeGetNameResponse *ontap.IscsiNodeGetNameResponse
 	if iscsiNodeGetNameResponse, _, err = c.Client.IscsiNodeGetNameAPI(); err != nil {
@@ -312,6 +337,11 @@ func (c *OntapZAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) (l
 	var iscsiLifs []*ontap.NetInterfaceInfo
 	lifs = []string{}
 	if iscsiLifs, err = util.DiscoverIscsiLIFs(c.Client, lunPath, initiatorSubnet); err != nil {
+		err = fmt.Errorf("DiscoverIscsiLIFs() failure: %s", err)
+		return
+	}
+	if len(iscsiLifs) == 0 {
+		err = fmt.Errorf("DiscoverIscsiLIFs() no LIFs found for LUN \"%s\" and initiator subnet \"%s\"", lunPath, initiatorSubnet)
 		return
 	}
 	for _, lif := range iscsiLifs {
@@ -323,6 +353,26 @@ func (c *OntapZAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) (l
 func (c *OntapZAPI) FileExists(volumeName string, filePath string) (exists bool, err error) {
 	if exists, err = util.FileExists(c.Client, "/vol/" + volumeName + filePath); err != nil {
 		err = fmt.Errorf("FileExists() failure: %s", err)
+	}
+	return
+}
+
+func (c *OntapZAPI) FileGetList(volumeName string, dirPath string) (fileList []string, err error) {
+	listDirOptions := &ontap.FileListDirectoryOptions {
+		    MaxRecords: 1024,
+		    Path: "/vol/" + volumeName + dirPath,
+	}
+	var listDirResponse []*ontap.FileListDirectoryResponse
+	if listDirResponse, err = c.Client.FileListDirectoryIterAPI(listDirOptions); err != nil {
+		err = fmt.Errorf("FileListDirectoryIterAPI() failure: %s", err)
+		return
+	}
+	for _, response := range listDirResponse {
+		for _, fileAttr := range response.Results.AttributesList.FileAttributes {
+			if !strings.HasPrefix(fileAttr.Name, ".") {
+				fileList = append(fileList, fileAttr.Name)
+			}
+		}
 	}
 	return
 }

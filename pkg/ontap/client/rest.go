@@ -420,6 +420,19 @@ func (c *OntapRestAPI) LunGetInfo(lunPath string) (lunInfo *LunInfo, err error) 
 	return
 }
 
+func (c *OntapRestAPI) LunGetList(volumeName string) (lunList []string, err error) {
+	lunList = []string{}
+	var luns []ontap.Lun
+	if luns, _, err = c.Client.LunGetIter([]string{"location.volume.name=" + volumeName, "fields=location"}); err != nil {
+		err = fmt.Errorf("LunGetIter() failure: %s", err)
+	} else {
+		for _, lun := range luns {
+			lunList = append(lunList, lun.Location.LogicalUnit)
+		}
+	}
+	return
+}
+
 func (c *OntapRestAPI) IscsiTargetGetName() (targetName string, err error) {
 	var iscsiServices []ontap.IscsiService
 	if iscsiServices, _, err = c.Client.IscsiServiceGetIter([]string{"enabled=true","fields=target"}); err != nil {
@@ -439,6 +452,10 @@ func (c *OntapRestAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string)
 	var ipInterfaces []ontap.IpInterface
 	if ipInterfaces, err = util.DiscoverIscsiLIFs(c.Client, lunPath, initiatorSubnet); err != nil {
 		err = fmt.Errorf("DiscoverIscsiLIFs() failure: %s", err)
+		return
+	}
+	if len(ipInterfaces) == 0 {
+		err = fmt.Errorf("DiscoverIscsiLIFs() no LIFs found for LUN \"%s\" and initiator subnet \"%s\"", lunPath, initiatorSubnet)
 		return
 	}
 	for _, ipInterface := range ipInterfaces {
@@ -463,6 +480,23 @@ func (c *OntapRestAPI) FileExists(volumeName string, filePath string) (exists bo
 		exists = true
 	} else {
 		exists = false
+	}
+	return
+}
+
+func (c *OntapRestAPI) FileGetList(volumeName string, dirPath string) (fileList []string, err error) {
+	fileList = []string{}
+	var volume *ontap.Volume
+	if volume, err = c.VolumeGet(volumeName); err != nil {
+		return
+	}
+	var files []ontap.FileInfo
+	if files, _, err = c.Client.FileGetIter(volume.Uuid, dirPath, []string{"type=file"}); err != nil {
+		err = fmt.Errorf("FileGetIter(): failure: %s", err)
+		return
+	}
+	for _, file := range files {
+		fileList = append(fileList, file.Name)
 	}
 	return
 }

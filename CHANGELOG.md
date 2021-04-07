@@ -1,3 +1,13 @@
+## 1.7.0 (April ??, 2021)
+
+ENHANCEMENTS:
+* This release is a transition from ONTAP ZAPI to ONTAP REST API.
+  ZAPI is still default and stable method. REST is not recommended yet until all issues are sorted out.
+
+FEATURES:
+* **New Provider Argument:** `storage.credentials.api_method` - (Optional) Allowed values "zapi" and "rest" Default value is "zapi".
+
+
 ## 1.6.8 (April 1, 2021)
 
 ENHANCEMENTS:

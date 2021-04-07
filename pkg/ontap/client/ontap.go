@@ -22,6 +22,7 @@ type OntapClient interface {
 	LunExists(lunPath string) (bool, error)
 	IsLunMapped(lunPath string, igroupName string) (bool, error)
 	LunGetInfo(lunPath string) (*LunInfo, error)
+	LunGetList(volumeName string) ([]string, error)
 	LunCopy(imagePath string, lunPath string) (error)
 	LunResize(lunPath string, lunSize int) (error)
 	LunMap(lunPath string, lunId int, igroupName string) (error)
@@ -32,6 +33,7 @@ type OntapClient interface {
 	IscsiTargetGetName() (string, error)
 	DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) ([]string, error)
 	FileExists(volumeName string, filePath string) (bool, error)
+	FileGetList(volumeName string, dirPath string) ([]string, error)
 	FileDelete(volumName string, filePath string) (error)
 	FileDownload(volumeName string, filePath string) ([]byte, error)
 	FileUploadAPI(volumeName string, filePath string, reader io.Reader) (error)
@@ -47,14 +49,14 @@ type LunInfo struct {
 	Size int
 }
 
-func NewOntapClient(api string, nodeConfig *config.NodeConfig) (ontap OntapClient, err error) {
-	switch api {
+func NewOntapClient(nodeConfig *config.NodeConfig) (ontap OntapClient, err error) {
+	switch nodeConfig.Storage.CdotCredentials.ApiMethod {
         case "rest":
                 ontap, err = NewOntapRestAPI(nodeConfig)
         case "zapi":
                 ontap, err = NewOntapZAPI(nodeConfig)
         default:
-                err = fmt.Errorf("NewOntapAPI(): API type \"%s\" is not implemented", api)
+                err = fmt.Errorf("NewOntapAPI(): API method \"%s\" is not implemented", nodeConfig.Storage.CdotCredentials.ApiMethod)
         }
 	return
 }

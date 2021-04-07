@@ -22,6 +22,7 @@ const (
 	imageRepoVolName = "image_repo"
 	templateRepoVolName = "template_repo"
 	zapiVersion = "1.160"
+	apiMethod = "zapi"
 )
 
 // Name convention for cDOT storage objects (can be overriden via config.yaml)
@@ -48,6 +49,7 @@ type InfobloxCredentials struct {
 
 type CdotCredentials struct {
 	Credentials `yaml:",inline" json:",inline"`
+	ApiMethod string `yaml:"apiMethod,omitempty" json:"apiMethod,omitempty"`
 	ZapiVersion string `yaml:"zapiVersion,omitempty" json:"zapiVersion,omitempty"`
 }
 
@@ -145,6 +147,9 @@ type NodeConfig struct {
 
 func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, templatePath string, passPhrase string) (err error) {
 	var ipv4Net *net.IPNet
+	if nodeConfig.Storage.CdotCredentials.ApiMethod == "" {
+		nodeConfig.Storage.CdotCredentials.ApiMethod = apiMethod
+	}
 	if nodeConfig.Storage.CdotCredentials.ZapiVersion == "" {
 		nodeConfig.Storage.CdotCredentials.ZapiVersion = zapiVersion
 	}
