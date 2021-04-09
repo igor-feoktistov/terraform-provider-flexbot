@@ -30,6 +30,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 		}
 		if err = c.VolumeCreateSAN(nodeConfig.Storage.VolumeName, aggregateName, (nodeConfig.Storage.BootLun.Size + nodeConfig.Storage.DataLun.Size) * 2); err != nil {
 			err = fmt.Errorf("CreateBootStorage(): %s", err)
+			return
 		}
 	}
 	var igroupExists bool
