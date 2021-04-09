@@ -1022,6 +1022,7 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 	if b_stdout.Len() > 0 {
 		filesystems = strings.Split(strings.Trim(b_stdout.String(), "\n"), "\n")
 	}
+	cmd = append(cmd, "sync && sleep 5")
 	for _, fs := range filesystems {
 		cmd = append(cmd, "fsfreeze -f " + fs)
 	}
@@ -1042,7 +1043,7 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 		err = fmt.Errorf("createSnapshot(): failed to start SSH command: %s", err)
 		return
 	}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
 		if b_stdout.Len() > 0 {
 			break
 		}
@@ -1052,6 +1053,8 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 		if err = ontap.CreateSnapshot(nodeConfig, snapshotName, ""); err != nil {
 			errs = append(errs, err.Error())
 		}
+	} else {
+		errs = append(errs, "fsfreeze did not complete, snapshot is not created")
 	}
 	if err = sess.Wait(); err != nil {
 		errs = append(errs, fmt.Sprintf("failed to run SSH command: %s: %s", err, b_stderr.String()))
