@@ -282,7 +282,7 @@ func (c *OntapRestAPI) LunExists(lunPath string) (exists bool, err error) {
 
 func (c *OntapRestAPI) LunGet(lunPath string) (lun *ontap.Lun, res *ontap.RestResponse, err error) {
 	var luns []ontap.Lun
-	if luns, res, err = c.Client.LunGetIter([]string{"name=" + lunPath}); err != nil {
+	if luns, res, err = c.Client.LunGetIter([]string{"name=" + lunPath, "fields=comment,space"}); err != nil {
 		err = fmt.Errorf("LunGetIter() failure: %s", err)
 		return
 	}
