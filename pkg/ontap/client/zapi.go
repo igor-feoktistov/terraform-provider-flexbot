@@ -99,6 +99,8 @@ func (c *OntapZAPI) VolumeCreateSAN(volumeName string, aggregateName string, vol
 	volOptions := &ontap.VolumeCreateOptions{
 		VolumeType:              "rw",
 		Volume:                  volumeName,
+		SpaceReserve:            "none",
+		SnapshotPolicy:          "none",
 		Size:                    strconv.Itoa(volumeSize) + "g",
 		ContainingAggregateName: aggregateName,
 	}
