@@ -114,6 +114,8 @@ func (c *OntapZAPI) VolumeCreateNAS(volumeName string, aggregateName string, exp
 	volOptions := &ontap.VolumeCreateOptions{
 		VolumeType:              "rw",
 		Volume:                  volumeName,
+		SpaceReserve:            "none",
+		SnapshotPolicy:          "none",
 		JunctionPath:            "/" + volumeName,
 		UnixPermissions:         "0755",
 		Size:                    strconv.Itoa(volumeSize) + "g",
