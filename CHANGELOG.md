@@ -9,7 +9,7 @@ FEATURES:
 * **New Provider Argument:** `storage.credentials.api_method` - (Optional) Allowed values "zapi" and "rest". Default value is "zapi".
 
 
-## 1.6.8 (April 1, 2021)
+## 1.6.8 (April 6, 2021)
 
 ENHANCEMENTS:
 * New server attribute `network.node.parameters` is a map with user defined key/value pairs to resolve in cloud-init template network interface settings.
