@@ -143,6 +143,17 @@ func Provider() terraform.ResourceProvider {
 										Required: true,
 										Sensitive: true,
 									},
+									"api_method": {
+										Type:     schema.TypeString,
+										Optional: true,
+										ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+											v := val.(string)
+											if !(v == "zapi" || v == "rest") {
+												errs = append(errs, fmt.Errorf("unsupported %q=%s, allowed values are \"zapi\" and \"rest\"", key, v))
+											}
+											return
+										},
+									},
 									"zapi_version": {
 										Type:     schema.TypeString,
 										Optional: true,

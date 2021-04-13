@@ -4,24 +4,23 @@ import (
 	"fmt"
 
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	"github.com/igor-feoktistov/go-ontap-sdk/ontap"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap/client"
 )
 
 func SnapshotExists(nodeConfig *config.NodeConfig, snapshotName string) (exists bool, err error) {
-	var c *ontap.Client
-	if c, err = CreateCdotClient(nodeConfig); err != nil {
+	var c client.OntapClient
+	if c, err = client.NewOntapClient(nodeConfig); err != nil {
+		err = fmt.Errorf("SnapshotExists(): %s", err)
 		return
 	}
-	options := &ontap.SnapshotListInfoOptions {
-		Volume: nodeConfig.Storage.VolumeName,
-	}
-	var response *ontap.SnapshotListInfoResponse
-	if response, _, err = c.SnapshotListInfoAPI(options); err != nil {
-		err = fmt.Errorf("GetSnapshots: SnapshotListInfoAPI() failure: %s", err)
+	var snapshots []string
+	if snapshots, err = c.SnapshotGetList(nodeConfig.Storage.VolumeName); err != nil {
+		err = fmt.Errorf("SnapshotExists(): %s", err)
 		return
 	}
-	for _, snapshot := range response.Results.Snapshots {
-		if snapshotName == snapshot.Name {
+	exists = false
+	for _, snapshot := range snapshots {
+		if snapshotName == snapshot {
 			exists = true
 			break
 		}
@@ -30,74 +29,55 @@ func SnapshotExists(nodeConfig *config.NodeConfig, snapshotName string) (exists 
 }
 
 func GetSnapshots(nodeConfig *config.NodeConfig) (snapshotList []string, err error) {
-	var c *ontap.Client
-	if c, err = CreateCdotClient(nodeConfig); err != nil {
+	snapshotList = []string{}
+	var c client.OntapClient
+	if c, err = client.NewOntapClient(nodeConfig); err != nil {
+		err = fmt.Errorf("GetSnapshots(): %s", err)
 		return
 	}
-	options := &ontap.SnapshotListInfoOptions {
-		Volume: nodeConfig.Storage.VolumeName,
-	}
-	var response *ontap.SnapshotListInfoResponse
-	if response, _, err = c.SnapshotListInfoAPI(options); err != nil {
-		err = fmt.Errorf("GetSnapshots: SnapshotListInfoAPI() failure: %s", err)
+	if snapshotList, err = c.SnapshotGetList(nodeConfig.Storage.VolumeName); err != nil {
+		err = fmt.Errorf("GetSnapshots(): %s", err)
 		return
 	}
 	nodeConfig.Storage.Snapshots = []string{}
-	for _, snapshot := range response.Results.Snapshots {
-		snapshotList = append(snapshotList, snapshot.Name)
-		nodeConfig.Storage.Snapshots = append(nodeConfig.Storage.Snapshots, snapshot.Name)
+	for _, snapshot := range snapshotList {
+		nodeConfig.Storage.Snapshots = append(nodeConfig.Storage.Snapshots, snapshot)
 	}
 	return
 }
 
 func CreateSnapshot(nodeConfig *config.NodeConfig, snapshotName string, snapshotComment string) (err error) {
-	var c *ontap.Client
-	if c, err = CreateCdotClient(nodeConfig); err != nil {
+	var c client.OntapClient
+	if c, err = client.NewOntapClient(nodeConfig); err != nil {
+		err = fmt.Errorf("CreateSnapshot(): %s", err)
 		return
 	}
-	options := &ontap.SnapshotCreateOptions {
-		Volume: nodeConfig.Storage.VolumeName,
-		Snapshot: snapshotName,
-		Comment: snapshotComment,
-	}
-	if _, _, err = c.SnapshotCreateAPI(options); err != nil {
-		err = fmt.Errorf("CreateSnapshot: SnapshotCreateAPI() failure: %s", err)
+	if err = c.SnapshotCreate(nodeConfig.Storage.VolumeName, snapshotName, snapshotComment); err != nil {
+		err = fmt.Errorf("CreateSnapshot(): %s", err)
 	}
 	return
 }
 
 func DeleteSnapshot(nodeConfig *config.NodeConfig, snapshotName string) (err error) {
-	var c *ontap.Client
-	var response *ontap.SingleResultResponse
-	if c, err = CreateCdotClient(nodeConfig); err != nil {
+	var c client.OntapClient
+	if c, err = client.NewOntapClient(nodeConfig); err != nil {
+		err = fmt.Errorf("DeleteSnapshot(): %s", err)
 		return
 	}
-	options := &ontap.SnapshotDeleteOptions {
-		Volume: nodeConfig.Storage.VolumeName,
-		Snapshot: snapshotName,
-	}
-	if response, _, err = c.SnapshotDeleteAPI(options); err != nil {
-		if response.Results.ErrorNo != ontap.ENTRYDOESNOTEXIST {
-			err = fmt.Errorf("DeleteSnapshot: SnapshotDeleteAPI() failure: %s", err)
-		} else {
-			err = nil
-		}
+	if err = c.SnapshotDelete(nodeConfig.Storage.VolumeName, snapshotName); err != nil {
+		err = fmt.Errorf("DeleteSnapshot(): %s", err)
 	}
 	return
 }
 
 func RestoreSnapshot(nodeConfig *config.NodeConfig, snapshotName string) (err error) {
-	var c *ontap.Client
-	if c, err = CreateCdotClient(nodeConfig); err != nil {
+	var c client.OntapClient
+	if c, err = client.NewOntapClient(nodeConfig); err != nil {
+		err = fmt.Errorf("RestoreSnapshot(): %s", err)
 		return
 	}
-	options := &ontap.SnapshotRestoreVolumeOptions {
-		PreserveLunIds: false,
-		Volume: nodeConfig.Storage.VolumeName,
-		Snapshot: snapshotName,
-	}
-	if _, _, err = c.SnapshotRestoreVolumeAPI(options); err != nil {
-		err = fmt.Errorf("RestoreSnapshot: SnapshotRestoreVolumeAPI() failure: %s", err)
+	if err = c.SnapshotRestore(nodeConfig.Storage.VolumeName, snapshotName); err != nil {
+		err = fmt.Errorf("RestoreSnapshot(): %s", err)
 	}
 	return
 }

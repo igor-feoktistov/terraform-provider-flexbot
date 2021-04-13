@@ -359,10 +359,12 @@ github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d h1:kJCB4vdITiW1eC1
 github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
-github.com/igor-feoktistov/go-ontap-sdk v0.0.0-20200617012018-b98da3bc2dea h1:lRlpAPBx/it9K08/KgNWAdGixQybLvHfbcrTU8sLu7Y=
-github.com/igor-feoktistov/go-ontap-sdk v0.0.0-20200617012018-b98da3bc2dea/go.mod h1:oOr8HpXRFz2R8XSZ5vRoNCoScHqGbe2ze1BrxcCohcE=
-github.com/igor-feoktistov/go-ucsm-sdk v0.0.0-20210329204932-1f83d3ad98f2 h1:Cw556BPJ2/W+SAqd3d1sFQqQdaoqsvsKWgKv357QsI8=
-github.com/igor-feoktistov/go-ucsm-sdk v0.0.0-20210329204932-1f83d3ad98f2/go.mod h1:4mJNNQkZ0NRrVHsO/7lRbNLvt/x0cZYIbaJ/+Is2UCE=
+github.com/igor-feoktistov/go-ontap-rest v1.0.3 h1:n038q5Sj4CnvqjvESE1s3YCTW61X5zwJ+9+o1yQgx6w=
+github.com/igor-feoktistov/go-ontap-rest v1.0.3/go.mod h1:6cK7wgTvIdjCswCQc4+M1fQAUcsyFmsuYl4rVhE77RI=
+github.com/igor-feoktistov/go-ontap-sdk v1.0.3 h1:lC1JEaqMCyIWeRAjhMAwA4ID8/Uv/raapPLwq9V7ct8=
+github.com/igor-feoktistov/go-ontap-sdk v1.0.3/go.mod h1:oOr8HpXRFz2R8XSZ5vRoNCoScHqGbe2ze1BrxcCohcE=
+github.com/igor-feoktistov/go-ucsm-sdk v1.0.0 h1:krabgCwE/156qlf/yRxA5Lp2WOQvsgh4LkXe9xNPTAQ=
+github.com/igor-feoktistov/go-ucsm-sdk v1.0.0/go.mod h1:4mJNNQkZ0NRrVHsO/7lRbNLvt/x0cZYIbaJ/+Is2UCE=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/imdario/mergo v0.3.6/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/imdario/mergo v0.3.7/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=

@@ -802,6 +802,7 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.Storage.CdotCredentials.Host = cdotCredentials["host"].(string)
 	nodeConfig.Storage.CdotCredentials.User = cdotCredentials["user"].(string)
 	nodeConfig.Storage.CdotCredentials.Password = cdotCredentials["password"].(string)
+	nodeConfig.Storage.CdotCredentials.ApiMethod = cdotCredentials["api_method"].(string)
 	nodeConfig.Storage.CdotCredentials.ZapiVersion = cdotCredentials["zapi_version"].(string)
 	nodeConfig.Compute.SpOrg = compute["sp_org"].(string)
 	nodeConfig.Compute.SpTemplate = compute["sp_template"].(string)
@@ -1021,6 +1022,7 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 	if b_stdout.Len() > 0 {
 		filesystems = strings.Split(strings.Trim(b_stdout.String(), "\n"), "\n")
 	}
+	cmd = append(cmd, "sync && sleep 5")
 	for _, fs := range filesystems {
 		cmd = append(cmd, "fsfreeze -f " + fs)
 	}
@@ -1041,7 +1043,7 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 		err = fmt.Errorf("createSnapshot(): failed to start SSH command: %s", err)
 		return
 	}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 30; i++ {
 		if b_stdout.Len() > 0 {
 			break
 		}
@@ -1051,6 +1053,8 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 		if err = ontap.CreateSnapshot(nodeConfig, snapshotName, ""); err != nil {
 			errs = append(errs, err.Error())
 		}
+	} else {
+		errs = append(errs, "fsfreeze did not complete, snapshot is not created")
 	}
 	if err = sess.Wait(); err != nil {
 		errs = append(errs, fmt.Sprintf("failed to run SSH command: %s: %s", err, b_stderr.String()))

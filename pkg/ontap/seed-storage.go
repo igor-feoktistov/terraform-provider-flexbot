@@ -11,10 +11,9 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	"github.com/igor-feoktistov/go-ontap-sdk/ontap"
-	"github.com/igor-feoktistov/go-ontap-sdk/util"
 	"github.com/kdomanski/iso9660"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap/client"
 )
 
 func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
@@ -27,7 +26,7 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 			fileReader = httpResponse.Body
 			defer httpResponse.Body.Close()
 		} else {
-			err = fmt.Errorf("CreateSeedStorage: failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
+			err = fmt.Errorf("CreateSeedStorage(): failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
 			return
 		}
 	} else {
@@ -46,19 +45,19 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 			defer file.Close()
 		}
 		if err != nil {
-			err = fmt.Errorf("CreateSeedStorage: failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
+			err = fmt.Errorf("CreateSeedStorage(): failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
 			return
 		}
 	}
 	if len(b) == 0 {
 		if b, err = ioutil.ReadAll(fileReader); err != nil {
-			err = fmt.Errorf("CreateSeedStorage: failure to read cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
+			err = fmt.Errorf("CreateSeedStorage(): failure to read cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
 			return
 		}
 	}
 	var isoWriter *iso9660.ImageWriter
 	if isoWriter, err = iso9660.NewWriter(); err != nil {
-		err = fmt.Errorf("CreateSeedStorage: failed to create ISO writer: %v", err)
+		err = fmt.Errorf("CreateSeedStorage(): failed to create ISO writer: %v", err)
 		return
 	}
 	defer isoWriter.Cleanup()
@@ -66,84 +65,64 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 		var cloudInitBuf bytes.Buffer
 		var t *template.Template
 		if t, err = template.New(cloudInitData).Parse(string(b)); err != nil {
-			err = fmt.Errorf("CreateSeedStorage: failure to parse cloud-init template: %s", err)
+			err = fmt.Errorf("CreateSeedStorage(): failure to parse cloud-init template: %s", err)
 			return
 		}
 		if err = t.Execute(&cloudInitBuf, nodeConfig); err != nil {
-			err = fmt.Errorf("CreateSeedStorage: template failure for %s: %s", cloudInitData, err)
+			err = fmt.Errorf("CreateSeedStorage(): template failure for %s: %s", cloudInitData, err)
 			return
 		}
 		cloudInitReader := strings.NewReader(cloudInitBuf.String())
 		if err = isoWriter.AddFile(cloudInitReader, cloudInitData); err != nil {
-			err = fmt.Errorf("CreateSeedStorage: failed to add %s file to ISO: %v", cloudInitData, err)
+			err = fmt.Errorf("CreateSeedStorage(): failed to add %s file to ISO: %v", cloudInitData, err)
 			return
 		}
 	}
 	var isoBuffer bytes.Buffer
 	if err = isoWriter.WriteTo(&isoBuffer, "cidata"); err != nil {
-		err = fmt.Errorf("CreateSeedStorage: failed to write ISO image: %v", err)
+		err = fmt.Errorf("CreateSeedStorage(): failed to write ISO image: %v", err)
 		return
 	}
 	isoReader := bytes.NewReader(isoBuffer.Bytes())
-	var c *ontap.Client
-	var response *ontap.SingleResultResponse
-	if c, err = CreateCdotClient(nodeConfig); err != nil {
-		err = fmt.Errorf("CreateSeedStorage: CreateCdotClient() failure: %s", err)
+	var c client.OntapClient
+	if c, err = client.NewOntapClient(nodeConfig); err != nil {
+		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 		return
 	}
+	seedLunPath := "/vol/" + nodeConfig.Storage.VolumeName + "/" + nodeConfig.Storage.SeedLun.Name
 	var fileExists bool
-	if fileExists, err = util.FileExists(c, "/vol/"+nodeConfig.Storage.VolumeName+"/seed"); err != nil {
-		err = fmt.Errorf("CreateSeedStorage: FileExists() failure: %s", err)
+	if fileExists, err = c.FileExists(nodeConfig.Storage.VolumeName, "/seed"); err != nil {
+		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 		return
 	}
 	if fileExists {
 		var lunExists bool
-		if lunExists, err = util.LunExists(c, "/vol/"+nodeConfig.Storage.VolumeName+"/"+nodeConfig.Storage.SeedLun.Name); err != nil {
-			err = fmt.Errorf("CreateSeedStorage: LunExists() failure: %s", err)
+		if lunExists, err = c.LunExists(seedLunPath); err != nil {
+			err = fmt.Errorf("CreateSeedStorage(): %s", err)
 			return
-		} else {
-			if lunExists {
-				seedLunUnmapOptions := &ontap.LunUnmapOptions{
-					InitiatorGroup: nodeConfig.Storage.IgroupName,
-					Path:           "/vol/" + nodeConfig.Storage.VolumeName + "/" + nodeConfig.Storage.SeedLun.Name,
-				}
-				_, _, _ = c.LunUnmapAPI(seedLunUnmapOptions)
-				seedLunDestroyOptions := &ontap.LunDestroyOptions{
-					Path: "/vol/" + nodeConfig.Storage.VolumeName + "/" + nodeConfig.Storage.SeedLun.Name,
-				}
-				if response, _, err = c.LunDestroyAPI(seedLunDestroyOptions); err != nil {
-					if response.Results.ErrorNo != ontap.ENTRYDOESNOTEXIST {
-						err = fmt.Errorf("CreateSeedStorage: LunDestroyAPI() failure: %s", err)
-						return
-					}
-				}
+		}
+		if lunExists {
+			_ = c.LunUnmap(seedLunPath, nodeConfig.Storage.IgroupName)
+			if err = c.LunDestroy(seedLunPath); err != nil {
+				err = fmt.Errorf("CreateSeedStorage(): %s", err)
+				return
 			}
 		}
-		if _, _, err = c.FileDeleteFileAPI("/vol/" + nodeConfig.Storage.VolumeName + "/seed"); err != nil {
-			err = fmt.Errorf("CreateSeedStorage: FileDeleteFileAPI() failure: %s", err)
+		if err = c.FileDelete(nodeConfig.Storage.VolumeName, "/seed"); err != nil {
+			err = fmt.Errorf("CreateSeedStorage(): %s", err)
+			return
 		}
 	}
-	if _, err = util.UploadFileAPI(c, nodeConfig.Storage.VolumeName, "/seed", isoReader); err != nil {
-		err = fmt.Errorf("CreateSeedStorage: UploadFileAPI() failure: %s", err)
+	if err = c.FileUploadAPI(nodeConfig.Storage.VolumeName, "/seed", isoReader); err != nil {
+		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 		return
 	}
-	seedLunCreateOptions := &ontap.LunCreateFromFileOptions{
-		Comment:  nodeConfig.Storage.SeedLun.SeedTemplate.Location,
-		FileName: "/vol/" + nodeConfig.Storage.VolumeName + "/seed",
-		Path:     "/vol/" + nodeConfig.Storage.VolumeName + "/" + nodeConfig.Storage.SeedLun.Name,
-		OsType:   "linux",
-	}
-	if _, _, err = c.LunCreateFromFileAPI(seedLunCreateOptions); err != nil {
-		err = fmt.Errorf("CreateSeedStorage: LunCreateFromFileAPI() failure: %s", err)
+	if err = c.LunCreateFromFile(nodeConfig.Storage.VolumeName, "/seed", seedLunPath, nodeConfig.Storage.SeedLun.SeedTemplate.Location); err != nil {
+		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 		return
 	}
-	seedLunMapOptions := &ontap.LunMapOptions{
-		LunId:          nodeConfig.Storage.SeedLun.Id,
-		InitiatorGroup: nodeConfig.Storage.IgroupName,
-		Path:           "/vol/" + nodeConfig.Storage.VolumeName + "/" + nodeConfig.Storage.SeedLun.Name,
-	}
-	if _, _, err = c.LunMapAPI(seedLunMapOptions); err != nil {
-		err = fmt.Errorf("CreateSeedStorage: LunMapAPI() failure: %s", err)
+	if err = c.LunMap(seedLunPath, nodeConfig.Storage.SeedLun.Id, nodeConfig.Storage.IgroupName); err != nil {
+		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 	}
 	return
 }
@@ -154,7 +133,7 @@ func CreateSeedStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 		if httpResponse, err = http.Get(nodeConfig.Storage.SeedLun.SeedTemplate.Location); err == nil {
 			httpResponse.Body.Close()
 		} else {
-			err = fmt.Errorf("CreateSeedStoragePreflight: failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
+			err = fmt.Errorf("CreateSeedStoragePreflight(): failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
 		}
 	} else {
 		var file *os.File
@@ -166,10 +145,10 @@ func CreateSeedStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 		if err != nil {
 			templateExists := false
 			if os.IsNotExist(err) {
-				templateExists, err = IsRepoTemplateExist(nodeConfig, nodeConfig.Storage.SeedLun.SeedTemplate.Location)
+				templateExists, err = RepoTemplateExists(nodeConfig, nodeConfig.Storage.SeedLun.SeedTemplate.Location)
 			}
 			if !templateExists {
-				err = fmt.Errorf("CreateSeedStoragePreflight: failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
+				err = fmt.Errorf("CreateSeedStoragePreflight(): failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
 			}
 		} else {
 			file.Close()

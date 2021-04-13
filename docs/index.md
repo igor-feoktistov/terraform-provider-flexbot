@@ -41,6 +41,7 @@ provider "flexbot" {
       host = "vserver.example.com"
       user = "vsadmin"
       password = "base64:qiZIN5H04oK15<...skip...>7k4uoBIIg/boi2n3+4kQ="
+      api_method = "zapi"
     }
   }
   # Rancher API
