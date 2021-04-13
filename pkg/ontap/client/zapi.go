@@ -97,12 +97,13 @@ func (c *OntapZAPI) VolumeExists(volumeName string) (exists bool, err error) {
 
 func (c *OntapZAPI) VolumeCreateSAN(volumeName string, aggregateName string, volumeSize int) (err error) {
 	volOptions := &ontap.VolumeCreateOptions{
-		VolumeType:              "rw",
-		Volume:                  volumeName,
-		SpaceReserve:            "none",
-		SnapshotPolicy:          "none",
-		Size:                    strconv.Itoa(volumeSize) + "g",
-		ContainingAggregateName: aggregateName,
+		VolumeType:                "rw",
+		Volume:                    volumeName,
+		SpaceReserve:              "none",
+		PercentageSnapshotReserve: 0,
+		SnapshotPolicy:            "none",
+		Size:                      strconv.Itoa(volumeSize) + "g",
+		ContainingAggregateName:   aggregateName,
 	}
 	if _, _, err = c.Client.VolumeCreateAPI(volOptions); err != nil {
 		err = fmt.Errorf("VolumeCreateAPI() failure: %s", err)
@@ -112,14 +113,15 @@ func (c *OntapZAPI) VolumeCreateSAN(volumeName string, aggregateName string, vol
 
 func (c *OntapZAPI) VolumeCreateNAS(volumeName string, aggregateName string, exportPolicyName string, volumeSize int) (err error) {
 	volOptions := &ontap.VolumeCreateOptions{
-		VolumeType:              "rw",
-		Volume:                  volumeName,
-		SpaceReserve:            "none",
-		SnapshotPolicy:          "none",
-		JunctionPath:            "/" + volumeName,
-		UnixPermissions:         "0755",
-		Size:                    strconv.Itoa(volumeSize) + "g",
-		ExportPolicy:            exportPolicyName,
+		VolumeType:                "rw",
+		Volume:                    volumeName,
+		SpaceReserve:              "none",
+		PercentageSnapshotReserve: 0,
+		SnapshotPolicy:            "none",
+		JunctionPath:              "/" + volumeName,
+		UnixPermissions:           "0755",
+		Size:                      strconv.Itoa(volumeSize) + "g",
+		ExportPolicy:              exportPolicyName,
 		ContainingAggregateName: aggregateName,
 	}
 	if _, _, err = c.Client.VolumeCreateAPI(volOptions); err != nil {
@@ -240,9 +242,11 @@ func (c *OntapZAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 
 func (c *OntapZAPI) LunCreate(lunPath string, lunSize int) (err error) {
 	lunOptions := &ontap.LunCreateBySizeOptions{
-		Path:   lunPath,
-		Size:   lunSize * 1024 * 1024 * 1024,
-		OsType: "linux",
+		Path:                    lunPath,
+		Size:                    lunSize * 1024 * 1024 * 1024,
+		OsType:                  "linux",
+		SpaceAllocationEnabled:  false,
+		SpaceReservationEnabled: false,
 	}
 	if _, _, err = c.Client.LunCreateBySizeAPI(lunOptions); err != nil {
 		err = fmt.Errorf("LunCreateBySizeAPI() failure: %s", err)
@@ -252,10 +256,12 @@ func (c *OntapZAPI) LunCreate(lunPath string, lunSize int) (err error) {
 
 func (c *OntapZAPI) LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string) (err error) {
 	lunCreateOptions := &ontap.LunCreateFromFileOptions{
-		Comment:  lunComment,
-		FileName: "/vol/" + volumeName + filePath,
-		Path:     lunPath,
-		OsType:   "linux",
+		Comment:                 lunComment,
+		FileName:                "/vol/" + volumeName + filePath,
+		Path:                    lunPath,
+		OsType:                  "linux",
+		SpaceAllocationEnabled:  false,
+		SpaceReservationEnabled: false,
 	}
 	if _, _, err = c.Client.LunCreateFromFileAPI(lunCreateOptions); err != nil {
 		err = fmt.Errorf("LunCreateFromFileAPI() failure: %s", err)

@@ -86,6 +86,7 @@ func (c *OntapRestAPI) VolumeGet(volumeName string) (volume *ontap.Volume, res *
 
 func (c *OntapRestAPI) VolumeCreateSAN(volumeName string, aggregateName string, volumeSize int) (err error) {
 	sizeBytes := volumeSize * 1024 * 1024 * 1024
+	snapReservePct := 0
 	volume := ontap.Volume{
 		Resource: ontap.Resource{
 			Name: volumeName,
@@ -99,9 +100,14 @@ func (c *OntapRestAPI) VolumeCreateSAN(volumeName string, aggregateName string, 
 			},
 		},
 		Guarantee: &ontap.VolumeSpaceGuarantee{
-			Type: "volume",
+			Type: "none",
 		},
 		Size: &sizeBytes,
+		Space: &ontap.VolumeSpace{
+			Snapshot: &ontap.VolumeSnapshotSettigs{
+				ReservePercent: &snapReservePct,
+			},
+                },
 	}
 	if _, err = c.Client.VolumeCreate(&volume, []string{}); err != nil {
 		err = fmt.Errorf("VolumeCreate() failure: %s", err)
