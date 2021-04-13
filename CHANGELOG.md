@@ -1,4 +1,4 @@
-## 1.7.0 (April 14, 2021)
+## 1.7.0 (April 12, 2021)
 
 ENHANCEMENTS:
 * This release initiates a transition from ONTAP ZAPI to ONTAP REST API.
