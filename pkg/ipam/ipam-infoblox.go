@@ -289,6 +289,34 @@ func (p *InfobloxProvider) AllocateIp(cidr string, fqdn string) (ipaddr string, 
 	return
 }
 
+func (p *InfobloxProvider) AssignIp(ipaddr string, fqdn string) (err error) {
+	transportConfig := ibclient.NewTransportConfig("false", 20, 10)
+	requestBuilder := &ibclient.WapiRequestBuilder{}
+	requestor := &ibclient.WapiHttpRequestor{}
+	var conn *ibclient.Connector
+	if conn, err = ibclient.NewConnector(p.HostConfig, transportConfig, requestBuilder, requestor); err != nil {
+		err = fmt.Errorf("AssignIP: NewConnector(): %s", err)
+		return
+	}
+	defer conn.Logout()
+	recordHostIpAddr := ibclient.NewHostRecordIpv4Addr(ibclient.HostRecordIpv4Addr{})
+	recordHostIpAddr.Ipv4Addr = ipaddr
+	recordHostIpAddrSlice := []ibclient.HostRecordIpv4Addr{*recordHostIpAddr}
+	enableDNS := new(bool)
+	*enableDNS = true
+	host := ibclient.NewHostRecord(ibclient.HostRecord{
+		Name:        fqdn,
+		EnableDns:   enableDNS,
+		NetworkView: p.NetworkView,
+		View:        p.DnsView,
+		Ipv4Addrs:   recordHostIpAddrSlice,
+	})
+	if _, err = conn.CreateObject(host); err != nil {
+		err = fmt.Errorf("AssignIp: CreateObject(): %s", err)
+	}
+	return
+}
+
 func (p *InfobloxProvider) ReleaseIp(fqdn string) (ipaddr string, err error) {
 	transportConfig := ibclient.NewTransportConfig("false", 20, 10)
 	requestBuilder := &ibclient.WapiRequestBuilder{}
@@ -318,10 +346,15 @@ func (p *InfobloxProvider) Allocate(nodeConfig *config.NodeConfig) (err error) {
 	var ipaddr string
 	var hostSuffix string = ""
 	for i, _ := range nodeConfig.Network.Node {
-		if len(nodeConfig.Network.Node[i].IpRange) > 0 {
-			ipaddr, err = p.AllocateIp(nodeConfig.Network.Node[i].IpRange, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+		if len(nodeConfig.Network.Node[i].Ip) > 0 {
+			ipaddr = nodeConfig.Network.Node[i].Ip
+			err = p.AssignIp(ipaddr, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
 		} else {
-			ipaddr, err = p.AllocateIp(nodeConfig.Network.Node[i].Subnet, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+			if len(nodeConfig.Network.Node[i].IpRange) > 0 {
+				ipaddr, err = p.AllocateIp(nodeConfig.Network.Node[i].IpRange, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+			} else {
+				ipaddr, err = p.AllocateIp(nodeConfig.Network.Node[i].Subnet, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+			}
 		}
 		if err != nil {
 			return
@@ -332,10 +365,15 @@ func (p *InfobloxProvider) Allocate(nodeConfig *config.NodeConfig) (err error) {
 	}
 	for i, _ := range nodeConfig.Network.IscsiInitiator {
 		hostSuffix = "-i" + strconv.Itoa(i+1)
-		if len(nodeConfig.Network.IscsiInitiator[i].IpRange) > 0 {
-			ipaddr, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].IpRange, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+		if len(nodeConfig.Network.IscsiInitiator[i].Ip) > 0 {
+			ipaddr = nodeConfig.Network.IscsiInitiator[i].Ip
+			err = p.AssignIp(ipaddr, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
 		} else {
-			ipaddr, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].Subnet, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+			if len(nodeConfig.Network.IscsiInitiator[i].IpRange) > 0 {
+				ipaddr, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].IpRange, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+			} else {
+				ipaddr, err = p.AllocateIp(nodeConfig.Network.IscsiInitiator[i].Subnet, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+			}
 		}
 		if err != nil {
 			return

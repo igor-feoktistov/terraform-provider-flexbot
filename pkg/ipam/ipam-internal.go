@@ -17,6 +17,10 @@ func (p *InternalProvider) AllocateIp(cidr string, fqdn string) (ipaddr string, 
 	return
 }
 
+func (p *InternalProvider) AssignIp(ipaddr string, fqdn string) (err error) {
+	return
+}
+
 func (p *InternalProvider) ReleaseIp(fqdn string) (ipaddr string, err error) {
 	return
 }

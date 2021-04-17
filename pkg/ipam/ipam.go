@@ -8,6 +8,7 @@ import (
 
 type IpamProvider interface {
 	AllocateIp(cidr string, fqdn string) (string, error)
+	AssignIp(ipaddr string, fqdn string) (error)
 	ReleaseIp(fqdn string) (string, error)
 	Allocate(nodeConfig *config.NodeConfig) error
 	AllocatePreflight(nodeConfig *config.NodeConfig) error
