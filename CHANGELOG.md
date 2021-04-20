@@ -1,3 +1,10 @@
+## 1.7.1 (April 20, 2021)
+
+ENHANCEMENTS:
+* IPAM - static IP address can be specified for an interface with Infoblox plugin.
+  This will cause specified IP assigned to a host record (if does not exist) rather than allocated from a subnet or IP range.
+
+
 ## 1.7.0 (April 12, 2021)
 
 ENHANCEMENTS:

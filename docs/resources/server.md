@@ -97,7 +97,7 @@ resource "flexbot_server" "k8s-node1" {
     node {
       # Required - Name should match respective vNIC name in Service Profile Template
       name = "eth2"
-      # Optional - Supply IP here only for "Internal" provider
+      # Optional - if IP needs to be assigned statically, not allocated by IPAM from subnet or IP range
       #ip = "192.168.1.25"
       # Optional - Supply FQDN here only for "Internal" provider
       #fqdn = "k8s-node1.example.com"
@@ -124,7 +124,7 @@ resource "flexbot_server" "k8s-node1" {
     iscsi_initiator {
       # Required - Name should match respective iSCSI vNIC name in Service Profile Template
       name = "iscsi0"
-      # Optional - Supply IP here only for "Internal" provider
+      # Optional - if IP needs to be assigned statically, not allocated by IPAM from subnet or IP range
       #ip = "192.168.2.25"
       # Optional - Supply FQDN here only for "Internal" provider
       #fqdn = "k8s-node1-i1.example.com"
@@ -140,7 +140,7 @@ resource "flexbot_server" "k8s-node1" {
     iscsi_initiator {
       # required - Name should match respective iSCSI vNIC name in Service Profile Template
       name = "iscsi1"
-      # Optionl - Supply IP here only for "Internal" provider
+      # Optional - if IP needs to be assigned statically, not allocated by IPAM from subnet or IP range
       #ip = "192.168.3.25"
       # Optional - Supply FQDN here only for "Internal" provider
       #fqdn = "k8s-node1-i2.example.com"
