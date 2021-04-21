@@ -246,19 +246,19 @@ func (p *InfobloxProvider) AllocateIp(cidr string, fqdn string) (ipaddr string, 
 	requestor := &ibclient.WapiHttpRequestor{}
 	var conn *ibclient.Connector
 	if conn, err = ibclient.NewConnector(p.HostConfig, transportConfig, requestBuilder, requestor); err != nil {
-		err = fmt.Errorf("AllocateIP: NewConnector(): %s", err)
+		err = fmt.Errorf("AllocateIP(): NewConnector(): %s", err)
 		return
 	}
 	defer conn.Logout()
 	if fqdn == "" {
 		var ipPool IpPool
 		if ipPool, err = getAvailableIPs(conn, p.NetworkView, cidr, 1); err != nil {
-			err = fmt.Errorf("AllocateIP: getAvailableIPs(): %s", err)
+			err = fmt.Errorf("AllocateIP(): getAvailableIPs(): %s", err)
 		} else {
 			if len(ipPool.Ips) > 0 {
 				ipaddr = ipPool.Ips[0]
 			} else {
-				err = fmt.Errorf("AllocateIP: getAvailableIPs(): no IPs available in network %s", cidr)
+				err = fmt.Errorf("AllocateIP(): getAvailableIPs(): no IPs available in network %s", cidr)
 			}
 		}
 	} else {
@@ -276,12 +276,12 @@ func (p *InfobloxProvider) AllocateIp(cidr string, fqdn string) (ipaddr string, 
 		})
 		var ref string
 		if ref, err = conn.CreateObject(host); err != nil {
-			err = fmt.Errorf("AllocateIp: CreateObject(): %s", err)
+			err = fmt.Errorf("AllocateIp(): CreateObject(): %s", err)
 			return
 		}
 		host.Ref = ref
 		if err = conn.GetObject(host, ref, &host); err != nil {
-			err = fmt.Errorf("AllocateIp: GetObject(): %s", err)
+			err = fmt.Errorf("AllocateIp(): GetObject(): %s", err)
 		} else {
 			ipaddr = host.Ipv4Addrs[0].Ipv4Addr
 		}
@@ -295,24 +295,35 @@ func (p *InfobloxProvider) AssignIp(ipaddr string, fqdn string) (err error) {
 	requestor := &ibclient.WapiHttpRequestor{}
 	var conn *ibclient.Connector
 	if conn, err = ibclient.NewConnector(p.HostConfig, transportConfig, requestBuilder, requestor); err != nil {
-		err = fmt.Errorf("AssignIP: NewConnector(): %s", err)
+		err = fmt.Errorf("AssignIP(): NewConnector(): %s", err)
 		return
 	}
 	defer conn.Logout()
-	recordHostIpAddr := ibclient.NewHostRecordIpv4Addr(ibclient.HostRecordIpv4Addr{})
-	recordHostIpAddr.Ipv4Addr = ipaddr
-	recordHostIpAddrSlice := []ibclient.HostRecordIpv4Addr{*recordHostIpAddr}
-	enableDNS := new(bool)
-	*enableDNS = true
-	host := ibclient.NewHostRecord(ibclient.HostRecord{
-		Name:        fqdn,
-		EnableDns:   enableDNS,
-		NetworkView: p.NetworkView,
-		View:        p.DnsView,
-		Ipv4Addrs:   recordHostIpAddrSlice,
-	})
-	if _, err = conn.CreateObject(host); err != nil {
-		err = fmt.Errorf("AssignIp: CreateObject(): %s", err)
+	var hostIpAddr string
+	if hostIpAddr, err = getIpByHost(conn, p.NetworkView, fqdn); err != nil {
+		err = fmt.Errorf("AssignIP(): getIpByHost(): %s", err)
+		return
+	}
+	if len(hostIpAddr) > 0 {
+		if hostIpAddr != ipaddr {
+			err = fmt.Errorf("AssignIP(): IP address %s assigned already to FQDN %s", hostIpAddr, fqdn)
+		}
+	} else {
+		recordHostIpAddr := ibclient.NewHostRecordIpv4Addr(ibclient.HostRecordIpv4Addr{})
+		recordHostIpAddr.Ipv4Addr = ipaddr
+		recordHostIpAddrSlice := []ibclient.HostRecordIpv4Addr{*recordHostIpAddr}
+		enableDNS := new(bool)
+		*enableDNS = true
+		host := ibclient.NewHostRecord(ibclient.HostRecord{
+			Name:        fqdn,
+			EnableDns:   enableDNS,
+			NetworkView: p.NetworkView,
+			View:        p.DnsView,
+			Ipv4Addrs:   recordHostIpAddrSlice,
+		})
+		if _, err = conn.CreateObject(host); err != nil {
+			err = fmt.Errorf("AssignIp(): CreateObject(): %s", err)
+		}
 	}
 	return
 }
@@ -323,20 +334,20 @@ func (p *InfobloxProvider) ReleaseIp(fqdn string) (ipaddr string, err error) {
 	requestor := &ibclient.WapiHttpRequestor{}
 	var conn *ibclient.Connector
 	if conn, err = ibclient.NewConnector(p.HostConfig, transportConfig, requestBuilder, requestor); err != nil {
-		err = fmt.Errorf("ReleaseIP: NewConnector(): %s", err)
+		err = fmt.Errorf("ReleaseIP(): NewConnector(): %s", err)
 		return
 	}
 	defer conn.Logout()
 	objMgr := ibclient.NewObjectManager(conn, "flexbot", "admin")
 	var host *ibclient.HostRecord
 	if host, err = objMgr.GetHostRecord(fqdn, p.NetworkView, "", ""); err != nil {
-		err = fmt.Errorf("ReleaseIP: GetHostRecord(): %s", err)
+		err = fmt.Errorf("ReleaseIP(): GetHostRecord(): %s", err)
 		return
 	}
 	if host != nil {
 		ipaddr = host.Ipv4Addrs[0].Ipv4Addr
 		if _, err := objMgr.DeleteHostRecord(host.Ref); err != nil {
-			err = fmt.Errorf("ReleaseIP: DeleteHostRecord(): %s", err)
+			err = fmt.Errorf("ReleaseIP(): DeleteHostRecord(): %s", err)
 		}
 	}
 	return
@@ -390,7 +401,7 @@ func (p *InfobloxProvider) Discover(nodeConfig *config.NodeConfig) (err error) {
 	requestor := &ibclient.WapiHttpRequestor{}
 	var conn *ibclient.Connector
 	if conn, err = ibclient.NewConnector(p.HostConfig, transportConfig, requestBuilder, requestor); err != nil {
-		err = fmt.Errorf("Discover: NewConnector(): %s", err)
+		err = fmt.Errorf("Discover(): NewConnector(): %s", err)
 		return
 	}
 	defer conn.Logout()
@@ -398,11 +409,11 @@ func (p *InfobloxProvider) Discover(nodeConfig *config.NodeConfig) (err error) {
 	for i, _ := range nodeConfig.Network.Node {
 		var ipaddr string
 		if ipaddr, err = getIpByHost(conn, p.NetworkView, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone); err != nil {
-			err = fmt.Errorf("Discover: getIpByHost(): %s", err)
+			err = fmt.Errorf("Discover(): getIpByHost(): %s", err)
 			return
 		}
 		if ipaddr == "" {
-			err = fmt.Errorf("Discover: getIpByHost(): no host record found for FQDN  %s", nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
+			err = fmt.Errorf("Discover(): getIpByHost(): no host record found for FQDN  %s", nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
 			return
 		}
 		nodeConfig.Network.Node[i].Ip = ipaddr
@@ -414,17 +425,17 @@ func (p *InfobloxProvider) Discover(nodeConfig *config.NodeConfig) (err error) {
 		if nodeConfig.Network.IscsiInitiator[i].Ip != "" {
 			var fqdn string
 			if fqdn, err = getHostByIp(conn, p.NetworkView, nodeConfig.Network.IscsiInitiator[i].Ip); err != nil {
-				err = fmt.Errorf("Discover: getHostByIp(): %s", err)
+				err = fmt.Errorf("Discover(): getHostByIp(): %s", err)
 				return
 			}
 			if fqdn == "" {
-				err = fmt.Errorf("Discover: getHostByIp(): no host record found for IP %s", nodeConfig.Network.IscsiInitiator[i].Ip)
+				err = fmt.Errorf("Discover(): getHostByIp(): no host record found for IP %s", nodeConfig.Network.IscsiInitiator[i].Ip)
 				return
 			}
 			if fqdn == nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone {
 				nodeConfig.Network.IscsiInitiator[i].Fqdn = fqdn
 			} else {
-				err = fmt.Errorf("Discover: expected iSCSI initiator interface FQDN \"%s\", resolved \"%s\"", nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone, fqdn)
+				err = fmt.Errorf("Discover(): expected iSCSI initiator interface FQDN \"%s\", resolved \"%s\"", nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone, fqdn)
 				return
 			}
 		}
@@ -438,7 +449,7 @@ func (p *InfobloxProvider) AllocatePreflight(nodeConfig *config.NodeConfig) (err
 	requestor := &ibclient.WapiHttpRequestor{}
 	var conn *ibclient.Connector
 	if conn, err = ibclient.NewConnector(p.HostConfig, transportConfig, requestBuilder, requestor); err != nil {
-		err = fmt.Errorf("Discover: NewConnector(): %s", err)
+		err = fmt.Errorf("Discover(): NewConnector(): %s", err)
 		return
 	}
 	defer conn.Logout()
