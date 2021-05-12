@@ -1,5 +1,8 @@
 ## 1.7.2 (May 12, 2021)
 
+ENHANCEMENTS:
+* Updated go mod to support latest Rancher packages
+
 BUG FIXES:
 * Fix in `server` schema to allow empty string in network.node[*].ip
 
