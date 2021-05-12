@@ -356,9 +356,11 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 									Computed: true,
 									ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 										v := val.(string)
-										matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+\.\d+$`, v)
-										if !matched {
-											errs = append(errs, fmt.Errorf("value %q=%s must be in IP address format", key, v))
+										if len(v) > 0 {
+											matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+\.\d+$`, v)
+											if !matched {
+												errs = append(errs, fmt.Errorf("value %q=%s must be in IP address format", key, v))
+											}
 										}
 										return
 									},

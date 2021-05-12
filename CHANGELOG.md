@@ -1,3 +1,9 @@
+## 1.7.2 (May 11, 2021)
+
+BUG FIXES:
+* Fix in `server` schema to allow empty string in network.node[*].ip
+
+
 ## 1.7.1 (April 20, 2021)
 
 ENHANCEMENTS:
