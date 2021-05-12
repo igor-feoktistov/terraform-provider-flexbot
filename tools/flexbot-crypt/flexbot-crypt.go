@@ -13,7 +13,7 @@ import (
 func usage() {
 	flag.Usage()
 	fmt.Println("")
-	fmt.Printf("flexbot --passphrase=<password phrase> [--sourceString <string to encrypt (STDIN by default)>]\n\n")
+	fmt.Printf("flexbot-crypt --passphrase=<password phrase> [--sourceString <string to encrypt (STDIN by default)>]\n\n")
 }
 
 func encryptString(srcString []byte, passPhrase string) (encrypted string, err error) {
