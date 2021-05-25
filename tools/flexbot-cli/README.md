@@ -1,7 +1,14 @@
 # flexbot
 
 `flexbot` is a CLI alternative to `terraform-provider-flexbot` to build and manage bare-metal Linux on [FlexPod](https://flexpod.com) (Cisco UCS and NetApp cDOT).
-It can be used in other tools like ansible (see [flexbot](./ansible-roles/flexbot) ansible role).
+It can be used in other tools like ansible (see [flexbot](./ansible-roles/flexbot) ansible role for more details).
+
+## Building `blexbot` CLI tool
+
+* Clone [terraform-provider-flexbot project repository](https://github.com/igor-feoktistov/terraform-provider-flexbot) to: `$GOPATH/src`.
+* Enter `$GOPATH/src/terraform-provider-flexbot/tools/flexbot-cli` directory.
+* Run `make` to build CLI binary for your platform.
+* Run `make ansible` to build CLI binaries for `flexbot` ansible role.
 
 ## Usage
 
@@ -165,7 +172,7 @@ network:
         fqdn: k8s-node1.example.com
         # IPAM allocates IP for node interface
         subnet: 192.168.1.0/24
-        # ipRange (optional) will be used instead of subnet to allocate IP from.
+        # ipRange (optional) will be used by IPAM instead of subnet to allocate IP from.
         # ipRange start/end IP's should match respective start/end IP's in Infoblox IP range
         #ipRange: 192.168.1.1-192.168.1.64
         gateway: 192.168.1.1
