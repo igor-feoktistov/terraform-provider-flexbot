@@ -13,7 +13,7 @@ host: <compute node name>
 image: <boot image name>
 snapshot: <storage snapshot name>
 template: <cloud-init template name (taken from role `templates` if no full path provided)>
-flexbotConfig: <flexbot configuration (see [flexbot](./../../README.md) CLI tool for details)>
+flexbotConfig: <flexbot configuration (see `flexbot` CLI tool for more details)>
 ```
 
 Example Playbooks
