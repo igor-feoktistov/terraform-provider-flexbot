@@ -1,7 +1,7 @@
 flexbot
 =======
 
-An Ansible role to provision/deprovision/start/stop/restore bare-metal servers in FlexPod (Cisco UCS and NetAp cDOT)
+Ansible role to provision and manage bare-metal servers in FlexPod (Cisco UCS and NetAp cDOT)
 
 See flexbot project https://github.com/igor-feoktistov/terraform-provider-flexbot for more details.
 
