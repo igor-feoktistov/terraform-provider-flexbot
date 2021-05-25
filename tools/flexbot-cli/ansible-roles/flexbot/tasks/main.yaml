@@ -1,0 +1,11 @@
+- name: flexbot operation
+  flexbot:
+    config: "{{ flexbotConfig | to_json }}"
+    op: "{{ op }}"
+    host: "{{ host | default(inventory_hostname) }}"
+    image: "{% if op == 'provisionServer' %}{{ image }}{% endif %}"
+    snapshot: "{% if op == 'createSnapshot' or op == 'deleteSnapshot' or op == 'restoreSnapshot'%}{{ snapshot }}{% endif %}"
+    template: "{% if op == 'provisionServer' %}{% if template is search('/') %}{{ template }}{% else %}{{ role_path }}/templates/{{ template }}{% endif %}{% endif %}"
+  delegate_to: localhost
+  register: response
+- set_fact: server_response={{ response.response }}

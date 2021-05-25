@@ -228,8 +228,11 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 		err = fmt.Errorf("DiscoverServer: SpGetComputeBlade(): %s", err)
                 return
         }
-        nodeConfig.Compute.BladeSpec.Dn = computeBlade.Dn
-        nodeConfig.Compute.BladeAssigned = util.BladeSpec{
+        if computeBlade == nil {
+    		computeBlade = &mo.ComputeBlade{}
+        }
+    	nodeConfig.Compute.BladeSpec.Dn = computeBlade.Dn
+    	nodeConfig.Compute.BladeAssigned = util.BladeSpec{
     		Dn: computeBlade.Dn,
             	Model: computeBlade.Model,
             	Serial: computeBlade.Serial,
@@ -237,7 +240,7 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
             	NumOfCores: strconv.Itoa(computeBlade.NumOfCores),
             	NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),
             	TotalMemory: strconv.Itoa(computeBlade.TotalMemory),
-        }
+    	}
 	var vnicsEther *[]mo.VnicEther
 	if vnicsEther, err = util.SpGetVnicsEther(client, nodeConfig.Compute.SpDn); err != nil {
 		err = fmt.Errorf("DiscoverServer: SpGetVnicsEther(): %s", err)

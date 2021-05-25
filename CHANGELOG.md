@@ -1,7 +1,14 @@
-## 1.7.2 (May 12, 2021)
+## 1.7.3 (May 25, 2021)
+
+BUG FIXES:
+* Fix for provider panic condition while server refresh when UCS service profile does not have physical blade assigned
 
 ENHANCEMENTS:
-* Updated go mod to support latest Rancher packages
+* CLI tool `flexbot` is an alternative to `terraform-provider-flexbot` to build and manage bare-metal Linux on FlexPod.
+  It can be used in other tools like ansible (see ansible role for `flexbot`).
+
+
+## 1.7.2 (May 11, 2021)
 
 BUG FIXES:
 * Fix in `server` schema to allow empty string in network.node[*].ip
