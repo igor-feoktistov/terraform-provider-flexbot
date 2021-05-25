@@ -3,7 +3,7 @@
 `flexbot` is a CLI alternative to `terraform-provider-flexbot` to build and manage bare-metal Linux on [FlexPod](https://flexpod.com) (Cisco UCS and NetApp cDOT).
 It can be used in other tools like ansible (see [flexbot](./ansible-roles/flexbot) ansible role for more details).
 
-## Building `blexbot` CLI tool
+## Building `flexbot` CLI tool
 
 * Clone [terraform-provider-flexbot project repository](https://github.com/igor-feoktistov/terraform-provider-flexbot) to: `$GOPATH/src`.
 * Enter `$GOPATH/src/terraform-provider-flexbot/tools/flexbot-cli` directory.
