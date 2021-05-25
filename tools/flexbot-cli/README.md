@@ -8,7 +8,7 @@ It can be used in other tools like ansible (see [flexbot](./ansible-roles/flexbo
 * Clone [terraform-provider-flexbot project repository](https://github.com/igor-feoktistov/terraform-provider-flexbot) to: `$GOPATH/src`.
 * Enter `$GOPATH/src/terraform-provider-flexbot/tools/flexbot-cli` directory.
 * Run `make` to build CLI binary for your platform.
-* Run `make ansible` to build CLI binaries for `flexbot` ansible role.
+* Run `make ansible` to build CLI binaries for [flexbot](./ansible-roles/flexbot) ansible role.
 
 ## Usage
 
