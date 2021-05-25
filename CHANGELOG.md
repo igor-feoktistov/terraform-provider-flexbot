@@ -1,4 +1,4 @@
-## 1.7.3 (May 24, 2021)
+## 1.7.3 (May 25, 2021)
 
 BUG FIXES:
 * Fix for provider panic condition while server refresh when UCS service profile does not have physical blade assigned
