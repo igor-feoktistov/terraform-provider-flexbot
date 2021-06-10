@@ -5,17 +5,18 @@ import (
 	"sync"
 	"strings"
 	"encoding/base64"
+	"context"
 
+	"github.com/denisbrodbeck/machineid"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
 	nodeConfig "github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	"github.com/denisbrodbeck/machineid"
-	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-        "github.com/hashicorp/terraform-plugin-sdk/terraform"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
-func Provider() terraform.ResourceProvider {
+func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
 			"pass_phrase": {
@@ -247,12 +248,13 @@ func Provider() terraform.ResourceProvider {
 		DataSourcesMap: map[string]*schema.Resource{
 			"flexbot_crypt": dataSourceFelxbotCrypt(),
 		},
-		ConfigureFunc: providerConfigure,
+		ConfigureContextFunc: providerConfigure,
 	}
 }
 
-func providerConfigure(d *schema.ResourceData) (interface{}, error) {
+func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	var err error
+	var diags diag.Diagnostics
 	var config *FlexbotConfig
 	if len(d.Get("rancher_api").([]interface{})) > 0 {
 		rancher_api := d.Get("rancher_api").([]interface{})[0].(map[string]interface{})
@@ -270,17 +272,29 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 			passPhrase := d.Get("pass_phrase").(string)
 			if len(passPhrase) == 0 {
 				if passPhrase, err = machineid.ID(); err != nil {
-					err = fmt.Errorf("providerConfigure(): machineid.ID() failure: %s", err)
-					return nil, err
+					diags = append(diags, diag.Diagnostic{
+						Severity: diag.Error,
+						Summary:  "providerConfigure(): machineid.ID() failure",
+						Detail:   err.Error(),
+					})
+					return nil, diags
 				}
 			}
 			if b64, err = base64.StdEncoding.DecodeString(tokenKey[7:]); err != nil {
-				err = fmt.Errorf("providerConfigure(): base64.StdEncoding.DecodeString() failure: %s", err)
-				return nil, err
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "providerConfigure(): base64.StdEncoding.DecodeString() failure",
+					Detail:   err.Error(),
+				})
+				return nil, diags
 			}
 			if b, err = crypt.Decrypt(b64, passPhrase); err != nil {
-				err = fmt.Errorf("providerConfigure(): Decrypt() failure: %s", err)
-				return nil, err
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "providerConfigure(): Decrypt() failure",
+					Detail:   err.Error(),
+				})
+				return nil, diags
 			}
 			tokenKey = string(b)
 		}
@@ -302,7 +316,11 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		}
 		if rancher_api["enabled"].(bool) {
 			if err = rancherConfig.ManagementClient(); err != nil {
-				err = fmt.Errorf("providerConfigure(): rancherConfig.ManagementClient() error: \"%s\"", err)
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "providerConfigure(): rancherConfig.ManagementClient() error",
+					Detail:   err.Error(),
+				})
 			}
 		}
 	} else {
@@ -313,5 +331,5 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 			NodeConfig: make(map[string]*nodeConfig.NodeConfig),
 		}
 	}
-	return config, err
+	return config, diags
 }

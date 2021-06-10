@@ -9,7 +9,7 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/go-ucsm-sdk/util"
-        "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+        "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
@@ -164,6 +164,20 @@ func (node *RancherNode) rancherApiNodeSetAnnotations() (err error) {
 			annotations[NodeAnnotationStorage] = string(storage_b)
 		}
 		err = node.RancherClient.NodeSetAnnotations(node.NodeID, annotations)
+	}
+	return
+}
+
+func (node *RancherNode) rancherApiNodeSetLabels() (err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 && len(node.NodeConfig.Labels) > 0 {
+		err = node.RancherClient.NodeSetLabels(node.NodeID, node.NodeConfig.Labels)
+	}
+	return
+}
+
+func (node *RancherNode) rancherApiNodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+		err = node.RancherClient.NodeUpdateLabels(node.NodeID, oldLabels, newLabels)
 	}
 	return
 }

@@ -428,19 +428,52 @@ func (client *Client) DeleteNode(nodeId string) (err error) {
 
 func (client *Client) NodeSetAnnotations(nodeId string, annotations map[string]string) (err error) {
 	var node *managementClient.Node
-	//var updates managementClient.Node
         if node, err = client.Management.Node.ByID(nodeId); err != nil {
 		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
     		return
         }
-        //updates = managementClient.Node{Annotations: node.Annotations}
         for key, elem := range annotations {
-		//updates.Annotations[key] = elem
 		node.Annotations[key] = elem
         }
         if _, err = client.Management.Node.Update(node, node); err != nil {
-        //if _, err = client.Management.Node.Update(node, updates); err != nil {
 		err = fmt.Errorf("rancher.NodeSetAnnotations() error: %s", err)
+	}
+	return
+}
+
+func (client *Client) NodeSetLabels(nodeId string, labels map[string]string) (err error) {
+	var node *managementClient.Node
+        if node, err = client.Management.Node.ByID(nodeId); err != nil {
+		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+    		return
+        }
+        for key, elem := range labels {
+		node.Labels[key] = elem
+        }
+        if _, err = client.Management.Node.Update(node, node); err != nil {
+		err = fmt.Errorf("rancher.NodeSetLabels() error: %s", err)
+	}
+	return
+}
+
+func (client *Client) NodeUpdateLabels(nodeId string, oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
+	var node *managementClient.Node
+        if node, err = client.Management.Node.ByID(nodeId); err != nil {
+		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+    		return
+        }
+        if oldLabels != nil {
+    		for key, _ := range oldLabels {
+			delete(node.Labels, key)
+    		}
+    	}
+        if newLabels != nil {
+    		for key, elem := range newLabels {
+			node.Labels[key] = elem.(string)
+    		}
+    	}
+        if _, err = client.Management.Node.Update(node, node); err != nil {
+		err = fmt.Errorf("rancher.NodeSetLabels() error: %s", err)
 	}
 	return
 }

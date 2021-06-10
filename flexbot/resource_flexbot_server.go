@@ -2,20 +2,22 @@ package flexbot
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"bytes"
 	"time"
+	"context"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/denisbrodbeck/machineid"
+        "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+        "github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+        log "github.com/sirupsen/logrus"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ipam"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
-	"github.com/denisbrodbeck/machineid"
-        "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
 const (
@@ -37,12 +39,12 @@ const (
 func resourceFlexbotServer() *schema.Resource {
 	return &schema.Resource{
 		Schema: schemaFlexbotServer(),
-		Create: resourceCreateServer,
-		Read:   resourceReadServer,
-		Update: resourceUpdateServer,
-		Delete: resourceDeleteServer,
+		CreateContext: resourceCreateServer,
+		ReadContext:   resourceReadServer,
+		UpdateContext: resourceUpdateServer,
+		DeleteContext: resourceDeleteServer,
 		Importer: &schema.ResourceImporter{
-			State: resourceImportServer,
+			StateContext: resourceImportServer,
 		},
                 Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(3600 * time.Second),
@@ -52,9 +54,11 @@ func resourceFlexbotServer() *schema.Resource {
 	}
 }
 
-func resourceCreateServer(d *schema.ResourceData, meta interface{}) (err error) {
+func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
+	var err error
 	var nodeConfig *config.NodeConfig
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
@@ -64,48 +68,59 @@ func resourceCreateServer(d *schema.ResourceData, meta interface{}) (err error) 
 		name := snapshot.(map[string]interface{})["name"].(string)
 		if snapshot.(map[string]interface{})["fsfreeze"].(bool) {
 			if len(sshUser) == 0 || len(sshPrivateKey) == 0 {
-				err = fmt.Errorf("resourceCreateServer(): expected compute.ssh_user and compute.ssh_private_key parameters to ensure fsfreeze for snapshot %s", name)
+				diags = diag.FromErr(fmt.Errorf("resourceCreateServer(): expected compute.ssh_user and compute.ssh_private_key parameters to ensure fsfreeze for snapshot %s", name))
 				return
 			}
 		}
 	}
-	log.Printf("[INFO] Creating Server %s", nodeConfig.Compute.HostName)
+	log.Infof("Creating Server %s", nodeConfig.Compute.HostName)
 	var serverExists bool
 	if serverExists, err = ucsm.DiscoverServer(nodeConfig); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
 	if serverExists {
-		err = fmt.Errorf("resourceCreateServer(): serverServer %s already exists", nodeConfig.Compute.HostName)
+		diags = diag.FromErr(fmt.Errorf("resourceCreateServer(): serverServer %s already exists", nodeConfig.Compute.HostName))
 		return
 	}
 	var ipamProvider ipam.IpamProvider
 	if ipamProvider, err = ipam.NewProvider(&nodeConfig.Ipam); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
-	var preflightErr error
-	preflightErrMsg := []string{}
-	preflightErr = ipamProvider.AllocatePreflight(nodeConfig)
-	if preflightErr != nil {
-		preflightErrMsg = append(preflightErrMsg, preflightErr.Error())
+	if err = ipamProvider.AllocatePreflight(nodeConfig); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ipamProvider.AllocatePreflight()",
+			Detail:   err.Error(),
+		})
 	}
-	preflightErr = ontap.CreateBootStoragePreflight(nodeConfig)
-	if preflightErr != nil {
-		preflightErrMsg = append(preflightErrMsg, preflightErr.Error())
+	if err = ontap.CreateBootStoragePreflight(nodeConfig); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ontap.CreateBootStoragePreflight()",
+			Detail:   err.Error(),
+		})
 	}
-	preflightErr = ucsm.CreateServerPreflight(nodeConfig)
-	if preflightErr != nil {
-		preflightErrMsg = append(preflightErrMsg, preflightErr.Error())
+	if err = ucsm.CreateServerPreflight(nodeConfig); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ucsm.CreateServerPreflight()",
+			Detail:   err.Error(),
+		})
 	}
-	preflightErr = ontap.CreateSeedStoragePreflight(nodeConfig)
-	if preflightErr != nil {
-		preflightErrMsg = append(preflightErrMsg, preflightErr.Error())
+	if err = ontap.CreateSeedStoragePreflight(nodeConfig); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ontap.CreateSeedStoragePreflight()",
+			Detail:   err.Error(),
+		})
 	}
-	if len(preflightErrMsg) > 0 {
-		err = fmt.Errorf("resourceCreateServer(): %s", strings.Join(preflightErrMsg, "\n"))
+	if len(diags) > 0 {
 		return
 	}
 	if err = ipamProvider.Allocate(nodeConfig); err != nil {
-		err = fmt.Errorf("resourceCreateServer(): %s", err)
+		diags = diag.FromErr(fmt.Errorf("resourceCreateServer(): %s", err))
 		return
 	}
 	d.SetId(nodeConfig.Compute.HostName)
@@ -126,12 +141,12 @@ func resourceCreateServer(d *schema.ResourceData, meta interface{}) (err error) 
 		if err = waitForSsh(nodeConfig, compute["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err == nil {
 			for _, cmd := range compute["ssh_node_init_commands"].([]interface{}) {
 				var cmdOutput string
-				log.Printf("[INFO] Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
+				log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
 				if cmdOutput, err = runSshCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, cmd.(string)); err != nil {
 					break
 				}
-				if len(cmdOutput) > 0 {
-					log.Printf("[DEBUG] completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
+				if len(cmdOutput) > 0 && log.IsLevelEnabled(log.DebugLevel) {
+					log.Debugf("Completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
 				}
 			}
 		}
@@ -153,35 +168,43 @@ func resourceCreateServer(d *schema.ResourceData, meta interface{}) (err error) 
 	if err == nil {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
-			err = rancherNode.rancherApiNodeSetAnnotations()
+			if err = rancherNode.rancherApiNodeSetAnnotations(); err == nil {
+				err = rancherNode.rancherApiNodeSetLabels()
+			}
 		}
 	}
 	if err != nil {
-		err = fmt.Errorf("resourceCreateServer(): %s", err)
+		diags = diag.FromErr(fmt.Errorf("resourceCreateServer(): %s", err))
 	}
 	return
 }
 
-func resourceReadServer(d *schema.ResourceData, meta interface{}) (err error) {
+func resourceReadServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
+	var err error
 	var nodeConfig *config.NodeConfig
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
-	log.Printf("[INFO] Refreshing Server %s", nodeConfig.Compute.HostName)
+	log.Infof("Refreshing Server %s", nodeConfig.Compute.HostName)
 	var serverExists bool
 	if serverExists, err = ucsm.DiscoverServer(nodeConfig); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
 	var storageExists bool
 	if storageExists, err = ontap.DiscoverBootStorage(nodeConfig); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
 	if serverExists && storageExists {
 		var ipamProvider ipam.IpamProvider
 		if ipamProvider, err = ipam.NewProvider(&nodeConfig.Ipam); err != nil {
+			diags = diag.FromErr(err)
 			return
 		}
 		if err = ipamProvider.Discover(nodeConfig); err != nil {
+			diags = diag.FromErr(err)
 			return
 		}
 		setFlexbotOutput(d, meta, nodeConfig)
@@ -191,43 +214,61 @@ func resourceReadServer(d *schema.ResourceData, meta interface{}) (err error) {
 	return
 }
 
-func resourceUpdateServer(d *schema.ResourceData, meta interface{}) (err error) {
+func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
+	var err error
 	var nodeConfig *config.NodeConfig
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
 	if d.HasChange("compute") && !d.IsNewResource() {
 		if err = resourceUpdateServerCompute(d, meta, nodeConfig); err != nil {
-			resourceReadServer(d, meta)
+			resourceReadServer(ctx, d, meta)
+			diags = diag.FromErr(err)
 			return
 		}
-		d.SetPartial("compute")
 	}
 	if d.HasChange("storage") && !d.IsNewResource() {
 		if err = resourceUpdateServerStorage(d, meta, nodeConfig); err != nil {
-			resourceReadServer(d, meta)
+			resourceReadServer(ctx, d, meta)
+			diags = diag.FromErr(err)
 			return
 		}
-		d.SetPartial("storage")
 	}
 	if d.HasChange("snapshot") && !d.IsNewResource() {
 		if err = resourceUpdateServerSnapshot(d, meta, nodeConfig); err != nil {
+			diags = diag.FromErr(err)
 			return
 		}
-		d.SetPartial("snapshot")
+	}
+	if d.HasChange("labels") {
+		if err = resourceUpdateServerLabels(d, meta, nodeConfig); err != nil {
+			diags = diag.FromErr(err)
+			return
+		}
 	}
 	if d.HasChange("restore") {
 		if err = resourceUpdateServerRestore(d, meta, nodeConfig); err != nil {
+			diags = diag.FromErr(err)
 			return
 		}
-		d.SetPartial("restore")
 	}
-	resourceReadServer(d, meta)
+	resourceReadServer(ctx, d, meta)
 	d.Partial(false)
 	if (nodeConfig.ChangeStatus & (ChangeBladeSpec | ChangeOsImage | ChangeSeedTemplate | ChangeSnapshotRestore)) > 0 {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
-			err = rancherNode.rancherApiNodeSetAnnotations()
+			if err = rancherNode.rancherApiNodeSetAnnotations(); err != nil {
+				diags = diag.FromErr(err)
+			} else {
+				if (rancherNode.NodeEtcd || rancherNode.NodeControlPlane) && (nodeConfig.ChangeStatus & (ChangeOsImage | ChangeSeedTemplate)) > 0 {
+					if err = rancherNode.rancherApiNodeSetLabels(); err != nil {
+						diags = diag.FromErr(err)
+					}
+				}
+			}
+		} else {
+			diags = diag.FromErr(err)
 		}
 	}
 	return
@@ -300,7 +341,7 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 			err = fmt.Errorf("resourceUpdateServer(compute): last resource instance update returned error: %s", err)
 			return
 		}
-		log.Printf("[INFO] Updating Server Compute for node %s", nodeConfig.Compute.HostName)
+		log.Infof("Updating Server Compute for node %s", nodeConfig.Compute.HostName)
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, false); err != nil {
 			err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
@@ -402,7 +443,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		if oldSeedLun["seed_template"].(string) != newSeedLun["seed_template"].(string) {
 			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeSeedTemplate
 		}
-		log.Printf("[INFO] Updating Server Storage image for node %s", nodeConfig.Compute.HostName)
+		log.Infof("Updating Server Storage image for node %s", nodeConfig.Compute.HostName)
 		err = meta.(*FlexbotConfig).UpdateManagerAcquire()
 		defer meta.(*FlexbotConfig).UpdateManagerRelease()
 		if err != nil {
@@ -415,13 +456,13 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		}
 		nodeConfig.Storage.BootLun.OsImage.Name = newBootLun["os_image"].(string)
 		nodeConfig.Storage.SeedLun.SeedTemplate.Location = newSeedLun["seed_template"].(string)
-		log.Printf("[INFO] Running boot storage preflight check")
+		log.Infof("Running boot storage preflight check")
 		if err = ontap.CreateBootStoragePreflight(nodeConfig); err != nil {
 			err = fmt.Errorf("resourceUpdateServer(storage): boot storage preflight check error: %s", err)
 			meta.(*FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
-		log.Printf("[INFO] Running seed storage preflight check")
+		log.Infof("Running seed storage preflight check")
 		if err = ontap.CreateSeedStoragePreflight(nodeConfig); err != nil {
 			err = fmt.Errorf("resourceUpdateServer(storage): seed storage preflight check error: %s", err)
 			meta.(*FlexbotConfig).UpdateManagerSetError(err)
@@ -499,13 +540,13 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 				}
 				for _, cmd := range compute["ssh_node_init_commands"].([]interface{}) {
 					var cmdOutput string
-					log.Printf("[INFO] Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
+					log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
 					if cmdOutput, err = runSshCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, cmd.(string)); err != nil {
 						meta.(*FlexbotConfig).UpdateManagerSetError(err)
 						return
 					}
-					if len(cmdOutput) > 0 {
-						log.Printf("[DEBUG] completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
+					if len(cmdOutput) > 0 && log.IsLevelEnabled(log.DebugLevel) {
+						log.Debugf("Completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
 					}
 				}
 			}
@@ -531,14 +572,14 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		}
 	}
 	if oldBootLun["size"].(int) != newBootLun["size"].(int) {
-		log.Printf("[INFO] Re-sizing Server Storage boot LUN for node %s", nodeConfig.Compute.HostName)
+		log.Infof("Re-sizing Server Storage boot LUN for node %s", nodeConfig.Compute.HostName)
 		nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeBootDiskSize
 	}
 	if len((oldStorage.([]interface{})[0].(map[string]interface{}))["data_lun"].([]interface{})) > 0 && len((newStorage.([]interface{})[0].(map[string]interface{}))["data_lun"].([]interface{})) > 0 {
 		oldDataLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["data_lun"].([]interface{})[0].(map[string]interface{})
 		newDataLun := (newStorage.([]interface{})[0].(map[string]interface{}))["data_lun"].([]interface{})[0].(map[string]interface{})
 		if oldDataLun["size"].(int) != newDataLun["size"].(int) {
-			log.Printf("[INFO] Re-sizing Server Storage data LUN for node %s", nodeConfig.Compute.HostName)
+			log.Infof("Re-sizing Server Storage data LUN for node %s", nodeConfig.Compute.HostName)
 			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeDataDiskSize
 		}
 	}
@@ -552,24 +593,24 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		if (nodeConfig.ChangeStatus & ChangeBootDiskSize) > 0 {
 			for _, cmd := range compute["ssh_node_bootdisk_resize_commands"].([]interface{}) {
 				var cmdOutput string
-				log.Printf("[INFO] Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
+				log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
 				if cmdOutput, err = runSshCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, cmd.(string)); err != nil {
 					return
 				}
-				if len(cmdOutput) > 0 {
-					log.Printf("[DEBUG] completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
+				if len(cmdOutput) > 0 && log.IsLevelEnabled(log.DebugLevel) {
+					log.Debugf("Completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
 				}
 			}
 		}
 		if (nodeConfig.ChangeStatus & ChangeDataDiskSize) > 0 {
 			for _, cmd := range compute["ssh_node_datadisk_resize_commands"].([]interface{}) {
 				var cmdOutput string
-				log.Printf("[INFO] Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
+				log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
 				if cmdOutput, err = runSshCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, cmd.(string)); err != nil {
 					return
 				}
-				if len(cmdOutput) > 0 {
-					log.Printf("[DEBUG] completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
+				if len(cmdOutput) > 0 && log.IsLevelEnabled(log.DebugLevel) {
+					log.Debugf("Completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
 				}
 			}
 		}
@@ -641,7 +682,7 @@ func resourceUpdateServerRestore(d *schema.ResourceData, meta interface{}, nodeC
 	if !restore["restore"].(bool) {
 		return
 	}
-	log.Printf("[INFO] Restoring Server Storage from snapshot")
+	log.Infof("Restoring Server Storage from snapshot")
 	if restore["snapshot_name"] == nil || len(restore["snapshot_name"].(string)) == 0 {
 		var lastSnapshot string
 		var snapshotList []string
@@ -703,73 +744,94 @@ func resourceUpdateServerRestore(d *schema.ResourceData, meta interface{}, nodeC
 	return
 }
 
-func resourceDeleteServer(d *schema.ResourceData, meta interface{}) (err error) {
+func resourceUpdateServerLabels(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
+	var rancherNode *RancherNode
+	oldLabels, newLabels := d.GetChange("labels")
+	if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
+		err = rancherNode.rancherApiNodeUpdateLabels(oldLabels.(map[string]interface{}), newLabels.(map[string]interface{}))
+	}
+	return
+}
+
+func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
+	var err error
 	var powerState string
 	var nodeConfig *config.NodeConfig
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
-	log.Printf("[INFO] Deleting Server %s", nodeConfig.Compute.HostName)
+	log.Infof("Deleting Server %s", nodeConfig.Compute.HostName)
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
 	if powerState == "up" && compute["safe_removal"].(bool) {
-		err = fmt.Errorf("resourceDeleteServer(): server %s has power state up", nodeConfig.Compute.HostName)
+		diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): server %s has power state up", nodeConfig.Compute.HostName))
 		return
 	}
 	var rancherNode *RancherNode
 	if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, false); err != nil {
-		err = fmt.Errorf("resourceDeleteServer(): error: %s", err)
+		diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 		return
 	}
 	if powerState == "up" {
 		// Cordon/drain worker nodes
 		if rancherNode.NodeWorker {
 			if err = rancherNode.rancherApiNodeCordon(); err != nil {
-				err = fmt.Errorf("resourceDeleteServer(): error: %s", err)
+				diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 				return
 			}
 		}
 		if err = ucsm.StopServer(nodeConfig); err != nil {
+			diags = diag.FromErr(err)
 			return
 		}
 	}
 	// Delete node
 	if err = rancherNode.rancherApiNodeDelete(); err != nil {
-		err = fmt.Errorf("resourceDeleteServer(): error: %s", err)
+		diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 		return
 	}
-	var stepErr error
-	stepErrMsg := []string{}
-	stepErr = ucsm.DeleteServer(nodeConfig)
-	if stepErr != nil {
-		stepErrMsg = append(stepErrMsg, stepErr.Error())
+	if err = ucsm.DeleteServer(nodeConfig); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ucsm.DeleteServer()",
+			Detail:   err.Error(),
+		})
 	}
-	stepErr = ontap.DeleteBootStorage(nodeConfig)
-	if stepErr != nil {
-		stepErrMsg = append(stepErrMsg, stepErr.Error())
+	if err = ontap.DeleteBootStorage(nodeConfig); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ontap.DeleteBootStorage()",
+			Detail:   err.Error(),
+		})
 	}
 	var ipamProvider ipam.IpamProvider
 	if ipamProvider, err = ipam.NewProvider(&nodeConfig.Ipam); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ipam.NewProvider()",
+			Detail:   err.Error(),
+		})
 		return
 	}
-	stepErr = ipamProvider.Release(nodeConfig)
-	if stepErr != nil {
-		stepErrMsg = append(stepErrMsg, stepErr.Error())
-	}
-	if len(stepErrMsg) > 0 {
-		err = fmt.Errorf("resourceDeleteServer(): %s", strings.Join(stepErrMsg, "\n"))
+	if err = ipamProvider.Release(nodeConfig); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ipamProvider.Release()",
+			Detail:   err.Error(),
+		})
 	}
 	return
 }
 
-func resourceImportServer(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	err := resourceReadServer(d, meta)
-	if err != nil {
-		return []*schema.ResourceData{}, err
+func resourceImportServer(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+	if diags := resourceReadServer(ctx, d, meta); diags != nil && len(diags) > 0 {
+		return nil, fmt.Errorf("%s: %s", diags[0].Summary, diags[0].Detail)
 	}
-	return []*schema.ResourceData{d}, nil
+	return schema.ImportStatePassthroughContext(ctx, d, meta)
 }
 
 func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.NodeConfig, err error) {
@@ -877,6 +939,10 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.CloudArgs = make(map[string]string)
 	for argKey, argValue := range d.Get("cloud_args").(map[string]interface{}) {
 		nodeConfig.CloudArgs[argKey] = argValue.(string)
+	}
+	nodeConfig.Labels = make(map[string]string)
+	for labelKey, labelValue := range d.Get("labels").(map[string]interface{}) {
+		nodeConfig.Labels[labelKey] = labelValue.(string)
 	}
 	passPhrase := p.Get("pass_phrase").(string)
 	if passPhrase == "" {

@@ -8,3 +8,6 @@ set -o pipefail
 
 apt-get -y purge snapd
 apt -y remove accountsservice
+apt -y remove unattended-upgrades
+systemctl stop systemd-timesyncd.service
+systemctl disable systemd-timesyncd.service

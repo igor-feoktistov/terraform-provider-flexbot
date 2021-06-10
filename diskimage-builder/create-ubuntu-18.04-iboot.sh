@@ -4,7 +4,7 @@ export DIB_RELEASE=bionic
 export DIB_DEV_USER_USERNAME=devuser
 export DIB_DEV_USER_PWDLESS_SUDO=Yes
 export DIB_DEV_USER_PASSWORD=secret
-export DIB_BOOTLOADER_SERIAL_CONSOLE=tty0
+export ELEMENTS_PATH=/usr/local/diskimage-builder/elements/ubuntu-18.04
 export DIB_BLOCK_DEVICE_CONFIG='
   - local_loop:
       name: image0
@@ -28,4 +28,5 @@ disk-image-create vm block-device-mbr ubuntu \
   -p cloud-utils \
   -p cloud-initramfs-growroot \
   -p nfs-common \
+  -p chrony \
   -t raw -o images/ubuntu-18.04.05.01-iboot.raw

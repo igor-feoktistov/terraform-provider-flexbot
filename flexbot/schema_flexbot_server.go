@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-        "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+        "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func schemaFlexbotServer() map[string]*schema.Schema {
@@ -595,6 +595,11 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 			},
 		},
 		"cloud_args": {
+			Type:     schema.TypeMap,
+			Optional: true,
+			Elem:     &schema.Schema{Type: schema.TypeString},
+		},
+		"labels": {
 			Type:     schema.TypeMap,
 			Optional: true,
 			Elem:     &schema.Schema{Type: schema.TypeString},
