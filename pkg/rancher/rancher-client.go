@@ -455,4 +455,26 @@ func (client *Client) NodeSetLabels(nodeId string, labels map[string]string) (er
 	}
 	return
 }
+
+func (client *Client) NodeUpdateLabels(nodeId string, oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
+	var node *managementClient.Node
+        if node, err = client.Management.Node.ByID(nodeId); err != nil {
+		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+    		return
+        }
+        if oldLabels != nil {
+    		for key, _ := range oldLabels {
+			delete(node.Labels, key)
+    		}
+    	}
+        if newLabels != nil {
+    		for key, elem := range newLabels {
+			node.Labels[key] = elem.(string)
+    		}
+    	}
+        if _, err = client.Management.Node.Update(node, node); err != nil {
+		err = fmt.Errorf("rancher.NodeSetLabels() error: %s", err)
+	}
+	return
+}
 	

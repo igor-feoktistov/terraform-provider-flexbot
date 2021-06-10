@@ -241,6 +241,12 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 			return
 		}
 	}
+	if d.HasChange("labels") {
+		if err = resourceUpdateServerLabels(d, meta, nodeConfig); err != nil {
+			diags = diag.FromErr(err)
+			return
+		}
+	}
 	if d.HasChange("restore") {
 		if err = resourceUpdateServerRestore(d, meta, nodeConfig); err != nil {
 			diags = diag.FromErr(err)
@@ -735,6 +741,15 @@ func resourceUpdateServerRestore(d *schema.ResourceData, meta interface{}, nodeC
 	}
 	nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeSnapshotRestore
 	d.Set("restore", oldRestore)
+	return
+}
+
+func resourceUpdateServerLabels(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
+	var rancherNode *RancherNode
+	oldLabels, newLabels := d.GetChange("labels")
+	if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
+		err = rancherNode.rancherApiNodeUpdateLabels(oldLabels.(map[string]interface{}), newLabels.(map[string]interface{}))
+	}
 	return
 }
 

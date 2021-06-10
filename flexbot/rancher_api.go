@@ -174,3 +174,10 @@ func (node *RancherNode) rancherApiNodeSetLabels() (err error) {
 	}
 	return
 }
+
+func (node *RancherNode) rancherApiNodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+		err = node.RancherClient.NodeUpdateLabels(node.NodeID, oldLabels, newLabels)
+	}
+	return
+}

@@ -174,7 +174,7 @@ resource "flexbot_server" "k8s-node1" {
 
   # Optional - Kubernetes node labels are user defined key/value pairs - requires Rancher API enabled
   labels = {
-    "kubernetes.io/cluster-name": "us-west-flexpod-01"
+    "kubernetes.io/cluster-name" = "us-west-flexpod-01"
   }
 
   # Restore from snapshot
