@@ -172,6 +172,11 @@ resource "flexbot_server" "k8s-node1" {
     ssh_pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAxxxxxxxxxxxxxxxxxxxxxxx"
   }
 
+  # Optional - Kubernetes node labels are user defined key/value pairs - requires Rancher API enabled
+  labels = {
+    "kubernetes.io/cluster-name": "us-west-flexpod-01"
+  }
+
   # Restore from snapshot
   # Optional - restore server LUN's from snapshot.
   restore {
