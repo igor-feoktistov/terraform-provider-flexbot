@@ -1,5 +1,10 @@
-# Examples for diskimage-builder
+# OS images building procedure
 
-The example script [create-ubuntu-18.04-iboot.sh](./create-ubuntu-18.04-iboot.sh) should build you an image ready for Rancher RKE node.
-Make sure to copy respective elements first from [elements/ubuntu-18.04](./elements/ubuntu-18.04) to diskimage-builder package tree.
- 
+### Prerequisites
+* Python 3.6 or higher
+* Installed [diskimage-builder](https://docs.openstack.org/diskimage-builder/latest/) v3.11 or higher
+
+### Steps to build OS image:
+* Clone content of this folder to `/usr/local/diskimage-builder` directory.
+* Run script [create-ubuntu-18.04-iboot.sh](create-ubuntu-18.04-iboot.sh).
+* Newly created RAW image is ready to be submitted to image repository.

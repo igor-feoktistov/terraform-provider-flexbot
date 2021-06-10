@@ -1,12 +1,16 @@
 package main
 
 import (
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+
 	"github.com/igor-feoktistov/terraform-provider-flexbot/flexbot"
-	"github.com/hashicorp/terraform-plugin-sdk/plugin"
 )
 
 func main() {
 	plugin.Serve(&plugin.ServeOpts{
-		ProviderFunc: flexbot.Provider,
+		ProviderFunc: func() *schema.Provider {
+			return flexbot.Provider()
+		},
 	})
 }

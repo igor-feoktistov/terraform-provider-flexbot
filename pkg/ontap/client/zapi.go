@@ -27,7 +27,7 @@ func NewOntapZAPI(nodeConfig *config.NodeConfig) (c *OntapZAPI, err error) {
 			BasicAuthPassword: nodeConfig.Storage.CdotCredentials.Password,
 			SSLVerify:         false,
 			Debug:             false,
-			Timeout:           60 * time.Second,
+			Timeout:           120 * time.Second,
 			Version:           nodeConfig.Storage.CdotCredentials.ZapiVersion,
 		},
 	)

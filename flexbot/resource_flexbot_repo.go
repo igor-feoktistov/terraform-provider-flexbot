@@ -2,24 +2,26 @@ package flexbot
 
 import (
 	"fmt"
-	"log"
 	"time"
+	"context"
 
+	"github.com/denisbrodbeck/machineid"
+        "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+        "github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+        log "github.com/sirupsen/logrus"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
-	"github.com/denisbrodbeck/machineid"
-        "github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
 func resourceFlexbotRepo() *schema.Resource {
 	return &schema.Resource{
 		Schema: schemaFlexbotRepo(),
-		Create: resourceCreateRepo,
-		Read:   resourceReadRepo,
-		Update: resourceUpdateRepo,
-		Delete: resourceDeleteRepo,
+		CreateContext: resourceCreateRepo,
+		ReadContext:   resourceReadRepo,
+		UpdateContext: resourceUpdateRepo,
+		DeleteContext: resourceDeleteRepo,
 		Importer: &schema.ResourceImporter{
-			State: resourceImportRepo,
+			StateContext: resourceImportRepo,
 		},
                 Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(7200 * time.Second),
@@ -29,19 +31,23 @@ func resourceFlexbotRepo() *schema.Resource {
 	}
 }
 
-func resourceCreateRepo(d *schema.ResourceData, meta interface{}) (err error) {
+func resourceCreateRepo(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
+	var err error
 	var nodeConfig *config.NodeConfig
-	log.Printf("[INFO] Creating Image Repository")
+	log.Infof("Creating Image Repository")
 	if nodeConfig, err = setRepoInput(d, meta); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
 	if err = createRepo(d, nodeConfig, "image_repo"); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
 	if err = createRepo(d, nodeConfig, "template_repo"); err != nil {
+		diags = diag.FromErr(err)
 		return
 	}
-	if err = resourceReadRepo(d, meta); err != nil {
+	if diags = resourceReadRepo(ctx, d, meta); diags != nil && len(diags) > 0 {
 		return
 	}
 	d.SetId(nodeConfig.Storage.CdotCredentials.Host + ":/repo")
@@ -84,20 +90,22 @@ func createRepo(d *schema.ResourceData, nodeConfig *config.NodeConfig, repo stri
 	return
 }
 
-func resourceReadRepo(d *schema.ResourceData, meta interface{}) (err error) {
+func resourceReadRepo(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
+	var err error
 	var nodeConfig *config.NodeConfig
-	log.Printf("[INFO] Reading Image Repository")
+	log.Infof("Reading Image Repository")
 	if nodeConfig, err = setRepoInput(d, meta); err == nil {
 		err = setRepoOutput(d, meta, nodeConfig)
 	}
 	if err != nil {
-		err = fmt.Errorf("resourceReadRepo(): %s", err)
+		diags = diag.FromErr(fmt.Errorf("resourceReadRepo(): %s", err))
 	}
 	return
 }
 
-func resourceUpdateRepo(d *schema.ResourceData, meta interface{}) (err error) {
-	log.Printf("[INFO] Updating Image Repository")
+func resourceUpdateRepo(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
+	var err error
+	log.Infof("Updating Image Repository")
 	if d.HasChange("image_repo") && !d.IsNewResource() {
 		err = updateRepo(d, meta, "image_repo")
 	}
@@ -105,7 +113,9 @@ func resourceUpdateRepo(d *schema.ResourceData, meta interface{}) (err error) {
 		err = updateRepo(d, meta, "template_repo")
 	}
 	if err == nil {
-		err = resourceReadRepo(d, meta)
+		diags = resourceReadRepo(ctx, d, meta)
+	} else {
+		diags = diag.FromErr(err)
 	}
 	return
 }
@@ -186,9 +196,10 @@ func updateRepo(d *schema.ResourceData, meta interface{}, repo string) (err erro
 	return
 }
 
-func resourceDeleteRepo(d *schema.ResourceData, meta interface{}) (err error) {
+func resourceDeleteRepo(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
+	var err error
 	var nodeConfig *config.NodeConfig
-	log.Printf("[INFO] Deleting Image Repository")
+	log.Infof("Deleting Image Repository")
 	nodeConfig, err = setRepoInput(d, meta)
 	for _, repoItem := range d.Get("image_repo").([]interface{}) {
 		if err == nil {
@@ -201,19 +212,18 @@ func resourceDeleteRepo(d *schema.ResourceData, meta interface{}) (err error) {
 		}
 	}
 	if err != nil {
-		err = fmt.Errorf("resourceDeleteRepo(): %s", err)
+		diags = diag.FromErr(fmt.Errorf("resourceDeleteRepo(): %s", err))
 	} else {
 		d.SetId("")
 	}
 	return
 }
 
-func resourceImportRepo(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	err := resourceReadRepo(d, meta)
-	if err != nil {
-		return []*schema.ResourceData{}, err
+func resourceImportRepo(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+	if diags  := resourceReadRepo(ctx, d, meta); diags != nil && len(diags) > 0 {
+		return nil, fmt.Errorf("%s: %s", diags[0].Summary, diags[0].Detail)
 	}
-	return []*schema.ResourceData{d}, nil
+	return schema.ImportStatePassthroughContext(ctx, d, meta)
 }
 
 func setRepoInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.NodeConfig, err error) {

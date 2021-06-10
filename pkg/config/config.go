@@ -142,6 +142,7 @@ type NodeConfig struct {
 	Storage      Storage           `yaml:"storage" json:"storage"`
 	Network      Network           `yaml:"network" json:"network"`
 	CloudArgs    map[string]string `yaml:"cloudArgs,omitempty" json:"cloudArgs,omitempty"`
+	Labels       map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"`
 	ChangeStatus uint32            `yaml:"changeStatus,omitempty" json:"changeStatus,omitempty"`
 }
 
