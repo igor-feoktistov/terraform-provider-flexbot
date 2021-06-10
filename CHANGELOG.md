@@ -4,7 +4,7 @@ ENHANCEMENTS:
 * Migrated provider to Terraform Plugin SDK v2
 
 FEATURES:
-* **New Resource Argument:** `labels` - (Optional) allows to set k8s node labels, requires Rancher API enabled.
+* New Resource Argument: **labels** - (Optional) allows to set k8s node labels, requires Rancher API enabled.
 
 
 ## 1.7.3 (May 25, 2021)
