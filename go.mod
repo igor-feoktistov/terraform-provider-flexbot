@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.0.0
 	github.com/igor-feoktistov/go-ontap-rest v1.0.3
 	github.com/igor-feoktistov/go-ontap-sdk v1.0.3
-	github.com/igor-feoktistov/go-ucsm-sdk v1.0.0
+	github.com/igor-feoktistov/go-ucsm-sdk v1.0.6
 	github.com/infobloxopen/infoblox-go-client v1.1.0
 	github.com/kdomanski/iso9660 v0.2.0
 	github.com/rancher/norman v0.0.0-20210504005327-7b74a9f308a7

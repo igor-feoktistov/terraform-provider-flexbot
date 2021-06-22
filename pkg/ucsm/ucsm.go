@@ -95,6 +95,12 @@ func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 		return
 	}
 	nodeConfig.Compute.SpDn = sp.Dn
+	if len(nodeConfig.Compute.Description) > 0 || len(nodeConfig.Compute.Label) > 0 {
+		if _, err = util.SpSetAttributes(client, sp.Dn, nodeConfig.Compute.Description, nodeConfig.Compute.Label); err != nil {
+			err = fmt.Errorf("CreateServer: SpSetAttributes() failure: %s", err)
+			return
+		}
+	}
 	if _, err = util.SpUnbindFromSpt(client, sp.Dn); err != nil {
 		err = fmt.Errorf("CreateServer: SpUnbindFromSpt() failure: %s", err)
 		return
@@ -300,6 +306,8 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 			return
 		}
 	}
+	nodeConfig.Compute.Description = lsServers[0].Descr
+	nodeConfig.Compute.Label = lsServers[0].UsrLbl
 	if lsServers[0].AssignState == "assigned" {
 		nodeConfig.Compute.BladeSpec.Dn = lsServers[0].PnDn
 	} else {
@@ -341,6 +349,32 @@ func UpdateServer(nodeConfig *config.NodeConfig) (err error) {
 		return
 	}
 	err = AssignBlade(client, nodeConfig)
+	return
+}
+
+func UpdateServerAttributes(nodeConfig *config.NodeConfig) (err error) {
+	var client *api.Client
+	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
+	if err != nil {
+		err = fmt.Errorf("UpdateServerAttributes: AaaLogin() failure: %s", err)
+		return
+	}
+	defer client.AaaLogout()
+	var lsServers []*mo.LsServer
+	nodeConfig.Compute.SpDn = nodeConfig.Compute.SpOrg + "/ls-" + nodeConfig.Compute.HostName
+	if lsServers, err = util.ServerGet(client, nodeConfig.Compute.SpDn, "instance"); err != nil {
+		err = fmt.Errorf("UpdateServerAttributes: ServerGet() failure: %s", err)
+		return
+	}
+	if len(lsServers) == 0 {
+		err = fmt.Errorf("UpdateServerAttributes: ServerGet() failure: server does not exist")
+		return
+	}
+	if lsServers[0].Descr != nodeConfig.Compute.Description || lsServers[0].UsrLbl != nodeConfig.Compute.Label {
+		if _, err = util.SpSetAttributes(client, nodeConfig.Compute.SpDn, nodeConfig.Compute.Description, nodeConfig.Compute.Label); err != nil {
+			err = fmt.Errorf("UpdateServerAttributes: SpSetAttributes() failure: %s", err)
+		}
+	}
 	return
 }
 

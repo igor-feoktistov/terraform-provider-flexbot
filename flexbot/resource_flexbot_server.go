@@ -423,6 +423,10 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 			}
 		}
 	}
+	if (oldCompute.([]interface{})[0].(map[string]interface{}))["description"].(string) != (newCompute.([]interface{})[0].(map[string]interface{}))["description"].(string) ||
+		(oldCompute.([]interface{})[0].(map[string]interface{}))["label"].(string) != (newCompute.([]interface{})[0].(map[string]interface{}))["label"].(string) {
+		err = ucsm.UpdateServerAttributes(nodeConfig)
+	}
 	return
 }
 
@@ -868,6 +872,8 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.Storage.CdotCredentials.ZapiVersion = cdotCredentials["zapi_version"].(string)
 	nodeConfig.Compute.SpOrg = compute["sp_org"].(string)
 	nodeConfig.Compute.SpTemplate = compute["sp_template"].(string)
+	nodeConfig.Compute.Description = compute["description"].(string)
+	nodeConfig.Compute.Label = compute["label"].(string)
 	if len(compute["blade_spec"].([]interface{})) > 0 {
 		bladeSpec := compute["blade_spec"].([]interface{})[0].(map[string]interface{})
 		nodeConfig.Compute.BladeSpec.Dn = bladeSpec["dn"].(string)
@@ -979,6 +985,8 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 		compute["blade_assigned"] = append(compute["blade_assigned"].([]interface{}), bladeAssigned)
 	}
 	compute["powerstate"] = nodeConfig.Compute.Powerstate
+	compute["description"] = nodeConfig.Compute.Description
+	compute["label"] = nodeConfig.Compute.Label
 	storage["svm_name"] = nodeConfig.Storage.SvmName
 	storage["image_repo_name"] = nodeConfig.Storage.ImageRepoName
 	storage["volume_name"] = nodeConfig.Storage.VolumeName
