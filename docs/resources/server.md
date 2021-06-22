@@ -19,6 +19,10 @@ resource "flexbot_server" "k8s-node1" {
     sp_org = "org-root/org-Kubernetes"
     # Required - Reference to Service Profile Template (SPT)
     sp_template = "org-root/org-Kubernetes/ls-K8S-SubProd-01"
+    # Optional - Service Profile label
+    label = "worker"
+    # Optional - Service Profile description
+    description = "worker, cluster us-west-dc12-01"
     # Optional - Blade spec to find blade (all specs are optional)
     blade_spec {
       # Blade Dn, supports regexp
