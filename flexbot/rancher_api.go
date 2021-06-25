@@ -130,7 +130,7 @@ func (node *RancherNode) rancherApiNodeDelete() (err error) {
 	return
 }
 
-func (node *RancherNode) rancherApiNodeSetAnnotations() (err error) {
+func (node *RancherNode) rancherApiNodeSetAnnotationsLabels() (err error) {
 	var compute_b, storage_b []byte
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		annotations := make(map[string]string)
@@ -163,14 +163,7 @@ func (node *RancherNode) rancherApiNodeSetAnnotations() (err error) {
 			}
 			annotations[NodeAnnotationStorage] = string(storage_b)
 		}
-		err = node.RancherClient.NodeSetAnnotations(node.NodeID, annotations)
-	}
-	return
-}
-
-func (node *RancherNode) rancherApiNodeSetLabels() (err error) {
-	if node.RancherClient != nil && len(node.NodeID) > 0 && len(node.NodeConfig.Labels) > 0 {
-		err = node.RancherClient.NodeSetLabels(node.NodeID, node.NodeConfig.Labels)
+		err = node.RancherClient.NodeSetAnnotationsLabels(node.NodeID, annotations, node.NodeConfig.Labels)
 	}
 	return
 }

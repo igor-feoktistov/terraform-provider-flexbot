@@ -95,6 +95,8 @@ type Compute struct {
 	BladeSpec       util.BladeSpec `yaml:"bladeSpec,omitempty" json:"bladeSpec,omitempty"`
 	BladeAssigned   util.BladeSpec `yaml:"bladeAssigned,omitempty" json:"bladeAssigned,omitempty"`
 	Powerstate	string         `yaml:"powerState,omitempty" json:"powerState,omitempty"`
+	Description	string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Label		string         `yaml:"label,omitempty" json:"label,omitempty"`
 }
 
 type RemoteFile struct {

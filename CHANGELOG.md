@@ -1,3 +1,11 @@
+## 1.7.5 (June 25, 2021)
+
+FEATURES:
+* New Resource Arguments:
+  * compute.label - (Optional) allows to set and manage UCS Service Profile label
+  * compute.description - (Optional) allows to set and manage UCS Service Profile description
+
+
 ## 1.7.4 (June 10, 2021)
 
 ENHANCEMENTS:

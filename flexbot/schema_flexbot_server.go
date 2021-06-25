@@ -198,6 +198,16 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 							return
 						},
 					},
+					"description": {
+						Type:     schema.TypeString,
+						Optional: true,
+						Default: "",
+					},
+					"label": {
+						Type:     schema.TypeString,
+						Optional: true,
+						Default: "",
+					},
 				},
 			},
 		},

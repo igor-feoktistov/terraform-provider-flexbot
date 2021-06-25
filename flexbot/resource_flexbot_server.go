@@ -168,9 +168,7 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	if err == nil {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
-			if err = rancherNode.rancherApiNodeSetAnnotations(); err == nil {
-				err = rancherNode.rancherApiNodeSetLabels()
-			}
+			err = rancherNode.rancherApiNodeSetAnnotationsLabels()
 		}
 	}
 	if err != nil {
@@ -258,14 +256,8 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	if (nodeConfig.ChangeStatus & (ChangeBladeSpec | ChangeOsImage | ChangeSeedTemplate | ChangeSnapshotRestore)) > 0 {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
-			if err = rancherNode.rancherApiNodeSetAnnotations(); err != nil {
+			if err = rancherNode.rancherApiNodeSetAnnotationsLabels(); err != nil {
 				diags = diag.FromErr(err)
-			} else {
-				if (rancherNode.NodeEtcd || rancherNode.NodeControlPlane) && (nodeConfig.ChangeStatus & (ChangeOsImage | ChangeSeedTemplate)) > 0 {
-					if err = rancherNode.rancherApiNodeSetLabels(); err != nil {
-						diags = diag.FromErr(err)
-					}
-				}
 			}
 		} else {
 			diags = diag.FromErr(err)
@@ -422,6 +414,10 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 				time.Sleep(time.Duration(meta.(*FlexbotConfig).NodeGraceTimeout) * time.Second)
 			}
 		}
+	}
+	if (oldCompute.([]interface{})[0].(map[string]interface{}))["description"].(string) != (newCompute.([]interface{})[0].(map[string]interface{}))["description"].(string) ||
+		(oldCompute.([]interface{})[0].(map[string]interface{}))["label"].(string) != (newCompute.([]interface{})[0].(map[string]interface{}))["label"].(string) {
+		err = ucsm.UpdateServerAttributes(nodeConfig)
 	}
 	return
 }
@@ -868,6 +864,8 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.Storage.CdotCredentials.ZapiVersion = cdotCredentials["zapi_version"].(string)
 	nodeConfig.Compute.SpOrg = compute["sp_org"].(string)
 	nodeConfig.Compute.SpTemplate = compute["sp_template"].(string)
+	nodeConfig.Compute.Description = compute["description"].(string)
+	nodeConfig.Compute.Label = compute["label"].(string)
 	if len(compute["blade_spec"].([]interface{})) > 0 {
 		bladeSpec := compute["blade_spec"].([]interface{})[0].(map[string]interface{})
 		nodeConfig.Compute.BladeSpec.Dn = bladeSpec["dn"].(string)
@@ -979,6 +977,8 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 		compute["blade_assigned"] = append(compute["blade_assigned"].([]interface{}), bladeAssigned)
 	}
 	compute["powerstate"] = nodeConfig.Compute.Powerstate
+	compute["description"] = nodeConfig.Compute.Description
+	compute["label"] = nodeConfig.Compute.Label
 	storage["svm_name"] = nodeConfig.Storage.SvmName
 	storage["image_repo_name"] = nodeConfig.Storage.ImageRepoName
 	storage["volume_name"] = nodeConfig.Storage.VolumeName
