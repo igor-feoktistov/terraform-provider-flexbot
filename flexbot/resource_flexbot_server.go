@@ -168,9 +168,7 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	if err == nil {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
-			if err = rancherNode.rancherApiNodeSetAnnotations(); err == nil {
-				err = rancherNode.rancherApiNodeSetLabels()
-			}
+			err = rancherNode.rancherApiNodeSetAnnotationsLabels()
 		}
 	}
 	if err != nil {
@@ -258,14 +256,8 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	if (nodeConfig.ChangeStatus & (ChangeBladeSpec | ChangeOsImage | ChangeSeedTemplate | ChangeSnapshotRestore)) > 0 {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
-			if err = rancherNode.rancherApiNodeSetAnnotations(); err != nil {
+			if err = rancherNode.rancherApiNodeSetAnnotationsLabels(); err != nil {
 				diags = diag.FromErr(err)
-			} else {
-				if (rancherNode.NodeEtcd || rancherNode.NodeControlPlane) && (nodeConfig.ChangeStatus & (ChangeOsImage | ChangeSeedTemplate)) > 0 {
-					if err = rancherNode.rancherApiNodeSetLabels(); err != nil {
-						diags = diag.FromErr(err)
-					}
-				}
 			}
 		} else {
 			diags = diag.FromErr(err)

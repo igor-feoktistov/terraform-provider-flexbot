@@ -426,7 +426,7 @@ func (client *Client) DeleteNode(nodeId string) (err error) {
 	return
 }
 
-func (client *Client) NodeSetAnnotations(nodeId string, annotations map[string]string) (err error) {
+func (client *Client) NodeSetAnnotationsLabels(nodeId string, annotations map[string]string, labels map[string]string) (err error) {
 	var node *managementClient.Node
         if node, err = client.Management.Node.ByID(nodeId); err != nil {
 		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
@@ -435,23 +435,11 @@ func (client *Client) NodeSetAnnotations(nodeId string, annotations map[string]s
         for key, elem := range annotations {
 		node.Annotations[key] = elem
         }
-        if _, err = client.Management.Node.Update(node, node); err != nil {
-		err = fmt.Errorf("rancher.NodeSetAnnotations() error: %s", err)
-	}
-	return
-}
-
-func (client *Client) NodeSetLabels(nodeId string, labels map[string]string) (err error) {
-	var node *managementClient.Node
-        if node, err = client.Management.Node.ByID(nodeId); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
-    		return
-        }
         for key, elem := range labels {
 		node.Labels[key] = elem
         }
         if _, err = client.Management.Node.Update(node, node); err != nil {
-		err = fmt.Errorf("rancher.NodeSetLabels() error: %s", err)
+		err = fmt.Errorf("rancher.NodeSetAnnotations() error: %s", err)
 	}
 	return
 }

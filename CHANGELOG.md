@@ -1,4 +1,4 @@
-## 1.7.5 (June 22, 2021)
+## 1.7.5 (June 25, 2021)
 
 FEATURES:
 * New Resource Arguments:
