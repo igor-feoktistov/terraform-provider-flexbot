@@ -1,7 +1,7 @@
 ## 1.7.6 (July 2, 2021)
 
 BUG FIXES:
-* Fix in `createSnapshot` routine when in certain filesystem layouts `fsfreeze` may fail.
+* Fix for the issue in `createSnapshot` routine when in certain filesystem layouts `fsfreeze` may fail.
 
 
 ## 1.7.5 (June 25, 2021)

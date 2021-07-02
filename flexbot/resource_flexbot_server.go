@@ -1094,7 +1094,7 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 		unfreeze_cmds = append(unfreeze_cmds, "fsfreeze -u " + fs)
 	}
 	freeze_cmds = append(freeze_cmds, "fsfreeze -f /")
-	cmd := fmt.Sprintf(`sudo -n sh -c 'sync && sleep 5 && %s && (echo -n frozen && sleep 5); %s'`, strings.Join(freeze_cmds, " && "), strings.Join(unfreeze_cmds, "; "))
+	cmd := fmt.Sprintf(`sudo -n sh -c 'sync && sleep 5 && sync && %s && (echo -n frozen && sleep 5); %s'`, strings.Join(freeze_cmds, " && "), strings.Join(unfreeze_cmds, "; "))
 	if sess, err = conn.NewSession(); err != nil {
 		err = fmt.Errorf("createSnapshot(): failed to create SSH session: %s", err)
 		return
