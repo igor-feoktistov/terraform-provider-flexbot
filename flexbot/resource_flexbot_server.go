@@ -1048,7 +1048,7 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 }
 
 func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey string, snapshotName string) (err error) {
-	var filesystems, cmd, errs []string
+	var filesystems, freeze_cmds, unfreeze_cmds, errs []string
 	var signer ssh.Signer
 	var conn *ssh.Client
 	var sess *ssh.Session
@@ -1079,7 +1079,7 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 	}
 	sess.Stdout = &b_stdout
 	sess.Stderr = &b_stderr
-	err = sess.Run(`cat /proc/mounts | sed -n 's/^\/dev\/mapper\/[^ ]\+[ ]\+\(\/[^ ]\{1,64\}\).*/\1/p'`)
+	err = sess.Run(`cat /proc/mounts | sed -n 's/^\/dev\/mapper\/[^ ]\+[ ]\+\(\/[^ \/]\{1,64\}\).*/\1/p' | uniq`)
 	sess.Close()
 	if err != nil {
 		err = fmt.Errorf("createSnapshot(): failed to run command: %s: %s", err, b_stderr.String())
@@ -1088,14 +1088,13 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 	if b_stdout.Len() > 0 {
 		filesystems = strings.Split(strings.Trim(b_stdout.String(), "\n"), "\n")
 	}
-	cmd = append(cmd, "sync && sleep 5")
+	unfreeze_cmds = append(unfreeze_cmds, "fsfreeze -u /")
 	for _, fs := range filesystems {
-		cmd = append(cmd, "fsfreeze -f " + fs)
+		freeze_cmds = append(freeze_cmds, "fsfreeze -f " + fs)
+		unfreeze_cmds = append(unfreeze_cmds, "fsfreeze -u " + fs)
 	}
-	cmd = append(cmd, "fsfreeze -f / && echo -n frozen && sleep 5 && fsfreeze -u /")
-	for _, fs := range filesystems {
-		cmd = append(cmd, "fsfreeze -u " + fs)
-	}
+	freeze_cmds = append(freeze_cmds, "fsfreeze -f /")
+	cmd := fmt.Sprintf(`sudo -n sh -c 'sync && sleep 5 && sync && %s && (echo -n frozen && sleep 5); %s'`, strings.Join(freeze_cmds, " && "), strings.Join(unfreeze_cmds, "; "))
 	if sess, err = conn.NewSession(); err != nil {
 		err = fmt.Errorf("createSnapshot(): failed to create SSH session: %s", err)
 		return
@@ -1105,7 +1104,7 @@ func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 	b_stderr.Reset()
 	sess.Stdout = &b_stdout
 	sess.Stderr = &b_stderr
-	if err = sess.Start(fmt.Sprintf(`sudo -n sh -c '%s'`, strings.Join(cmd, " && "))); err != nil {
+	if err = sess.Start(cmd); err != nil {
 		err = fmt.Errorf("createSnapshot(): failed to start SSH command: %s", err)
 		return
 	}
