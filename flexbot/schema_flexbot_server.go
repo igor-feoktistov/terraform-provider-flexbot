@@ -469,6 +469,7 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 								"parameters": {
 									Type:     schema.TypeMap,
 									Optional: true,
+									Default:  make(map[string]interface{}),
 									Elem:     &schema.Schema{Type: schema.TypeString},
 								},
 							},

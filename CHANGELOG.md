@@ -1,3 +1,13 @@
+## 1.7.7 (July 29, 2021)
+
+ENHANCEMENTS:
+* Updated go.mod to support Rancher latest client.
+
+BUG FIXES:
+* Set default value for network node interface parameters to {} which fixes warnings "Objects have changed outside of Terraform".
+* Fix for the issue in `resourceUpdateServer` routine when updated BladeSpec combined with requested powerstate="down" would cause failure in rancher.NodeWaitForState().
+
+
 ## 1.7.6 (July 2, 2021)
 
 BUG FIXES:
