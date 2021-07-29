@@ -12,7 +12,7 @@ require (
 	github.com/infobloxopen/infoblox-go-client v1.1.0
 	github.com/kdomanski/iso9660 v0.2.0
 	github.com/rancher/norman v0.0.0-20210504005327-7b74a9f308a7
-	github.com/rancher/rancher/pkg/client v0.0.0-20210512213649-351f7ca04973
+	github.com/rancher/rancher/pkg/client v0.0.0-20210714221037-3c54189441fd
 	github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93 // indirect
 	github.com/sirupsen/logrus v1.8.1
 	github.com/vmware/go-nfs-client v0.0.0-20190605212624-d43b92724c1b // indirect

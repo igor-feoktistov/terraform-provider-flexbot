@@ -255,7 +255,7 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	d.Partial(false)
 	if (nodeConfig.ChangeStatus & (ChangeBladeSpec | ChangeOsImage | ChangeSeedTemplate | ChangeSnapshotRestore)) > 0 {
 		var rancherNode *RancherNode
-		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, true); err == nil {
+		if rancherNode, err = rancherApiInitialize(d, meta, nodeConfig, (nodeConfig.Compute.Powerstate == "up")); err == nil {
 			if err = rancherNode.rancherApiNodeSetAnnotationsLabels(); err != nil {
 				diags = diag.FromErr(err)
 			}
