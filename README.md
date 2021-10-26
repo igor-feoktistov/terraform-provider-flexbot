@@ -32,5 +32,4 @@ After placing it into your plugins directory, run `terraform init` to initialize
 
 Community
 ---------
-
 Join the Flexbot Users [Slack channel](https://join.slack.com/t/flexbot-users/shared_invite/zt-rs3z856p-4L8EWEHV2dPbfKWqO4E9mQ)
