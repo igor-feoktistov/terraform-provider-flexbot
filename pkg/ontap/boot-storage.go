@@ -8,6 +8,7 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap/client"
 )
 
+// CreateBootStorage creates node boot storage in cDOT
 func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -28,7 +29,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 			err = fmt.Errorf("CreateBootStorage(): %s", err)
 			return
 		}
-		if err = c.VolumeCreateSAN(nodeConfig.Storage.VolumeName, aggregateName, (nodeConfig.Storage.BootLun.Size + nodeConfig.Storage.DataLun.Size) * 2); err != nil {
+		if err = c.VolumeCreateSAN(nodeConfig.Storage.VolumeName, aggregateName, (nodeConfig.Storage.BootLun.Size+nodeConfig.Storage.DataLun.Size)*2); err != nil {
 			err = fmt.Errorf("CreateBootStorage(): %s", err)
 			return
 		}
@@ -43,7 +44,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 			err = fmt.Errorf("CreateBootStorage(): %s", err)
 			return
 		}
-		for i, _ := range nodeConfig.Network.IscsiInitiator {
+		for i := range nodeConfig.Network.IscsiInitiator {
 			if c.IgroupAddInitiator(nodeConfig.Storage.IgroupName, nodeConfig.Network.IscsiInitiator[i].InitiatorName); err != nil {
 				err = fmt.Errorf("CreateBootStorage(): %s", err)
 				return
@@ -103,14 +104,14 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 		err = fmt.Errorf("CreateBootStorage(): %s", err)
 		return
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator {
+	for i := range nodeConfig.Network.IscsiInitiator {
 		var lifs []string
 		if lifs, err = c.DiscoverIscsiLIFs(bootLunPath, nodeConfig.Network.IscsiInitiator[i].Subnet); err != nil {
 			err = fmt.Errorf("CreateBootStorage(): %s", err)
 			return
 		}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget = &config.IscsiTarget{}
-                nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
+		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
 		for _, lif := range lifs {
 			nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lif)
 		}
@@ -118,6 +119,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// CreateBootStoragePreflight is sanity check before actual storage provisioning
 func CreateBootStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -145,14 +147,14 @@ func CreateBootStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 		err = fmt.Errorf("CreateBootStoragePreflight(): %s", err)
 		return
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator {
+	for i := range nodeConfig.Network.IscsiInitiator {
 		var lifs []string
 		if lifs, err = c.DiscoverIscsiLIFs(repoLunPath, nodeConfig.Network.IscsiInitiator[i].Subnet); err != nil {
 			err = fmt.Errorf("CreateBootStoragePreflight(): %s", err)
 			return
 		}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget = &config.IscsiTarget{}
-                nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
+		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
 		for _, lif := range lifs {
 			nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lif)
 		}
@@ -160,6 +162,7 @@ func CreateBootStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// DeleteBootStorage deletes node boot storage
 func DeleteBootStorage(nodeConfig *config.NodeConfig) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -210,6 +213,7 @@ func DeleteBootStorage(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// DeleteBootLUNs deletes LUN's preserving hosting volumes
 func DeleteBootLUNs(nodeConfig *config.NodeConfig) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -254,6 +258,7 @@ func DeleteBootLUNs(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// DiscoverBootStorage discovers boot storage in cDOT
 func DiscoverBootStorage(nodeConfig *config.NodeConfig) (storageExists bool, err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -275,8 +280,8 @@ func DiscoverBootStorage(nodeConfig *config.NodeConfig) (storageExists bool, err
 		err = fmt.Errorf("DiscoverBootStorage(): %s", err)
 		return
 	}
-    	if lunInfo.Comment != "" {
-    		nodeConfig.Storage.BootLun.OsImage.Name = lunInfo.Comment
+	if lunInfo.Comment != "" {
+		nodeConfig.Storage.BootLun.OsImage.Name = lunInfo.Comment
 	}
 	nodeConfig.Storage.BootLun.Size = lunInfo.Size
 	if lunInfo, err = c.LunGetInfo(dataLunPath); err == nil {
@@ -285,9 +290,9 @@ func DiscoverBootStorage(nodeConfig *config.NodeConfig) (storageExists bool, err
 	if lunInfo, err = c.LunGetInfo(seedLunPath); err != nil {
 		err = fmt.Errorf("DiscoverBootStorage(): %s", err)
 		return
-	}	
-    	if lunInfo.Comment != "" {
-                nodeConfig.Storage.SeedLun.SeedTemplate.Location = lunInfo.Comment
+	}
+	if lunInfo.Comment != "" {
+		nodeConfig.Storage.SeedLun.SeedTemplate.Location = lunInfo.Comment
 		nodeConfig.Storage.SeedLun.SeedTemplate.Name = filepath.Base(lunInfo.Comment)
 	}
 	var iscsiNodeName string
@@ -295,14 +300,14 @@ func DiscoverBootStorage(nodeConfig *config.NodeConfig) (storageExists bool, err
 		err = fmt.Errorf("DiscoverBootStorage(): %s", err)
 		return
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator {
+	for i := range nodeConfig.Network.IscsiInitiator {
 		var lifs []string
 		if lifs, err = c.DiscoverIscsiLIFs(bootLunPath, nodeConfig.Network.IscsiInitiator[i].Subnet); err != nil {
 			err = fmt.Errorf("DiscoverBootStorage(): %s", err)
 			return
 		}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget = &config.IscsiTarget{}
-                nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
+		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
 		for _, lif := range lifs {
 			nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lif)
 		}
@@ -314,6 +319,7 @@ func DiscoverBootStorage(nodeConfig *config.NodeConfig) (storageExists bool, err
 	return
 }
 
+// ResizeBootStorage resizes boot storage in cDOT
 func ResizeBootStorage(nodeConfig *config.NodeConfig) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -340,7 +346,7 @@ func ResizeBootStorage(nodeConfig *config.NodeConfig) (err error) {
 		dataLunInfo = &client.LunInfo{}
 	}
 	if nodeConfig.Storage.BootLun.Size > bootLunInfo.Size || nodeConfig.Storage.DataLun.Size > dataLunInfo.Size {
-		if err = c.VolumeResize(nodeConfig.Storage.VolumeName, (nodeConfig.Storage.DataLun.Size + nodeConfig.Storage.BootLun.Size) * 2); err != nil {
+		if err = c.VolumeResize(nodeConfig.Storage.VolumeName, (nodeConfig.Storage.DataLun.Size+nodeConfig.Storage.BootLun.Size)*2); err != nil {
 			err = fmt.Errorf("ResizeBootStorage(): %s", err)
 			return
 		}
@@ -360,6 +366,7 @@ func ResizeBootStorage(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// LunRestoreMapping restores LUN mappings (usually after snapshot restore)
 func LunRestoreMapping(nodeConfig *config.NodeConfig) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {

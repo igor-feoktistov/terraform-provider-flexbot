@@ -1,21 +1,22 @@
 package ontap
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
-	"bytes"
 	"path/filepath"
+	"strings"
 	"text/template"
 
-	"github.com/kdomanski/iso9660"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap/client"
+	"github.com/kdomanski/iso9660"
 )
 
+// CreateSeedStorage creates cloud-init ISO LUN for the node
 func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 	var fileReader io.Reader
 	var file *os.File
@@ -127,6 +128,7 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// CreateSeedStoragePreflight is sanity check before actual storage is created
 func CreateSeedStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 	if strings.HasPrefix(nodeConfig.Storage.SeedLun.SeedTemplate.Location, "http://") || strings.HasPrefix(nodeConfig.Storage.SeedLun.SeedTemplate.Location, "https://") {
 		var httpResponse *http.Response

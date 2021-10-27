@@ -1,11 +1,11 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
-	"os"
-	"encoding/base64"
 	"io/ioutil"
+	"os"
 
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 )

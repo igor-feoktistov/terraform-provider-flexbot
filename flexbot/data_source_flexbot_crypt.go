@@ -1,13 +1,13 @@
 package flexbot
 
 import (
-	"fmt"
-	"encoding/base64"
 	"context"
+	"encoding/base64"
+	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/denisbrodbeck/machineid"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 )
 
@@ -55,12 +55,12 @@ func dataSourceFlexbotCryptRead(ctx context.Context, d *schema.ResourceData, met
 			diags = diag.FromErr(fmt.Errorf("dataSourceFlexbotCryptRead(): crypt.Encrypt() error: %s", err))
 			return
 		}
-		d.Set("encrypted", "base64:" + base64.StdEncoding.EncodeToString(b))
+		d.Set("encrypted", "base64:"+base64.StdEncoding.EncodeToString(b))
 	}
 	if len(decrypted) == 0 && len(encrypted) > 0 {
 		if b64, err = base64.StdEncoding.DecodeString(encrypted[7:]); err != nil {
 			diags = diag.FromErr(fmt.Errorf("dataSourceFlexbotCryptRead(): base64.StdEncoding.DecodeString() failure: %s", err))
-                        return
+			return
 		}
 		if b, err = crypt.Decrypt(b64, passPhrase); err != nil {
 			diags = diag.FromErr(fmt.Errorf("dataSourceFlexbotCryptRead(): crypt.Decrypt() error: %s", err))

@@ -3,8 +3,8 @@ package crypt
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/sha256"
 	"crypto/rand"
+	"crypto/sha256"
 	"io"
 )
 
@@ -14,6 +14,7 @@ func createHash(key string) []byte {
 	return hasher.Sum(nil)
 }
 
+// Encrypt encrypts byte array
 func Encrypt(data []byte, passphrase string) (b []byte, err error) {
 	var block cipher.Block
 	if block, err = aes.NewCipher(createHash(passphrase)); err != nil {
@@ -31,6 +32,7 @@ func Encrypt(data []byte, passphrase string) (b []byte, err error) {
 	return
 }
 
+// Decrypt decryprs byte array
 func Decrypt(data []byte, passphrase string) (b []byte, err error) {
 	key := createHash(passphrase)
 	var block cipher.Block

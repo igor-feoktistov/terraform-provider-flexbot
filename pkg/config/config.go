@@ -8,21 +8,21 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
-	"path/filepath"
 
-	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 	"github.com/igor-feoktistov/go-ucsm-sdk/util"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	imageRepoVolName = "image_repo"
+	imageRepoVolName    = "image_repo"
 	templateRepoVolName = "template_repo"
-	zapiVersion = "1.160"
-	apiMethod = "zapi"
+	zapiVersion         = "1.160"
+	apiMethod           = "zapi"
 )
 
 // Name convention for cDOT storage objects (can be overriden via config.yaml)
@@ -34,12 +34,14 @@ const (
 	igroupNameTemplate  string = "{{.Compute.HostName}}_iboot"
 )
 
+// Credentials is generic credentials resources
 type Credentials struct {
 	Host     string `yaml:"host,omitempty" json:"host,omitempty"`
 	User     string `yaml:"user,omitempty" json:"user,omitempty"`
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
+// InfobloxCredentials is Infoblox specific credentials
 type InfobloxCredentials struct {
 	Credentials `yaml:",inline" json:",inline"`
 	WapiVersion string `yaml:"wapiVersion,omitempty" json:"wapiVersion,omitempty"`
@@ -47,12 +49,14 @@ type InfobloxCredentials struct {
 	NetworkView string `yaml:"networkView,omitempty" json:"networkView,omitempty"`
 }
 
+// CdotCredentials is cDOT specific credentials
 type CdotCredentials struct {
 	Credentials `yaml:",inline" json:",inline"`
-	ApiMethod string `yaml:"apiMethod,omitempty" json:"apiMethod,omitempty"`
+	ApiMethod   string `yaml:"apiMethod,omitempty" json:"apiMethod,omitempty"`
 	ZapiVersion string `yaml:"zapiVersion,omitempty" json:"zapiVersion,omitempty"`
 }
 
+// NetworkInterface is generic network interface
 type NetworkInterface struct {
 	Name       string            `yaml:"name" json:"name"`
 	Macaddr    string            `yaml:"macaddr,omitempty" json:"macaddr,omitempty"`
@@ -69,23 +73,27 @@ type NetworkInterface struct {
 	Parameters map[string]string `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 }
 
+// IscsiTarget is iSCSI target
 type IscsiTarget struct {
 	NodeName   string   `yaml:"nodeName,omitempty" json:"nodeName,omitempty"`
 	Interfaces []string `yaml:"interfaces,omitempty" json:"interfaces,omitempty"`
 }
 
+// IscsiInitiator is iSCSI initiator
 type IscsiInitiator struct {
 	NetworkInterface `yaml:",inline" json:",inline"`
 	InitiatorName    string       `yaml:"initiatorName,omitempty" json:"initiatorName,omitempty"`
 	IscsiTarget      *IscsiTarget `yaml:"iscsiTarget,omitempty" json:"iscsiTarget,omitempty"`
 }
 
+// Ipam is generic IPAM
 type Ipam struct {
 	Provider      string              `yaml:"provider" json:"provider"`
 	IbCredentials InfobloxCredentials `yaml:"ibCredentials,omitempty" json:"ibCredentials,omitempty"`
 	DnsZone       string              `yaml:"dnsZone,omitempty" json:"dnsZone,omitempty"`
 }
 
+// Compute is UCS compute
 type Compute struct {
 	UcsmCredentials Credentials    `yaml:"ucsmCredentials,omitempty" json:"ucsmCredentials,omitempty"`
 	HostName        string         `yaml:"hostName,omitempty" json:"hostName,omitempty"`
@@ -94,32 +102,37 @@ type Compute struct {
 	SpDn            string         `yaml:"spDn,omitempty" json:"spDn,omitempty"`
 	BladeSpec       util.BladeSpec `yaml:"bladeSpec,omitempty" json:"bladeSpec,omitempty"`
 	BladeAssigned   util.BladeSpec `yaml:"bladeAssigned,omitempty" json:"bladeAssigned,omitempty"`
-	Powerstate	string         `yaml:"powerState,omitempty" json:"powerState,omitempty"`
-	Description	string         `yaml:"description,omitempty" json:"description,omitempty"`
-	Label		string         `yaml:"label,omitempty" json:"label,omitempty"`
+	Powerstate      string         `yaml:"powerState,omitempty" json:"powerState,omitempty"`
+	Description     string         `yaml:"description,omitempty" json:"description,omitempty"`
+	Label           string         `yaml:"label,omitempty" json:"label,omitempty"`
 }
 
+// RemoteFile is generic remote file definition
 type RemoteFile struct {
 	Name     string `yaml:"name,omitempty" json:"name,omitempty"`
 	Location string `yaml:"location,omitempty" json:"location,omitempty"`
 }
 
+// Lun is cDOT LUN
 type Lun struct {
 	Name string `yaml:"name,omitempty" json:"name,omitempty"`
 	Id   int    `yaml:"id,omitempty" json:"id,omitempty"`
 	Size int    `yaml:"size,omitempty" json:"size,omitempty"`
 }
 
+// BootLun is compute boot LUN
 type BootLun struct {
 	Lun     `yaml:",inline" json:",inline"`
 	OsImage RemoteFile `yaml:"osImage,omitempty" json:"osImage,omitempty"`
 }
 
+// SeedLun is compute clout-init configuration LUN
 type SeedLun struct {
 	Lun          `yaml:",inline" json:",inline"`
 	SeedTemplate RemoteFile `yaml:"seedTemplate" json:"seedTemplate"`
 }
 
+// Storage is cDOT storage
 type Storage struct {
 	CdotCredentials  CdotCredentials `yaml:"cdotCredentials,omitempty" json:"cdotCredentials,omitempty"`
 	SvmName          string          `yaml:"svmName,omitempty" json:"svmName,omitempty"`
@@ -133,11 +146,13 @@ type Storage struct {
 	Snapshots        []string        `yaml:"snapshots,omitempty" json:"snapshots,omitempty"`
 }
 
+// Network is compute network
 type Network struct {
 	Node           []NetworkInterface `yaml:"node" json:"node"`
 	IscsiInitiator []IscsiInitiator   `yaml:"iscsiInitiator" json:"iscsiInitiator"`
 }
 
+// NodeConfig is aggregated node configuration
 type NodeConfig struct {
 	Ipam         Ipam              `yaml:"ipam" json:"ipam"`
 	Compute      Compute           `yaml:"compute" json:"compute"`
@@ -148,6 +163,7 @@ type NodeConfig struct {
 	ChangeStatus uint32            `yaml:"changeStatus,omitempty" json:"changeStatus,omitempty"`
 }
 
+// SetDefaults sets initial configuration with default values
 func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, templatePath string, passPhrase string) (err error) {
 	var ipv4Net *net.IPNet
 	if nodeConfig.Storage.CdotCredentials.ApiMethod == "" {
@@ -176,7 +192,7 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 		if len(nodeConfig.Network.IscsiInitiator) < 2 {
 			err = fmt.Errorf("expected two iSCSI initiators")
 		}
-		for i, _ := range nodeConfig.Network.Node {
+		for i := range nodeConfig.Network.Node {
 			if _, ipv4Net, err = net.ParseCIDR(nodeConfig.Network.Node[i].Subnet); err != nil {
 				err = fmt.Errorf("failed to parse CIDR %s: %s", nodeConfig.Network.Node[i].Subnet, err)
 				return
@@ -184,7 +200,7 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 			netLen, _ := ipv4Net.Mask.Size()
 			nodeConfig.Network.Node[i].NetLen = strconv.Itoa(netLen)
 		}
-		for i, _ := range nodeConfig.Network.IscsiInitiator {
+		for i := range nodeConfig.Network.IscsiInitiator {
 			if _, ipv4Net, err = net.ParseCIDR(nodeConfig.Network.IscsiInitiator[i].Subnet); err != nil {
 				err = fmt.Errorf("failed to parse CIDR %s: %s", nodeConfig.Network.IscsiInitiator[i].Subnet, err)
 				return
@@ -262,6 +278,7 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 	return
 }
 
+// ParseNodeConfig parses node configuration
 func ParseNodeConfig(nodeConfigArg string, nodeConfig *NodeConfig) (err error) {
 	var b []byte
 
@@ -288,6 +305,7 @@ func ParseNodeConfig(nodeConfigArg string, nodeConfig *NodeConfig) (err error) {
 	return
 }
 
+// EncryptNodeConfig encrypts node configuration
 func EncryptNodeConfig(nodeConfig *NodeConfig, passPhrase string) (err error) {
 	if nodeConfig.Ipam.IbCredentials.User, err = encryptString(nodeConfig.Ipam.IbCredentials.User, passPhrase); err != nil {
 		err = fmt.Errorf("EncryptNodeConfig(nodeConfig.Ipam.IbCredentials.User): failure: %s", err)
@@ -315,6 +333,7 @@ func EncryptNodeConfig(nodeConfig *NodeConfig, passPhrase string) (err error) {
 	return
 }
 
+// DecryptNodeConfig decryots node configuration
 func DecryptNodeConfig(nodeConfig *NodeConfig, passPhrase string) (err error) {
 	if nodeConfig.Ipam.IbCredentials.User, err = decryptString(nodeConfig.Ipam.IbCredentials.User, passPhrase); err != nil {
 		err = fmt.Errorf("DecryptNodeConfig(nodeConfig.Ipam.IbCredentials.User): failure: %s", err)
@@ -342,16 +361,19 @@ func DecryptNodeConfig(nodeConfig *NodeConfig, passPhrase string) (err error) {
 	return
 }
 
+// GetNodeConfigYAML transforms node configuration to YAML
 func GetNodeConfigYAML(nodeConfig *NodeConfig) (b []byte, err error) {
 	b, err = yaml.Marshal(nodeConfig)
 	return
 }
 
+// GetNodeConfigJSON transforms node configuration to JSON
 func GetNodeConfigJSON(nodeConfig *NodeConfig) (b []byte, err error) {
 	b, err = json.MarshalIndent(nodeConfig, "", "  ")
 	return
 }
 
+//
 func encryptString(decrypted string, passPhrase string) (encrypted string, err error) {
 	var b []byte
 	if !strings.HasPrefix(decrypted, "base64:") {

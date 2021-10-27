@@ -7,6 +7,7 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap/client"
 )
 
+// SnapshotExists checks if snapshot exists
 func SnapshotExists(nodeConfig *config.NodeConfig, snapshotName string) (exists bool, err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -28,6 +29,7 @@ func SnapshotExists(nodeConfig *config.NodeConfig, snapshotName string) (exists 
 	return
 }
 
+// GetSnapshots gets list of snapshots
 func GetSnapshots(nodeConfig *config.NodeConfig) (snapshotList []string, err error) {
 	snapshotList = []string{}
 	var c client.OntapClient
@@ -46,6 +48,7 @@ func GetSnapshots(nodeConfig *config.NodeConfig) (snapshotList []string, err err
 	return
 }
 
+// CreateSnapshot creates snapshot
 func CreateSnapshot(nodeConfig *config.NodeConfig, snapshotName string, snapshotComment string) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -58,6 +61,7 @@ func CreateSnapshot(nodeConfig *config.NodeConfig, snapshotName string, snapshot
 	return
 }
 
+// DeleteSnapshot deletes snapshot
 func DeleteSnapshot(nodeConfig *config.NodeConfig, snapshotName string) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -70,6 +74,7 @@ func DeleteSnapshot(nodeConfig *config.NodeConfig, snapshotName string) (err err
 	return
 }
 
+// RestoreSnapshot restores node storage from snapshot
 func RestoreSnapshot(nodeConfig *config.NodeConfig, snapshotName string) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {

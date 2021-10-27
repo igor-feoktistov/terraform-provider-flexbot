@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/go-ucsm-sdk/api"
 	"github.com/igor-feoktistov/go-ucsm-sdk/mo"
 	"github.com/igor-feoktistov/go-ucsm-sdk/util"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
 
 const (
@@ -18,6 +18,7 @@ const (
 	assignWaitMax = 3600
 )
 
+// AssignBlade assigns physical blade to SP
 func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) {
 	var computeBlades *[]mo.ComputeBlade
 	var assignErr error
@@ -45,34 +46,33 @@ func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) 
 				var computeBlade *mo.ComputeBlade
 				if computeBlade, err = util.SpGetComputeBlade(client, nodeConfig.Compute.SpDn); err != nil {
 					err = fmt.Errorf("AssignBlade: SpGetComputeBlade(): %s", err)
-            				return
-    				}
-            			nodeConfig.Compute.BladeSpec.Dn = computeBlade.Dn
-            			nodeConfig.Compute.BladeAssigned = util.BladeSpec{
-            				Dn: computeBlade.Dn,
-            				Model: computeBlade.Model,
-            				Serial: computeBlade.Serial,
-            				NumOfCpus: strconv.Itoa(computeBlade.NumOfCpus),
-            				NumOfCores: strconv.Itoa(computeBlade.NumOfCores),
-            				NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),
-            				TotalMemory: strconv.Itoa(computeBlade.TotalMemory),
-            			}
+					return
+				}
+				nodeConfig.Compute.BladeSpec.Dn = computeBlade.Dn
+				nodeConfig.Compute.BladeAssigned = util.BladeSpec{
+					Dn:           computeBlade.Dn,
+					Model:        computeBlade.Model,
+					Serial:       computeBlade.Serial,
+					NumOfCpus:    strconv.Itoa(computeBlade.NumOfCpus),
+					NumOfCores:   strconv.Itoa(computeBlade.NumOfCores),
+					NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),
+					TotalMemory:  strconv.Itoa(computeBlade.TotalMemory),
+				}
 				var vnicsEther *[]mo.VnicEther
 				if vnicsEther, err = util.SpGetVnicsEther(client, nodeConfig.Compute.SpDn); err != nil {
 					err = fmt.Errorf("AssignBlade: SpGetVnicsEther() failure: %s", err)
 					return
 				}
 				for _, vnic := range *vnicsEther {
-					for i, _ := range nodeConfig.Network.Node {
+					for i := range nodeConfig.Network.Node {
 						if vnic.Name == nodeConfig.Network.Node[i].Name {
 							nodeConfig.Network.Node[i].Macaddr = vnic.Addr
 						}
 					}
 				}
 				return
-			} else {
-				assignErr = fmt.Errorf("AssignBlade: SpWaitForAssociation(): association state is %s", assocState)
 			}
+			assignErr = fmt.Errorf("AssignBlade: SpWaitForAssociation(): association state is %s", assocState)
 		} else {
 			assignErr = fmt.Errorf("AssignBlade: SpAssignBlade() failure: %s", assignErr)
 		}
@@ -82,6 +82,7 @@ func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) 
 	return
 }
 
+// CreateServer creates SP from SPT
 func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 	var client *api.Client
 	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
@@ -107,7 +108,7 @@ func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 	}
 	var iscsiVnicAddr mo.VnicIPv4IscsiAddr
 	var ipv4Net *net.IPNet
-	for i, _ := range nodeConfig.Network.IscsiInitiator[:2] {
+	for i := range nodeConfig.Network.IscsiInitiator[:2] {
 		if _, ipv4Net, err = net.ParseCIDR(nodeConfig.Network.IscsiInitiator[i].Subnet); err != nil {
 			err = fmt.Errorf("CreateServer: ParseCIDR() failure for subnet %s: %s", nodeConfig.Network.IscsiInitiator[i].Subnet, err)
 			return
@@ -120,7 +121,7 @@ func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 			SecDns:  nodeConfig.Network.IscsiInitiator[i].DnsServer2,
 		}
 		var iscsiTargets []mo.VnicIScsiStaticTargetIf
-		for j, _ := range nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces {
+		for j := range nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces {
 			if j < 2 {
 				iscsiTargets = append(iscsiTargets, mo.VnicIScsiStaticTargetIf{
 					IpAddress: nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces[j],
@@ -140,6 +141,7 @@ func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 	return
 }
 
+// CreateServerPreflight does sanity check before SP creation
 func CreateServerPreflight(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
@@ -161,23 +163,21 @@ func CreateServerPreflight(nodeConfig *config.NodeConfig) (err error) {
 	if vnicsIScsi, err = util.SpGetVnicsIScsi(client, nodeConfig.Compute.SpTemplate); err != nil {
 		err = fmt.Errorf("CreateServerPreflight: SpGetVnicsIScsi(): %s", err)
 		return
-	} else {
-		if len(*vnicsIScsi) == 0 {
-			err = fmt.Errorf("CreateServerPreflight: SpGetVnicsIScsi(): SPT \"%s\" is not configured for iSCSI boot", nodeConfig.Compute.SpTemplate)
-			return
-		}
+	}
+	if len(*vnicsIScsi) == 0 {
+		err = fmt.Errorf("CreateServerPreflight: SpGetVnicsIScsi(): SPT \"%s\" is not configured for iSCSI boot", nodeConfig.Compute.SpTemplate)
+		return
 	}
 	var vnicsEther *[]mo.VnicEther
 	if vnicsEther, err = util.SpGetVnicsEther(client, nodeConfig.Compute.SpTemplate); err != nil {
 		err = fmt.Errorf("CreateServerPreflight: SpGetVnicsEther(): %s", err)
 		return
-	} else {
-		if len(*vnicsEther) == 0 {
-			err = fmt.Errorf("CreateServerPreflight: SpGetVnicsEther(): no ethernet vNICs found in SPT \"%s\"", nodeConfig.Compute.SpTemplate)
-			return
-		}
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator[:2] {
+	if len(*vnicsEther) == 0 {
+		err = fmt.Errorf("CreateServerPreflight: SpGetVnicsEther(): no ethernet vNICs found in SPT \"%s\"", nodeConfig.Compute.SpTemplate)
+		return
+	}
+	for i := range nodeConfig.Network.IscsiInitiator[:2] {
 		if _, _, err = net.ParseCIDR(nodeConfig.Network.IscsiInitiator[i].Subnet); err != nil {
 			err = fmt.Errorf("CreateServerPreflight: ParseCIDR(): failure for subnet %s: %s", nodeConfig.Network.IscsiInitiator[i].Subnet, err)
 			return
@@ -210,6 +210,7 @@ func CreateServerPreflight(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// DiscoverServer finds SP by name and retrives it's attributes
 func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error) {
 	var client *api.Client
 	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
@@ -232,32 +233,31 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 	var computeBlade *mo.ComputeBlade
 	if computeBlade, err = util.SpGetComputeBlade(client, nodeConfig.Compute.SpDn); err != nil {
 		err = fmt.Errorf("DiscoverServer: SpGetComputeBlade(): %s", err)
-                return
-        }
-        if computeBlade == nil {
-    		computeBlade = &mo.ComputeBlade{}
-        }
-    	nodeConfig.Compute.BladeSpec.Dn = computeBlade.Dn
-    	nodeConfig.Compute.BladeAssigned = util.BladeSpec{
-    		Dn: computeBlade.Dn,
-            	Model: computeBlade.Model,
-            	Serial: computeBlade.Serial,
-            	NumOfCpus: strconv.Itoa(computeBlade.NumOfCpus),
-            	NumOfCores: strconv.Itoa(computeBlade.NumOfCores),
-            	NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),
-            	TotalMemory: strconv.Itoa(computeBlade.TotalMemory),
-    	}
+		return
+	}
+	if computeBlade == nil {
+		computeBlade = &mo.ComputeBlade{}
+	}
+	nodeConfig.Compute.BladeSpec.Dn = computeBlade.Dn
+	nodeConfig.Compute.BladeAssigned = util.BladeSpec{
+		Dn:           computeBlade.Dn,
+		Model:        computeBlade.Model,
+		Serial:       computeBlade.Serial,
+		NumOfCpus:    strconv.Itoa(computeBlade.NumOfCpus),
+		NumOfCores:   strconv.Itoa(computeBlade.NumOfCores),
+		NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),
+		TotalMemory:  strconv.Itoa(computeBlade.TotalMemory),
+	}
 	var vnicsEther *[]mo.VnicEther
 	if vnicsEther, err = util.SpGetVnicsEther(client, nodeConfig.Compute.SpDn); err != nil {
 		err = fmt.Errorf("DiscoverServer: SpGetVnicsEther(): %s", err)
 		return
-	} else {
-		if len(*vnicsEther) == 0 {
-			err = fmt.Errorf("DiscoverServer: SpGetVnicsEther(): no ethernet vNICs found in SP \"%s\"", nodeConfig.Compute.SpDn)
-			return
-		}
 	}
-	for i, _ := range nodeConfig.Network.Node {
+	if len(*vnicsEther) == 0 {
+		err = fmt.Errorf("DiscoverServer: SpGetVnicsEther(): no ethernet vNICs found in SP \"%s\"", nodeConfig.Compute.SpDn)
+		return
+	}
+	for i := range nodeConfig.Network.Node {
 		var found int = 0
 		for _, vnic := range *vnicsEther {
 			if vnic.Name == nodeConfig.Network.Node[i].Name {
@@ -274,13 +274,12 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 	if vnicsIScsi, err = util.SpGetVnicsIScsi(client, nodeConfig.Compute.SpDn); err != nil {
 		err = fmt.Errorf("DiscoverServer: SpGetVnicsIScsi(): %s", err)
 		return
-	} else {
-		if len(*vnicsIScsi) == 0 {
-			err = fmt.Errorf("DiscoverServer: SpGetVnicsIScsi(): SP \"%s\" is not configured for iSCSI boot", nodeConfig.Compute.SpDn)
-			return
-		}
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator[:2] {
+	if len(*vnicsIScsi) == 0 {
+		err = fmt.Errorf("DiscoverServer: SpGetVnicsIScsi(): SP \"%s\" is not configured for iSCSI boot", nodeConfig.Compute.SpDn)
+		return
+	}
+	for i := range nodeConfig.Network.IscsiInitiator[:2] {
 		var found int = 0
 		for _, vnic := range *vnicsIScsi {
 			if vnic.Name == nodeConfig.Network.IscsiInitiator[i].Name {
@@ -321,6 +320,7 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 	return
 }
 
+// UpdateServer re-assigns physical blade
 func UpdateServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
@@ -352,6 +352,7 @@ func UpdateServer(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// UpdateServerAttributes sets updates SP description and label
 func UpdateServerAttributes(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
@@ -378,6 +379,7 @@ func UpdateServerAttributes(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// DeleteServer deletes SP
 func DeleteServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	var powerState string
@@ -412,6 +414,7 @@ func DeleteServer(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// StartServer sets SP powerstate to "up"
 func StartServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	var lsPower *mo.LsPower
@@ -429,6 +432,7 @@ func StartServer(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// StopServer sets SP powerstate to "down"
 func StopServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	var lsPower *mo.LsPower
@@ -446,6 +450,7 @@ func StopServer(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// GetServerPowerState retrievs SP powerstate
 func GetServerPowerState(nodeConfig *config.NodeConfig) (powerState string, err error) {
 	var client *api.Client
 	spDn := nodeConfig.Compute.SpOrg + "/ls-" + nodeConfig.Compute.HostName

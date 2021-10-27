@@ -1,3 +1,14 @@
+## 1.7.8 (October 27, 2021)
+
+ENHANCEMENTS:
+* Updated go.mod to support latest Rancher client.
+* The source code is formatted by gofmt.
+* The source code is golint compliant.
+
+FEATURES:
+* Moved "snapshot" resource up to the list for updates:
+  * this allows for taking snapshots and compute/storage updates be in one change to apply.
+
 ## 1.7.7 (July 29, 2021)
 
 ENHANCEMENTS:

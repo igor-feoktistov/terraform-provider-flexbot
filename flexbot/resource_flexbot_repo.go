@@ -1,21 +1,21 @@
 package flexbot
 
 import (
+	"context"
 	"fmt"
 	"time"
-	"context"
 
 	"github.com/denisbrodbeck/machineid"
-        "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-        "github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-        log "github.com/sirupsen/logrus"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
+	log "github.com/sirupsen/logrus"
 )
 
 func resourceFlexbotRepo() *schema.Resource {
 	return &schema.Resource{
-		Schema: schemaFlexbotRepo(),
+		Schema:        schemaFlexbotRepo(),
 		CreateContext: resourceCreateRepo,
 		ReadContext:   resourceReadRepo,
 		UpdateContext: resourceUpdateRepo,
@@ -23,11 +23,11 @@ func resourceFlexbotRepo() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: resourceImportRepo,
 		},
-                Timeouts: &schema.ResourceTimeout{
+		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(7200 * time.Second),
 			Update: schema.DefaultTimeout(7200 * time.Second),
 			Delete: schema.DefaultTimeout(600 * time.Second),
-                },
+		},
 	}
 }
 
@@ -220,7 +220,7 @@ func resourceDeleteRepo(ctx context.Context, d *schema.ResourceData, meta interf
 }
 
 func resourceImportRepo(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	if diags  := resourceReadRepo(ctx, d, meta); diags != nil && len(diags) > 0 {
+	if diags := resourceReadRepo(ctx, d, meta); diags != nil && len(diags) > 0 {
 		return nil, fmt.Errorf("%s: %s", diags[0].Summary, diags[0].Detail)
 	}
 	return schema.ImportStatePassthroughContext(ctx, d, meta)
@@ -231,8 +231,8 @@ func setRepoInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.
 	defer meta.(*FlexbotConfig).Sync.Unlock()
 	nodeConfig = &config.NodeConfig{}
 	p := meta.(*FlexbotConfig).FlexbotProvider
-	p_storage := p.Get("storage").([]interface{})[0].(map[string]interface{})
-	cdotCredentials := p_storage["credentials"].([]interface{})[0].(map[string]interface{})
+	pStorage := p.Get("storage").([]interface{})[0].(map[string]interface{})
+	cdotCredentials := pStorage["credentials"].([]interface{})[0].(map[string]interface{})
 	nodeConfig.Storage.CdotCredentials.Host = cdotCredentials["host"].(string)
 	nodeConfig.Storage.CdotCredentials.User = cdotCredentials["user"].(string)
 	nodeConfig.Storage.CdotCredentials.Password = cdotCredentials["password"].(string)
@@ -259,5 +259,5 @@ func setRepoOutput(d *schema.ResourceData, meta interface{}, nodeConfig *config.
 			d.Set("templates", templates)
 		}
 	}
-        return
+	return
 }

@@ -2,21 +2,23 @@ package client
 
 import (
 	"fmt"
-	"time"
 	"io"
 	"math"
 	"path/filepath"
+	"time"
 
-	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/go-ontap-rest/ontap"
 	"github.com/igor-feoktistov/go-ontap-rest/util"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
 
+// OntapRestAPI is ontap REST API client
 type OntapRestAPI struct {
 	Client *ontap.Client
-	Svm string
+	Svm    string
 }
 
+// NewOntapRestAPI creates REST API client
 func NewOntapRestAPI(nodeConfig *config.NodeConfig) (c *OntapRestAPI, err error) {
 	c = &OntapRestAPI{}
 	c.Client = ontap.NewClient(
@@ -43,18 +45,20 @@ func NewOntapRestAPI(nodeConfig *config.NodeConfig) (c *OntapRestAPI, err error)
 	return
 }
 
+// GetAggregateMax finds aggregate with maximum size available
 func (c *OntapRestAPI) GetAggregateMax(nodeConfig *config.NodeConfig) (aggregateName string, err error) {
 	var spaceAvailable int
 	if aggregateName, spaceAvailable, err = util.GetAggregateMax(c.Client); err != nil {
 		err = fmt.Errorf("GetAggregateMax() failure: %s", err)
 	} else {
-		if (nodeConfig.Storage.BootLun.Size * 1024 * 1024 * 1024 + nodeConfig.Storage.DataLun.Size * 1024 * 1024 * 1024) * 2 > spaceAvailable {
-			err = fmt.Errorf("GetAggregateMax(): no aggregates found for requested storage size %dGB", (nodeConfig.Storage.BootLun.Size + nodeConfig.Storage.DataLun.Size) * 2)
+		if (nodeConfig.Storage.BootLun.Size*1024*1024*1024+nodeConfig.Storage.DataLun.Size*1024*1024*1024)*2 > spaceAvailable {
+			err = fmt.Errorf("GetAggregateMax(): no aggregates found for requested storage size %dGB", (nodeConfig.Storage.BootLun.Size+nodeConfig.Storage.DataLun.Size)*2)
 		}
-        }
+	}
 	return
 }
 
+// VolumeExists checks if volume exists
 func (c *OntapRestAPI) VolumeExists(volumeName string) (exists bool, err error) {
 	var volumes []ontap.Volume
 	if volumes, _, err = c.Client.VolumeGetIter([]string{"name=" + volumeName}); err != nil {
@@ -69,6 +73,7 @@ func (c *OntapRestAPI) VolumeExists(volumeName string) (exists bool, err error) 
 	return
 }
 
+// VolumeGet gets volume attributes
 func (c *OntapRestAPI) VolumeGet(volumeName string) (volume *ontap.Volume, res *ontap.RestResponse, err error) {
 	var volumes []ontap.Volume
 	if volumes, res, err = c.Client.VolumeGetIter([]string{"name=" + volumeName}); err != nil {
@@ -76,7 +81,7 @@ func (c *OntapRestAPI) VolumeGet(volumeName string) (volume *ontap.Volume, res *
 		return
 	}
 	if len(volumes) > 0 {
-		volume =  &volumes[0]
+		volume = &volumes[0]
 	} else {
 		res.ErrorResponse.Error.Code = ontap.ERROR_ENTRY_DOES_NOT_EXIST
 		err = fmt.Errorf("VolumeGet() failure: volume \"%s\" not found", volumeName)
@@ -84,6 +89,7 @@ func (c *OntapRestAPI) VolumeGet(volumeName string) (volume *ontap.Volume, res *
 	return
 }
 
+// VolumeCreateSAN creates volume for SAN
 func (c *OntapRestAPI) VolumeCreateSAN(volumeName string, aggregateName string, volumeSize int) (err error) {
 	sizeBytes := volumeSize * 1024 * 1024 * 1024
 	snapReservePct := 0
@@ -107,7 +113,7 @@ func (c *OntapRestAPI) VolumeCreateSAN(volumeName string, aggregateName string, 
 			Snapshot: &ontap.VolumeSnapshotSettigs{
 				ReservePercent: &snapReservePct,
 			},
-                },
+		},
 	}
 	if _, err = c.Client.VolumeCreate(&volume, []string{}); err != nil {
 		err = fmt.Errorf("VolumeCreate() failure: %s", err)
@@ -115,6 +121,7 @@ func (c *OntapRestAPI) VolumeCreateSAN(volumeName string, aggregateName string, 
 	return
 }
 
+// VolumeCreateNAS creates volume for NAS
 func (c *OntapRestAPI) VolumeCreateNAS(volumeName string, aggregateName string, exportPolicyName string, volumeSize int) (err error) {
 	sizeBytes := volumeSize * 1024 * 1024 * 1024
 	volume := ontap.Volume{
@@ -148,6 +155,7 @@ func (c *OntapRestAPI) VolumeCreateNAS(volumeName string, aggregateName string, 
 	return
 }
 
+// VolumeDestroy deletes volume
 func (c *OntapRestAPI) VolumeDestroy(volumeName string) (err error) {
 	var volume *ontap.Volume
 	var res *ontap.RestResponse
@@ -165,6 +173,7 @@ func (c *OntapRestAPI) VolumeDestroy(volumeName string) (err error) {
 	return
 }
 
+// VolumeResize sets volume new size
 func (c *OntapRestAPI) VolumeResize(volumeName string, volumeSize int) (err error) {
 	sizeBytes := volumeSize * 1024 * 1024 * 1024
 	var volume *ontap.Volume
@@ -180,6 +189,7 @@ func (c *OntapRestAPI) VolumeResize(volumeName string, volumeSize int) (err erro
 	return
 }
 
+// ExportPolicyCreate creates export-policy
 func (c *OntapRestAPI) ExportPolicyCreate(exportPolicyName string) (err error) {
 	exportPolicy := ontap.ExportPolicy{
 		ExportPolicyRef: ontap.ExportPolicyRef{
@@ -194,6 +204,7 @@ func (c *OntapRestAPI) ExportPolicyCreate(exportPolicyName string) (err error) {
 	return
 }
 
+// IgroupExists checks if iGroup exists
 func (c *OntapRestAPI) IgroupExists(igroupName string) (exists bool, err error) {
 	var igroups []ontap.Igroup
 	if igroups, _, err = c.Client.IgroupGetIter([]string{"name=" + igroupName}); err != nil {
@@ -208,6 +219,7 @@ func (c *OntapRestAPI) IgroupExists(igroupName string) (exists bool, err error) 
 	return
 }
 
+// IgroupGet gets iGroup attributes
 func (c *OntapRestAPI) IgroupGet(igroupName string) (igroup *ontap.Igroup, res *ontap.RestResponse, err error) {
 	var igroups []ontap.Igroup
 	if igroups, res, err = c.Client.IgroupGetIter([]string{"name=" + igroupName}); err != nil {
@@ -223,12 +235,13 @@ func (c *OntapRestAPI) IgroupGet(igroupName string) (igroup *ontap.Igroup, res *
 	return
 }
 
+// IgroupCreate creates iGroup
 func (c *OntapRestAPI) IgroupCreate(igroupName string) (err error) {
 	igroup := ontap.Igroup{
 		Resource: ontap.Resource{
 			Name: igroupName,
 		},
-		OsType: "linux",
+		OsType:   "linux",
 		Protocol: "iscsi",
 	}
 	if _, err = c.Client.IgroupCreate(&igroup, []string{}); err != nil {
@@ -237,6 +250,7 @@ func (c *OntapRestAPI) IgroupCreate(igroupName string) (err error) {
 	return
 }
 
+// IgroupAddInitiator adds iSCSI initiator to iGroup
 func (c *OntapRestAPI) IgroupAddInitiator(igroupName string, initiatorName string) (err error) {
 	var igroup *ontap.Igroup
 	if igroup, _, err = c.IgroupGet(igroupName); err != nil {
@@ -244,10 +258,10 @@ func (c *OntapRestAPI) IgroupAddInitiator(igroupName string, initiatorName strin
 	}
 	initiator := ontap.IgroupInitiator{
 		IgroupInitiators: &[]ontap.Resource{
-            		ontap.Resource{
+			ontap.Resource{
 				Name: initiatorName,
-                    	},
-            	},
+			},
+		},
 	}
 	if _, err = c.Client.IgroupInitiatorCreate(igroup.GetRef(), &initiator); err != nil {
 		err = fmt.Errorf("IgroupInitiatorCreate() failure: %s", err)
@@ -255,6 +269,7 @@ func (c *OntapRestAPI) IgroupAddInitiator(igroupName string, initiatorName strin
 	return
 }
 
+// IgroupDestroy deletes iGroup
 func (c *OntapRestAPI) IgroupDestroy(igroupName string) (err error) {
 	var igroup *ontap.Igroup
 	var res *ontap.RestResponse
@@ -272,6 +287,7 @@ func (c *OntapRestAPI) IgroupDestroy(igroupName string) (err error) {
 	return
 }
 
+// LunExists checks if LUN exists
 func (c *OntapRestAPI) LunExists(lunPath string) (exists bool, err error) {
 	var luns []ontap.Lun
 	if luns, _, err = c.Client.LunGetIter([]string{"name=" + lunPath}); err != nil {
@@ -286,6 +302,7 @@ func (c *OntapRestAPI) LunExists(lunPath string) (exists bool, err error) {
 	return
 }
 
+// LunGet gets LUN attributes
 func (c *OntapRestAPI) LunGet(lunPath string) (lun *ontap.Lun, res *ontap.RestResponse, err error) {
 	var luns []ontap.Lun
 	if luns, res, err = c.Client.LunGetIter([]string{"name=" + lunPath, "fields=comment,space"}); err != nil {
@@ -301,6 +318,7 @@ func (c *OntapRestAPI) LunGet(lunPath string) (lun *ontap.Lun, res *ontap.RestRe
 	return
 }
 
+// IsLunMapped checks if LUN is mapped
 func (c *OntapRestAPI) IsLunMapped(lunPath string, igroupName string) (mapped bool, err error) {
 	var lunMaps []ontap.LunMap
 	if lunMaps, _, err = c.Client.LunMapGetIter([]string{"lun.name=" + lunPath, "igroup.name=" + igroupName}); err != nil {
@@ -315,6 +333,7 @@ func (c *OntapRestAPI) IsLunMapped(lunPath string, igroupName string) (mapped bo
 	return
 }
 
+// LunCopy copies LUN from src to dst
 func (c *OntapRestAPI) LunCopy(imagePath string, lunPath string) (err error) {
 	if err = util.LunCopy(c.Client, imagePath, lunPath); err != nil {
 		err = fmt.Errorf("LunCopy() failure: %s", err)
@@ -322,6 +341,7 @@ func (c *OntapRestAPI) LunCopy(imagePath string, lunPath string) (err error) {
 	return
 }
 
+// LunResize sets LUN new size
 func (c *OntapRestAPI) LunResize(lunPath string, lunSize int) (err error) {
 	var lun *ontap.Lun
 	if lun, _, err = c.LunGet(lunPath); err != nil {
@@ -339,19 +359,20 @@ func (c *OntapRestAPI) LunResize(lunPath string, lunSize int) (err error) {
 	return
 }
 
-func (c *OntapRestAPI) LunMap(lunPath string, lunId int, igroupName string) (err error) {
+// LunMap maps LUN to iGroup
+func (c *OntapRestAPI) LunMap(lunPath string, lunID int, igroupName string) (err error) {
 	lunMap := ontap.LunMap{
 		Igroup: &ontap.IgroupRef{
 			Resource: ontap.Resource{
-                    		Name: igroupName,
-                        },
+				Name: igroupName,
+			},
 		},
 		Lun: &ontap.LunRef{
 			Resource: ontap.Resource{
-                    		Name: lunPath,
-                        },
+				Name: lunPath,
+			},
 		},
-		LogicalUnitNumber: &lunId,
+		LogicalUnitNumber: &lunID,
 	}
 	if _, err = c.Client.LunMapCreate(&lunMap, []string{}); err != nil {
 		err = fmt.Errorf("LunMapCreate() failure: %s", err)
@@ -359,6 +380,7 @@ func (c *OntapRestAPI) LunMap(lunPath string, lunId int, igroupName string) (err
 	return
 }
 
+// LunUnmap unmaps LUN from iGroup
 func (c *OntapRestAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 	var lunMaps []ontap.LunMap
 	if lunMaps, _, err = c.Client.LunMapGetIter([]string{"lun.name=" + lunPath, "igroup.name=" + igroupName}); err != nil {
@@ -373,8 +395,9 @@ func (c *OntapRestAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 	return
 }
 
+// LunCreate creates LUN
 func (c *OntapRestAPI) LunCreate(lunPath string, lunSize int) (err error) {
-        volumeName := filepath.Base(filepath.Dir(lunPath))
+	volumeName := filepath.Base(filepath.Dir(lunPath))
 	lunName := filepath.Base(lunPath)
 	sizeBytes := lunSize * 1024 * 1024 * 1024
 	lun := ontap.Lun{
@@ -401,13 +424,15 @@ func (c *OntapRestAPI) LunCreate(lunPath string, lunSize int) (err error) {
 	return
 }
 
+// LunCreateFromFile creates LUN from file
 func (c *OntapRestAPI) LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string) (err error) {
-	if err = util.LunCreateFromFile(c.Client, lunPath, "/vol/" + volumeName + filePath, "linux"); err != nil {
+	if err = util.LunCreateFromFile(c.Client, lunPath, "/vol/"+volumeName+filePath, "linux"); err != nil {
 		err = fmt.Errorf("LunCreateFromFile() failure: %s", err)
 	}
 	return
 }
 
+// LunDestroy deletes LUN
 func (c *OntapRestAPI) LunDestroy(lunPath string) (err error) {
 	var lun *ontap.Lun
 	var res *ontap.RestResponse
@@ -425,18 +450,20 @@ func (c *OntapRestAPI) LunDestroy(lunPath string) (err error) {
 	return
 }
 
+// LunGetInfo gets generic LUN attributes
 func (c *OntapRestAPI) LunGetInfo(lunPath string) (lunInfo *LunInfo, err error) {
 	var lun *ontap.Lun
 	if lun, _, err = c.LunGet(lunPath); err != nil {
 		return
 	}
-    	lunInfo = &LunInfo{
-    		Comment: lun.Comment,
-    		Size: int(math.Round(float64(*lun.Space.Size)/1024/1024/1024)),
+	lunInfo = &LunInfo{
+		Comment: lun.Comment,
+		Size:    int(math.Round(float64(*lun.Space.Size) / 1024 / 1024 / 1024)),
 	}
 	return
 }
 
+// LunGetList gets list of LUN's
 func (c *OntapRestAPI) LunGetList(volumeName string) (lunList []string, err error) {
 	lunList = []string{}
 	var luns []ontap.Lun
@@ -450,9 +477,10 @@ func (c *OntapRestAPI) LunGetList(volumeName string) (lunList []string, err erro
 	return
 }
 
+// IscsiTargetGetName gets target name
 func (c *OntapRestAPI) IscsiTargetGetName() (targetName string, err error) {
 	var iscsiServices []ontap.IscsiService
-	if iscsiServices, _, err = c.Client.IscsiServiceGetIter([]string{"enabled=true","fields=target"}); err != nil {
+	if iscsiServices, _, err = c.Client.IscsiServiceGetIter([]string{"enabled=true", "fields=target"}); err != nil {
 		err = fmt.Errorf("IscsiServiceGetIter() failure: %s", err)
 	} else {
 		if len(iscsiServices) > 0 {
@@ -464,6 +492,7 @@ func (c *OntapRestAPI) IscsiTargetGetName() (targetName string, err error) {
 	return
 }
 
+// DiscoverIscsiLIFs get list of iSCSI interfaces for LUN
 func (c *OntapRestAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) (lifs []string, err error) {
 	lifs = []string{}
 	var ipInterfaces []ontap.IpInterface
@@ -476,11 +505,12 @@ func (c *OntapRestAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string)
 		return
 	}
 	for _, ipInterface := range ipInterfaces {
-		lifs  = append(lifs, ipInterface.Ip.Address)
+		lifs = append(lifs, ipInterface.Ip.Address)
 	}
 	return
 }
 
+// FileExists checks if file exists
 func (c *OntapRestAPI) FileExists(volumeName string, filePath string) (exists bool, err error) {
 	var volume *ontap.Volume
 	if volume, _, err = c.VolumeGet(volumeName); err != nil {
@@ -489,7 +519,7 @@ func (c *OntapRestAPI) FileExists(volumeName string, filePath string) (exists bo
 	var files []ontap.FileInfo
 	dirPath := filepath.Dir(filePath)
 	fileName := filepath.Base(filePath)
-	if files, _, err = c.Client.FileGetIter(volume.Uuid, dirPath, []string{"type=file","name=" + fileName}); err != nil {
+	if files, _, err = c.Client.FileGetIter(volume.Uuid, dirPath, []string{"type=file", "name=" + fileName}); err != nil {
 		err = fmt.Errorf("FileGetIter(): failure: %s", err)
 		return
 	}
@@ -501,6 +531,7 @@ func (c *OntapRestAPI) FileExists(volumeName string, filePath string) (exists bo
 	return
 }
 
+// FileGetList gets list if files on specified volume
 func (c *OntapRestAPI) FileGetList(volumeName string, dirPath string) (fileList []string, err error) {
 	fileList = []string{}
 	var volume *ontap.Volume
@@ -518,6 +549,7 @@ func (c *OntapRestAPI) FileGetList(volumeName string, dirPath string) (fileList 
 	return
 }
 
+// FileDelete deletes file
 func (c *OntapRestAPI) FileDelete(volumeName string, filePath string) (err error) {
 	var volume *ontap.Volume
 	var res *ontap.RestResponse
@@ -534,6 +566,7 @@ func (c *OntapRestAPI) FileDelete(volumeName string, filePath string) (err error
 	return
 }
 
+// FileDownload gets file content
 func (c *OntapRestAPI) FileDownload(volumeName string, filePath string) (fileContent []byte, err error) {
 	if fileContent, err = util.DownloadFileAPI(c.Client, volumeName, filePath); err != nil {
 		err = fmt.Errorf("DownloadFileAPI(): failure: %s", err)
@@ -541,6 +574,7 @@ func (c *OntapRestAPI) FileDownload(volumeName string, filePath string) (fileCon
 	return
 }
 
+// FileUploadAPI uploads file content via REST API
 func (c *OntapRestAPI) FileUploadAPI(volumeName string, filePath string, reader io.Reader) (err error) {
 	if _, err = util.UploadFileAPI(c.Client, volumeName, filePath, reader); err != nil {
 		err = fmt.Errorf("UploadFileAPI(): failure: %s", err)
@@ -548,6 +582,7 @@ func (c *OntapRestAPI) FileUploadAPI(volumeName string, filePath string, reader 
 	return
 }
 
+// FileUploadNFS uploads file content via NFS
 func (c *OntapRestAPI) FileUploadNFS(volumeName string, filePath string, reader io.Reader) (err error) {
 	if _, err = util.UploadFileNFS(c.Client, volumeName, filePath, reader); err != nil {
 		err = fmt.Errorf("UploadFileNFS(): failure: %s", err)
@@ -555,6 +590,7 @@ func (c *OntapRestAPI) FileUploadNFS(volumeName string, filePath string, reader 
 	return
 }
 
+// SnapshotGet gets snapshot attributes
 func (c *OntapRestAPI) SnapshotGet(volumeName string, snapshotName string) (snapshot *ontap.Snapshot, res *ontap.RestResponse, err error) {
 	var volume *ontap.Volume
 	if volume, _, err = c.VolumeGet(volumeName); err != nil {
@@ -574,6 +610,7 @@ func (c *OntapRestAPI) SnapshotGet(volumeName string, snapshotName string) (snap
 	return
 }
 
+// SnapshotGetList gets list of snapshots
 func (c *OntapRestAPI) SnapshotGetList(volumeName string) (snapshots []string, err error) {
 	snapshots = []string{}
 	var volume *ontap.Volume
@@ -586,11 +623,12 @@ func (c *OntapRestAPI) SnapshotGetList(volumeName string) (snapshots []string, e
 		return
 	}
 	for _, snapshot := range volumeSnapshots {
-		snapshots  = append(snapshots, snapshot.Name)
+		snapshots = append(snapshots, snapshot.Name)
 	}
 	return
 }
 
+// SnapshotCreate creates snapshot
 func (c *OntapRestAPI) SnapshotCreate(volumeName string, snapshotName string, snapshotComment string) (err error) {
 	var volume *ontap.Volume
 	if volume, _, err = c.VolumeGet(volumeName); err != nil {
@@ -608,6 +646,7 @@ func (c *OntapRestAPI) SnapshotCreate(volumeName string, snapshotName string, sn
 	return
 }
 
+// SnapshotDelete deletes snapshot
 func (c *OntapRestAPI) SnapshotDelete(volumeName string, snapshotName string) (err error) {
 	var snapshot *ontap.Snapshot
 	var res *ontap.RestResponse
@@ -625,6 +664,7 @@ func (c *OntapRestAPI) SnapshotDelete(volumeName string, snapshotName string) (e
 	return
 }
 
+// SnapshotRestore restores volume from snapshot
 func (c *OntapRestAPI) SnapshotRestore(volumeName string, snapshotName string) (err error) {
 	var volume *ontap.Volume
 	if volume, _, err = c.VolumeGet(volumeName); err != nil {
