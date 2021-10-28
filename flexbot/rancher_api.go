@@ -67,7 +67,7 @@ func rancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 		NodeEtcd:         false,
 		NodeWorker:       false,
 	}
-	if meta.(*FlexbotConfig).RancherConfig == nil || meta.(*FlexbotConfig).RancherApiEnabled == false {
+	if meta.(*FlexbotConfig).RancherConfig == nil || !meta.(*FlexbotConfig).RancherApiEnabled {
 		return
 	}
 	node.RancherClient = &(meta.(*FlexbotConfig).RancherConfig.Client)
@@ -88,7 +88,7 @@ func rancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 				return
 			}
 			if len(node.NodeID) > 0 {
-				if err = node.RancherClient.NodeWaitForState(node.NodeID, "active", int(math.Round(giveupTime.Sub(time.Now()).Seconds()))); err == nil {
+				if err = node.RancherClient.NodeWaitForState(node.NodeID, "active", int(math.Round(time.Until(giveupTime).Seconds()))); err == nil {
 					node.NodeControlPlane, node.NodeEtcd, node.NodeWorker, err = node.RancherClient.GetNodeRole(node.NodeID)
 				}
 				return

@@ -42,9 +42,7 @@ func GetSnapshots(nodeConfig *config.NodeConfig) (snapshotList []string, err err
 		return
 	}
 	nodeConfig.Storage.Snapshots = []string{}
-	for _, snapshot := range snapshotList {
-		nodeConfig.Storage.Snapshots = append(nodeConfig.Storage.Snapshots, snapshot)
-	}
+	nodeConfig.Storage.Snapshots = append(nodeConfig.Storage.Snapshots, snapshotList...)
 	return
 }
 

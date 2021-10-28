@@ -127,7 +127,6 @@ func (result *BaseResult) DumpResult(r interface{}, resultDest string, resultFor
 			}
 		}
 	}
-	return
 }
 
 // DumpResult is NodeResult output method
@@ -137,7 +136,6 @@ func (result *NodeResult) DumpResult(r interface{}, resultDest string, resultFor
 	result.Node.Compute.UcsmCredentials = config.Credentials{}
 	result.Node.CloudArgs = map[string]string{}
 	result.BaseResult.DumpResult(r, resultDest, resultFormat, resultErr)
-	return
 }
 
 func provisionServer(nodeConfig *config.NodeConfig) (err error) {
@@ -375,7 +373,7 @@ func main() {
 		} else {
 			var serverExists bool
 			if serverExists, err = discoverServer(&nodeConfig); err == nil {
-				if serverExists == false {
+				if !serverExists {
 					if err = provisionServerPreflight(&nodeConfig); err == nil {
 						if err = provisionServer(&nodeConfig); err != nil {
 							deprovisionServer(&nodeConfig)

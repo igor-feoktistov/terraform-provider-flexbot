@@ -355,7 +355,7 @@ func (p *InfobloxProvider) ReleaseIp(fqdn string) (ipaddr string, err error) {
 	}
 	if host != nil {
 		ipaddr = host.Ipv4Addrs[0].Ipv4Addr
-		if _, err := objMgr.DeleteHostRecord(host.Ref); err != nil {
+		if _, err = objMgr.DeleteHostRecord(host.Ref); err != nil {
 			err = fmt.Errorf("ReleaseIP(): DeleteHostRecord(): %s", err)
 		}
 	}

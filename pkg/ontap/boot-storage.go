@@ -112,9 +112,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 		}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget = &config.IscsiTarget{}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
-		for _, lif := range lifs {
-			nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lif)
-		}
+		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lifs...)
 	}
 	return
 }
@@ -132,7 +130,10 @@ func CreateBootStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 	}
 	var images []string
 	var repoLunPath string
-	images, err = GetRepoImages(nodeConfig)
+	if images, err = GetRepoImages(nodeConfig); err != nil {
+		err = fmt.Errorf("CreateBootStoragePreflight(): %s", err)
+		return
+	}
 	for _, image := range images {
 		if image == nodeConfig.Storage.BootLun.OsImage.Name {
 			repoLunPath = "/vol/" + nodeConfig.Storage.ImageRepoName + "/" + image
@@ -155,9 +156,7 @@ func CreateBootStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 		}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget = &config.IscsiTarget{}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
-		for _, lif := range lifs {
-			nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lif)
-		}
+		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lifs...)
 	}
 	return
 }
@@ -308,9 +307,7 @@ func DiscoverBootStorage(nodeConfig *config.NodeConfig) (storageExists bool, err
 		}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget = &config.IscsiTarget{}
 		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = iscsiNodeName
-		for _, lif := range lifs {
-			nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lif)
-		}
+		nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, lifs...)
 	}
 	if nodeConfig.Storage.Snapshots, err = c.SnapshotGetList(nodeConfig.Storage.VolumeName); err != nil {
 		err = fmt.Errorf("DiscoverBootStorage(): %s", err)

@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -84,13 +83,13 @@ func NewListOpts(filters map[string]interface{}) *types.ListOpts {
 // DoGet is core HTTP get routine
 func DoGet(url, username, password, token, cacert string, insecure bool) ([]byte, error) {
 	if url == "" {
-		return nil, fmt.Errorf("Doing get: URL is nil")
+		return nil, fmt.Errorf("doing get: URL is nil")
 	}
 	client := &http.Client{
 		Timeout: time.Duration(60 * time.Second),
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= maxHTTPRedirect {
-				return fmt.Errorf("Stopped after %d redirects", maxHTTPRedirect)
+				return fmt.Errorf("stopped after %d redirects", maxHTTPRedirect)
 			}
 			if len(token) > 0 {
 				req.Header.Add("Authorization", "Bearer "+token)
@@ -116,7 +115,7 @@ func DoGet(url, username, password, token, cacert string, insecure bool) ([]byte
 	client.Transport = transport
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Doing get: %v", err)
+		return nil, fmt.Errorf("doing get: %v", err)
 	}
 	if len(token) > 0 {
 		req.Header.Add("Authorization", "Bearer "+token)
@@ -126,7 +125,7 @@ func DoGet(url, username, password, token, cacert string, insecure bool) ([]byte
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Doing get: %v", err)
+		return nil, fmt.Errorf("doing get: %v", err)
 	}
 	defer resp.Body.Close()
 	return ioutil.ReadAll(resp.Body)
@@ -189,56 +188,7 @@ func (c *Config) isRancherReady() error {
 		}
 		time.Sleep(rancher2RetriesWait * time.Second)
 	}
-	return fmt.Errorf("Rancher is not ready: %v", err)
-}
-
-func (c *Config) getK8SDefaultVersion() (string, error) {
-	if len(c.K8SDefaultVersion) > 0 {
-		return c.K8SDefaultVersion, nil
-	}
-
-	if c.Client.Management == nil {
-		err := c.ManagementClient()
-		if err != nil {
-			return "", err
-		}
-	}
-	k8sVer, err := c.Client.Management.Setting.ByID("k8s-version")
-	if err != nil {
-		return "", err
-	}
-	c.K8SDefaultVersion = k8sVer.Value
-	return c.K8SDefaultVersion, nil
-}
-
-func (c *Config) getK8SVersions() ([]string, error) {
-	if len(c.K8SSupportedVersions) > 0 {
-		return c.K8SSupportedVersions, nil
-	}
-	if c.Client.Management == nil {
-		err := c.ManagementClient()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if ok, _ := c.IsRancherVersionLessThan(rancher2RKEK8sSystemImageVersion); ok {
-		return nil, nil
-	}
-	RKEK8sSystemImageCollection, err := c.Client.Management.RkeK8sSystemImage.ListAll(NewListOpts(nil))
-	if err != nil {
-		return nil, fmt.Errorf("[ERROR] Listing RKE K8s System Images: %s", err)
-	}
-	versions := make([]*version.Version, 0, len(RKEK8sSystemImageCollection.Data))
-	for _, RKEK8sSystem := range RKEK8sSystemImageCollection.Data {
-		v, _ := version.NewVersion(RKEK8sSystem.Name)
-		versions = append(versions, v)
-
-	}
-	sort.Sort(sort.Reverse(version.Collection(versions)))
-	for i := range versions {
-		c.K8SSupportedVersions = append(c.K8SSupportedVersions, "v"+versions[i].String())
-	}
-	return c.K8SSupportedVersions, nil
+	return fmt.Errorf("rancher is not ready: %v", err)
 }
 
 // IsRancherVersionLessThan compares Rancher version
@@ -404,7 +354,7 @@ func (client *Client) NodeCordonDrain(nodeID string, nodeDrainInput *managementC
 					var state string
 					if state, err = client.NodeGetState(nodeID); err == nil {
 						if !(state == "cordoned" || state == "drained") {
-							err = fmt.Errorf("expected node state either \"cordoned\" or \"drained\"", err)
+							err = fmt.Errorf("expected node state either \"cordoned\" or \"drained\"")
 						}
 					}
 				}
@@ -474,15 +424,11 @@ func (client *Client) NodeUpdateLabels(nodeID string, oldLabels map[string]inter
 		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
 		return
 	}
-	if oldLabels != nil {
-		for key := range oldLabels {
-			delete(node.Labels, key)
-		}
+	for key := range oldLabels {
+		delete(node.Labels, key)
 	}
-	if newLabels != nil {
-		for key, elem := range newLabels {
-			node.Labels[key] = elem.(string)
-		}
+	for key, elem := range newLabels {
+		node.Labels[key] = elem.(string)
 	}
 	if _, err = client.Management.Node.Update(node, node); err != nil {
 		err = fmt.Errorf("rancher.NodeSetLabels() error: %s", err)

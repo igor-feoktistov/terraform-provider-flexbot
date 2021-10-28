@@ -17,6 +17,7 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ipam"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,13 +60,17 @@ func resourceFlexbotServer() *schema.Resource {
 func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
 	var nodeConfig *config.NodeConfig
+	var sshPrivateKey string
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
 		return
 	}
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	sshUser := compute["ssh_user"].(string)
-	sshPrivateKey := compute["ssh_private_key"].(string)
+	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
+		diags = diag.FromErr(err)
+		return
+	}
 	for _, snapshot := range d.Get("snapshot").([]interface{}) {
 		name := snapshot.(map[string]interface{})["name"].(string)
 		if snapshot.(map[string]interface{})["fsfreeze"].(bool) {
@@ -269,11 +274,14 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 }
 
 func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
-	var powerState, newPowerState string
+	var powerState, newPowerState, sshPrivateKey string
 	var oldBladeSpec, newBladeSpec map[string]interface{}
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	sshUser := compute["ssh_user"].(string)
-	sshPrivateKey := compute["ssh_private_key"].(string)
+	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
+		err = fmt.Errorf("resourceUpdateServer(compute): failure: %s", err)
+		return
+	}
 	oldCompute, newCompute := d.GetChange("compute")
 	if len((oldCompute.([]interface{})[0].(map[string]interface{}))["blade_spec"].([]interface{})) > 0 {
 		oldBladeSpec = (oldCompute.([]interface{})[0].(map[string]interface{}))["blade_spec"].([]interface{})[0].(map[string]interface{})
@@ -295,7 +303,7 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 					err = fmt.Errorf("resourceUpdateServer(compute):  regexp.MatchString(%s), error: %s", newBladeSpec[specItem].(string), err)
 					return
 				}
-				if matched == false {
+				if !matched {
 					nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeBladeSpec
 				}
 			}
@@ -312,7 +320,7 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 					err = fmt.Errorf("resourceUpdateServer(compute): unexpected blade_spec value %s=%s, error: %s", specItem, newBladeSpec[specItem].(string), err)
 					return
 				}
-				if inRange == false {
+				if !inRange {
 					nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeBladeSpec
 				}
 			}
@@ -425,10 +433,13 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 }
 
 func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
-	var powerState string
+	var powerState, sshPrivateKey string
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	sshUser := compute["ssh_user"].(string)
-	sshPrivateKey := compute["ssh_private_key"].(string)
+	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
+		err = fmt.Errorf("resourceUpdateServer(storage): failure: %s", err)
+		return
+	}
 	oldStorage, newStorage := d.GetChange("storage")
 	oldBootLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
 	newBootLun := (newStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
@@ -618,9 +629,13 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 
 func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
 	var oldSnapState, newSnapState, snapStateInter, snapStorage []string
+	var sshPrivateKey string
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	sshUser := compute["ssh_user"].(string)
-	sshPrivateKey := compute["ssh_private_key"].(string)
+	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
+		err = fmt.Errorf("resourceUpdateServer(snapshot): failure: %s", err)
+		return
+	}
 	oldSnapshot, newSnapshot := d.GetChange("snapshot")
 	for _, snapshot := range oldSnapshot.([]interface{}) {
 		oldSnapState = append(oldSnapState, snapshot.(map[string]interface{})["name"].(string))
@@ -630,13 +645,13 @@ func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, node
 	}
 	snapStateInter = stringSliceIntersection(oldSnapState, newSnapState)
 	if snapStorage, err = ontap.GetSnapshots(nodeConfig); err != nil {
-		err = fmt.Errorf("resourceUpdateServer(): %s", err)
+		err = fmt.Errorf("resourceUpdateServer(snapshot): %s", err)
 		return
 	}
 	for _, name := range oldSnapState {
 		if stringSliceElementExists(snapStorage, name) && !stringSliceElementExists(snapStateInter, name) {
 			if err = ontap.DeleteSnapshot(nodeConfig, name); err != nil {
-				err = fmt.Errorf("resourceUpdateServer(): %s", err)
+				err = fmt.Errorf("resourceUpdateServer(snapshot): %s", err)
 				return
 			}
 			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeSnapshotDelete
@@ -650,13 +665,13 @@ func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, node
 						if len(sshUser) > 0 && len(sshPrivateKey) > 0 {
 							err = createSnapshot(nodeConfig, sshUser, sshPrivateKey, name)
 						} else {
-							err = fmt.Errorf("expected compute.ssh_user and compute.ssh_private_key parameters to ensure fsfreeze for snapshot %s", name)
+							err = fmt.Errorf("resourceUpdateServer(snapshot): expected compute.ssh_user and compute.ssh_private_key parameters to ensure fsfreeze for snapshot %s", name)
 						}
 					} else {
 						err = ontap.CreateSnapshot(nodeConfig, name, "")
 					}
 					if err != nil {
-						err = fmt.Errorf("resourceUpdateServer(): %s", err)
+						err = fmt.Errorf("resourceUpdateServer(snapshot): %s", err)
 						return
 					}
 					nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeSnapshotCreate
@@ -668,10 +683,13 @@ func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, node
 }
 
 func resourceUpdateServerRestore(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
-	var powerState string
+	var powerState, sshPrivateKey string
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	sshUser := compute["ssh_user"].(string)
-	sshPrivateKey := compute["ssh_private_key"].(string)
+	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
+		err = fmt.Errorf("resourceUpdateServer(restore): failure: %s", err)
+		return
+	}
 	oldRestore, newRestore := d.GetChange("restore")
 	if len(newRestore.([]interface{})) == 0 {
 		return
@@ -1047,6 +1065,20 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	d.Set("compute", []interface{}{compute})
 	d.Set("network", []interface{}{network})
 	d.Set("storage", []interface{}{storage})
+}
+
+func decryptAttribute(meta interface{}, encrypted string) (decrypted string, err error) {
+	passPhrase := meta.(*FlexbotConfig).FlexbotProvider.Get("pass_phrase").(string)
+	if passPhrase == "" {
+		if passPhrase, err = machineid.ID(); err != nil {
+			err = fmt.Errorf("decryptAttribute(): failure to retrieve pass_phrase: %s", err)
+			return
+		}
+	}
+	if decrypted, err = crypt.DecryptString(encrypted, passPhrase); err != nil {
+		err = fmt.Errorf("decryptAttribute(): failure to decrypt: %s", err)
+	}
+	return
 }
 
 func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey string, snapshotName string) (err error) {

@@ -2,7 +2,6 @@ package config
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -62,7 +61,7 @@ type NetworkInterface struct {
 	Macaddr    string            `yaml:"macaddr,omitempty" json:"macaddr,omitempty"`
 	Ip         string            `yaml:"ip,omitempty" json:"ip,omitempty"`
 	Fqdn       string            `yaml:"fqdn,omitempty" json:"fqdn,omitempty"`
-	Subnet     string            `yaml:"subnet" json:"subnet" json:"subnet,omitempty"`
+	Subnet     string            `yaml:"subnet" json:"subnet"`
 	NetLen     string            `yaml:"netlen,omitempty" json:"netlen,omitempty"`
 	IpRange    string            `yaml:"ipRange,omitempty" json:"ipRange,omitempty"`
 	Gateway    string            `yaml:"gateway,omitempty" json:"gateway,omitempty"`
@@ -189,8 +188,9 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 		nodeConfig.Storage.SeedLun.SeedTemplate.Location = templatePath
 	}
 	if nodeConfig.Compute.HostName != "" {
-		if len(nodeConfig.Network.IscsiInitiator) < 2 {
-			err = fmt.Errorf("expected two iSCSI initiators")
+		if len(nodeConfig.Network.IscsiInitiator) < 1 {
+			err = fmt.Errorf("expected at least one iSCSI initiator")
+			return
 		}
 		for i := range nodeConfig.Network.Node {
 			if _, ipv4Net, err = net.ParseCIDR(nodeConfig.Network.Node[i].Subnet); err != nil {
@@ -307,57 +307,63 @@ func ParseNodeConfig(nodeConfigArg string, nodeConfig *NodeConfig) (err error) {
 
 // EncryptNodeConfig encrypts node configuration
 func EncryptNodeConfig(nodeConfig *NodeConfig, passPhrase string) (err error) {
-	if nodeConfig.Ipam.IbCredentials.User, err = encryptString(nodeConfig.Ipam.IbCredentials.User, passPhrase); err != nil {
+	if nodeConfig.Ipam.IbCredentials.User, err = crypt.EncryptString(nodeConfig.Ipam.IbCredentials.User, passPhrase); err != nil {
 		err = fmt.Errorf("EncryptNodeConfig(nodeConfig.Ipam.IbCredentials.User): failure: %s", err)
 		return
 	}
-	if nodeConfig.Ipam.IbCredentials.Password, err = encryptString(nodeConfig.Ipam.IbCredentials.Password, passPhrase); err != nil {
+	if nodeConfig.Ipam.IbCredentials.Password, err = crypt.EncryptString(nodeConfig.Ipam.IbCredentials.Password, passPhrase); err != nil {
 		err = fmt.Errorf("EncryptNodeConfig(nodeConfig.Ipam.IbCredentials.Password): failure: %s", err)
 		return
 	}
-	if nodeConfig.Storage.CdotCredentials.User, err = encryptString(nodeConfig.Storage.CdotCredentials.User, passPhrase); err != nil {
+	if nodeConfig.Storage.CdotCredentials.User, err = crypt.EncryptString(nodeConfig.Storage.CdotCredentials.User, passPhrase); err != nil {
 		err = fmt.Errorf("EncryptNodeConfig(nodeConfig.Storage.CdotCredentials.User): failure: %s", err)
 		return
 	}
-	if nodeConfig.Storage.CdotCredentials.Password, err = encryptString(nodeConfig.Storage.CdotCredentials.Password, passPhrase); err != nil {
+	if nodeConfig.Storage.CdotCredentials.Password, err = crypt.EncryptString(nodeConfig.Storage.CdotCredentials.Password, passPhrase); err != nil {
 		err = fmt.Errorf("EncryptNodeConfig(nodeConfig.Storage.CdotCredentials.Password): failure: %s", err)
 		return
 	}
-	if nodeConfig.Compute.UcsmCredentials.User, err = encryptString(nodeConfig.Compute.UcsmCredentials.User, passPhrase); err != nil {
+	if nodeConfig.Compute.UcsmCredentials.User, err = crypt.EncryptString(nodeConfig.Compute.UcsmCredentials.User, passPhrase); err != nil {
 		err = fmt.Errorf("EncryptNodeConfig(nodeConfig.Compute.UcsmCredentials.User): failure: %s", err)
 		return
 	}
-	if nodeConfig.Compute.UcsmCredentials.Password, err = encryptString(nodeConfig.Compute.UcsmCredentials.Password, passPhrase); err != nil {
+	if nodeConfig.Compute.UcsmCredentials.Password, err = crypt.EncryptString(nodeConfig.Compute.UcsmCredentials.Password, passPhrase); err != nil {
 		err = fmt.Errorf("EncryptNodeConfig(nodeConfig.Compute.UcsmCredentials.Password): failure: %s", err)
 	}
 	return
 }
 
-// DecryptNodeConfig decryots node configuration
+// DecryptNodeConfig decrypts node configuration
 func DecryptNodeConfig(nodeConfig *NodeConfig, passPhrase string) (err error) {
-	if nodeConfig.Ipam.IbCredentials.User, err = decryptString(nodeConfig.Ipam.IbCredentials.User, passPhrase); err != nil {
+	if nodeConfig.Ipam.IbCredentials.User, err = crypt.DecryptString(nodeConfig.Ipam.IbCredentials.User, passPhrase); err != nil {
 		err = fmt.Errorf("DecryptNodeConfig(nodeConfig.Ipam.IbCredentials.User): failure: %s", err)
 		return
 	}
-	if nodeConfig.Ipam.IbCredentials.Password, err = decryptString(nodeConfig.Ipam.IbCredentials.Password, passPhrase); err != nil {
+	if nodeConfig.Ipam.IbCredentials.Password, err = crypt.DecryptString(nodeConfig.Ipam.IbCredentials.Password, passPhrase); err != nil {
 		err = fmt.Errorf("DecryptNodeConfig(nodeConfig.Ipam.IbCredentials.Password): failure: %s", err)
 		return
 	}
-	if nodeConfig.Storage.CdotCredentials.User, err = decryptString(nodeConfig.Storage.CdotCredentials.User, passPhrase); err != nil {
+	if nodeConfig.Storage.CdotCredentials.User, err = crypt.DecryptString(nodeConfig.Storage.CdotCredentials.User, passPhrase); err != nil {
 		err = fmt.Errorf("DecryptNodeConfig(nodeConfig.Storage.CdotCredentials.User): failure: %s", err)
 		return
 	}
-	if nodeConfig.Storage.CdotCredentials.Password, err = decryptString(nodeConfig.Storage.CdotCredentials.Password, passPhrase); err != nil {
+	if nodeConfig.Storage.CdotCredentials.Password, err = crypt.DecryptString(nodeConfig.Storage.CdotCredentials.Password, passPhrase); err != nil {
 		err = fmt.Errorf("DecryptNodeConfig(nodeConfig.Storage.CdotCredentials.Password): failure: %s", err)
 		return
 	}
-	if nodeConfig.Compute.UcsmCredentials.User, err = decryptString(nodeConfig.Compute.UcsmCredentials.User, passPhrase); err != nil {
+	if nodeConfig.Compute.UcsmCredentials.User, err = crypt.DecryptString(nodeConfig.Compute.UcsmCredentials.User, passPhrase); err != nil {
 		err = fmt.Errorf("DecryptNodeConfig(nodeConfig.Compute.UcsmCredentials.User): failure: %s", err)
 		return
 	}
-	if nodeConfig.Compute.UcsmCredentials.Password, err = decryptString(nodeConfig.Compute.UcsmCredentials.Password, passPhrase); err != nil {
+	if nodeConfig.Compute.UcsmCredentials.Password, err = crypt.DecryptString(nodeConfig.Compute.UcsmCredentials.Password, passPhrase); err != nil {
 		err = fmt.Errorf("DecryptNodeConfig(nodeConfig.Compute.UcsmCredentials.Password): failure: %s", err)
 	}
+        for argKey, argValue := range nodeConfig.CloudArgs {
+		if nodeConfig.CloudArgs[argKey], err = crypt.DecryptString(argValue, passPhrase); err != nil {
+			err = fmt.Errorf("DecryptNodeConfig(nodeConfig.CloudArgs[%s]): failure: %s", argKey, err)
+			return
+		}
+        }
 	return
 }
 
@@ -370,38 +376,5 @@ func GetNodeConfigYAML(nodeConfig *NodeConfig) (b []byte, err error) {
 // GetNodeConfigJSON transforms node configuration to JSON
 func GetNodeConfigJSON(nodeConfig *NodeConfig) (b []byte, err error) {
 	b, err = json.MarshalIndent(nodeConfig, "", "  ")
-	return
-}
-
-//
-func encryptString(decrypted string, passPhrase string) (encrypted string, err error) {
-	var b []byte
-	if !strings.HasPrefix(decrypted, "base64:") {
-		if b, err = crypt.Encrypt([]byte(decrypted), passPhrase); err != nil {
-			err = fmt.Errorf("Encrypt() failure: %s", err)
-			return
-		}
-		encrypted = "base64:" + base64.StdEncoding.EncodeToString(b)
-	} else {
-		encrypted = decrypted
-	}
-	return
-}
-
-func decryptString(encrypted string, passPhrase string) (decrypted string, err error) {
-	var b, b64 []byte
-	if strings.HasPrefix(encrypted, "base64:") {
-		if b64, err = base64.StdEncoding.DecodeString(encrypted[7:]); err != nil {
-			err = fmt.Errorf("base64.StdEncoding.DecodeString() failure: %s", err)
-			return
-		}
-		if b, err = crypt.Decrypt(b64, passPhrase); err != nil {
-			err = fmt.Errorf("Decrypt() failure: %s", err)
-			return
-		}
-		decrypted = string(b)
-	} else {
-		decrypted = encrypted
-	}
 	return
 }
