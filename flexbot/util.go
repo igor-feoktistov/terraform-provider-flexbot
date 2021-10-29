@@ -1,16 +1,16 @@
 package flexbot
 
 import (
-	"fmt"
-	"net"
 	"bytes"
-	"time"
+	"fmt"
+	"golang.org/x/crypto/ssh"
+	"net"
 	"regexp"
 	"strconv"
-	"golang.org/x/crypto/ssh"
+	"time"
 )
 
-func checkSshListen(host string) (listen bool) {
+func checkSSHListen(host string) (listen bool) {
 	timeout := time.Second
 	conn, err := net.DialTimeout("tcp", host+":22", timeout)
 	if err != nil {
@@ -22,21 +22,21 @@ func checkSshListen(host string) (listen bool) {
 	return
 }
 
-func checkSshCommand(host string, sshUser string, sshPrivateKey string) (err error) {
+func checkSSHCommand(host string, sshUser string, sshPrivateKey string) (err error) {
 	var signer ssh.Signer
 	var conn *ssh.Client
 	var sess *ssh.Session
 	if signer, err = ssh.ParsePrivateKey([]byte(sshPrivateKey)); err != nil {
 		return
 	}
-	config := &ssh.ClientConfig {
+	config := &ssh.ClientConfig{
 		User: sshUser,
-		Auth: []ssh.AuthMethod {
+		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	if conn, err = ssh.Dial("tcp", host + ":22", config); err != nil {
+	if conn, err = ssh.Dial("tcp", host+":22", config); err != nil {
 		return
 	}
 	defer conn.Close()
@@ -48,41 +48,41 @@ func checkSshCommand(host string, sshUser string, sshPrivateKey string) (err err
 	return
 }
 
-func runSshCommand(sshHost string, sshUser string, sshPrivateKey string, command string) (commandOutput string, err error) {
+func runSSHCommand(sshHost string, sshUser string, sshPrivateKey string, command string) (commandOutput string, err error) {
 	var signer ssh.Signer
 	var conn *ssh.Client
 	var sess *ssh.Session
-	var b_stdout, b_stderr bytes.Buffer
+	var bStdout, bStderr bytes.Buffer
 	if signer, err = ssh.ParsePrivateKey([]byte(sshPrivateKey)); err != nil {
-		err = fmt.Errorf("runSshCommand(): failed to parse SSH private key: %s", err)
+		err = fmt.Errorf("runSSHCommand(): failed to parse SSH private key: %s", err)
 		return
 	}
-	config := &ssh.ClientConfig {
+	config := &ssh.ClientConfig{
 		User: sshUser,
-		Auth: []ssh.AuthMethod {
+		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	if conn, err = ssh.Dial("tcp", sshHost + ":22", config); err != nil {
-		err = fmt.Errorf("runSshCommand(): failed to connect to host %s: %s", sshHost, err)
+	if conn, err = ssh.Dial("tcp", sshHost+":22", config); err != nil {
+		err = fmt.Errorf("runSSHCommand(): failed to connect to host %s: %s", sshHost, err)
 		return
 	}
 	defer conn.Close()
 	if sess, err = conn.NewSession(); err != nil {
-		err = fmt.Errorf("runSshCommand(): failed to create SSH session: %s", err)
+		err = fmt.Errorf("runSSHCommand(): failed to create SSH session: %s", err)
 		return
 	}
 	defer sess.Close()
-	sess.Stdout = &b_stdout
-	sess.Stderr = &b_stderr
+	sess.Stdout = &bStdout
+	sess.Stderr = &bStderr
 	err = sess.Run(command)
 	if err != nil {
-		err = fmt.Errorf("runSshCommand(): failed to run command %s: %s: %s", command, err, b_stderr.String())
+		err = fmt.Errorf("runSSHCommand(): failed to run command %s: %s: %s", command, err, bStderr.String())
 		return
 	}
-	if b_stdout.Len() > 0 {
-		commandOutput = b_stdout.String()
+	if bStdout.Len() > 0 {
+		commandOutput = bStdout.String()
 	}
 	return
 }
@@ -100,7 +100,7 @@ func stringSliceIntersection(src1, src2 []string) (dst []string) {
 	return
 }
 
-func stringSliceElementExists(array []string, elem string) (bool) {
+func stringSliceElementExists(array []string, elem string) bool {
 	for _, e := range array {
 		if e == elem {
 			return true
@@ -123,7 +123,7 @@ func valueInRange(rangeStr string, value int) (bool, error) {
 		}
 		return (value >= rangeLower && value <= rangeUpper), nil
 	}
-	if rangeLower, err =strconv.Atoi(rangeStr); err != nil {
+	if rangeLower, err = strconv.Atoi(rangeStr); err != nil {
 		return false, err
 	}
 	return (rangeLower == value), nil

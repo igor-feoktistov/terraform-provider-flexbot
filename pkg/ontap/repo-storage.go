@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	imageRepoVolSize = 64
+	imageRepoVolSize    = 64
 	templateRepoVolSize = 1
 )
 
+// CreateRepoImage creates cDOT storage and uploads image
 func CreateRepoImage(nodeConfig *config.NodeConfig, imageName string, imagePath string) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -48,22 +49,21 @@ func CreateRepoImage(nodeConfig *config.NodeConfig, imageName string, imagePath 
 	if lunExists, err = c.LunExists("/vol/" + nodeConfig.Storage.ImageRepoName + "/" + imageName); err != nil {
 		err = fmt.Errorf("CreateRepoImage(): %s", err)
 		return
-	} else {
-		if lunExists {
-			if err = c.LunDestroy("/vol/" + nodeConfig.Storage.ImageRepoName + "/" + imageName); err != nil {
-				err = fmt.Errorf("CreateRepoImage(): %s", err)
-				return
-			}
+	}
+	if lunExists {
+		if err = c.LunDestroy("/vol/" + nodeConfig.Storage.ImageRepoName + "/" + imageName); err != nil {
+			err = fmt.Errorf("CreateRepoImage(): %s", err)
+			return
 		}
 	}
 	var fileReader io.Reader
 	var fileExists bool
-	if fileExists, err = c.FileExists(nodeConfig.Storage.ImageRepoName, "/_" + imageName); err != nil {
+	if fileExists, err = c.FileExists(nodeConfig.Storage.ImageRepoName, "/_"+imageName); err != nil {
 		err = fmt.Errorf("CreateRepoImage(): %s", err)
 		return
 	}
 	if fileExists {
-		if err = c.FileDelete(nodeConfig.Storage.ImageRepoName, "/_" + imageName); err != nil {
+		if err = c.FileDelete(nodeConfig.Storage.ImageRepoName, "/_"+imageName); err != nil {
 			err = fmt.Errorf("CreateRepoImage(): %s", err)
 			return
 		}
@@ -91,16 +91,17 @@ func CreateRepoImage(nodeConfig *config.NodeConfig, imageName string, imagePath 
 		fileReader = file
 		defer file.Close()
 	}
-	if err = c.FileUploadNFS(nodeConfig.Storage.ImageRepoName, "/_" + imageName, fileReader); err != nil {
+	if err = c.FileUploadNFS(nodeConfig.Storage.ImageRepoName, "/_"+imageName, fileReader); err != nil {
 		err = fmt.Errorf("CreateRepoImage(): %s", err)
 		return
 	}
-	if err = c.LunCreateFromFile(nodeConfig.Storage.ImageRepoName, "/_" + imageName, "/vol/" + nodeConfig.Storage.ImageRepoName + "/" + imageName, imageName); err != nil {
+	if err = c.LunCreateFromFile(nodeConfig.Storage.ImageRepoName, "/_"+imageName, "/vol/"+nodeConfig.Storage.ImageRepoName+"/"+imageName, imageName); err != nil {
 		err = fmt.Errorf("CreateRepoImage(): %s", err)
 	}
 	return
 }
 
+// DeleteRepoImage deletes all related to the image cDOT storage elements
 func DeleteRepoImage(nodeConfig *config.NodeConfig, imageName string) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -128,18 +129,19 @@ func DeleteRepoImage(nodeConfig *config.NodeConfig, imageName string) (err error
 		}
 	}
 	var fileExists bool
-	if fileExists, err = c.FileExists(nodeConfig.Storage.ImageRepoName, "/_" + imageName); err != nil {
+	if fileExists, err = c.FileExists(nodeConfig.Storage.ImageRepoName, "/_"+imageName); err != nil {
 		err = fmt.Errorf("DeleteRepoImage(): %s", err)
 		return
 	}
 	if fileExists {
-		if err = c.FileDelete(nodeConfig.Storage.ImageRepoName, "/_" + imageName); err != nil {
+		if err = c.FileDelete(nodeConfig.Storage.ImageRepoName, "/_"+imageName); err != nil {
 			err = fmt.Errorf("DeleteRepoImage(): %s", err)
 		}
 	}
 	return
 }
 
+// GetRepoImages gets list of images
 func GetRepoImages(nodeConfig *config.NodeConfig) (imagesList []string, err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -160,6 +162,7 @@ func GetRepoImages(nodeConfig *config.NodeConfig) (imagesList []string, err erro
 	return
 }
 
+// CreateRepoTemplate creates cDOT storage and uploads cloud-init template
 func CreateRepoTemplate(nodeConfig *config.NodeConfig, templateName string, templatePath string) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -189,12 +192,12 @@ func CreateRepoTemplate(nodeConfig *config.NodeConfig, templateName string, temp
 	}
 	var fileReader io.Reader
 	var fileExists bool
-	if fileExists, err = c.FileExists(nodeConfig.Storage.TemplateRepoName, "/cloud-init/" + templateName); err != nil {
+	if fileExists, err = c.FileExists(nodeConfig.Storage.TemplateRepoName, "/cloud-init/"+templateName); err != nil {
 		err = fmt.Errorf("CreateRepoImage(): %s", err)
 		return
 	}
 	if fileExists {
-		if err = c.FileDelete(nodeConfig.Storage.TemplateRepoName, "/cloud-init/" + templateName); err != nil {
+		if err = c.FileDelete(nodeConfig.Storage.TemplateRepoName, "/cloud-init/"+templateName); err != nil {
 			err = fmt.Errorf("CreateRepoTemplate(): %s", err)
 			return
 		}
@@ -222,12 +225,13 @@ func CreateRepoTemplate(nodeConfig *config.NodeConfig, templateName string, temp
 		fileReader = file
 		defer file.Close()
 	}
-	if err = c.FileUploadAPI(nodeConfig.Storage.TemplateRepoName, "/cloud-init/" + templateName, fileReader); err != nil {
+	if err = c.FileUploadAPI(nodeConfig.Storage.TemplateRepoName, "/cloud-init/"+templateName, fileReader); err != nil {
 		err = fmt.Errorf("CreateRepoTemplate(): %s", err)
 	}
 	return
 }
 
+// GetRepoTemplates get list of cloud-init templates
 func GetRepoTemplates(nodeConfig *config.NodeConfig) (templatesList []string, err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -248,6 +252,7 @@ func GetRepoTemplates(nodeConfig *config.NodeConfig) (templatesList []string, er
 	return
 }
 
+// DeleteRepoTemplate deletes all related to the cloud-init template storage elements
 func DeleteRepoTemplate(nodeConfig *config.NodeConfig, templateName string) (err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -264,18 +269,19 @@ func DeleteRepoTemplate(nodeConfig *config.NodeConfig, templateName string) (err
 		return
 	}
 	var fileExists bool
-	if fileExists, err = c.FileExists(nodeConfig.Storage.TemplateRepoName, "/cloud-init/" + templateName); err != nil {
+	if fileExists, err = c.FileExists(nodeConfig.Storage.TemplateRepoName, "/cloud-init/"+templateName); err != nil {
 		err = fmt.Errorf("DeleteRepoTemplate(): %s", err)
 		return
 	}
 	if fileExists {
-		if err = c.FileDelete(nodeConfig.Storage.TemplateRepoName, "/cloud-init/" + templateName); err != nil {
+		if err = c.FileDelete(nodeConfig.Storage.TemplateRepoName, "/cloud-init/"+templateName); err != nil {
 			err = fmt.Errorf("DeleteRepoTemplate(): %s", err)
 		}
 	}
 	return
 }
 
+// RepoTemplateExists checks if cloud-init template exists
 func RepoTemplateExists(nodeConfig *config.NodeConfig, templateName string) (templateExists bool, err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -291,13 +297,14 @@ func RepoTemplateExists(nodeConfig *config.NodeConfig, templateName string) (tem
 		err = fmt.Errorf("RepoTemplateExists(): repo volume \"%s\" does not exist", nodeConfig.Storage.TemplateRepoName)
 		return
 	}
-	if templateExists, err = c.FileExists(nodeConfig.Storage.TemplateRepoName, "/cloud-init/" + templateName); err != nil {
+	if templateExists, err = c.FileExists(nodeConfig.Storage.TemplateRepoName, "/cloud-init/"+templateName); err != nil {
 		err = fmt.Errorf("RepoTemplateExists(): %s", err)
 		return
 	}
 	return
 }
 
+// DownloadRepoTemplate downloads cloud-init template from cDOT storage
 func DownloadRepoTemplate(nodeConfig *config.NodeConfig, templateName string) (templateContent []byte, err error) {
 	var c client.OntapClient
 	if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -313,7 +320,7 @@ func DownloadRepoTemplate(nodeConfig *config.NodeConfig, templateName string) (t
 		err = fmt.Errorf("DownloadRepoTemplate(): repo volume \"%s\" does not exist", nodeConfig.Storage.TemplateRepoName)
 		return
 	}
-	if templateContent, err = c.FileDownload(nodeConfig.Storage.TemplateRepoName, "/cloud-init/" + templateName); err != nil {
+	if templateContent, err = c.FileDownload(nodeConfig.Storage.TemplateRepoName, "/cloud-init/"+templateName); err != nil {
 		err = fmt.Errorf("DownloadRepoTemplate(): %s", err)
 	}
 	return

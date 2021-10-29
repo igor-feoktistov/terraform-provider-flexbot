@@ -56,7 +56,7 @@ resource "flexbot_server" "k8s-node1" {
     # Required for consistent snapshosts and if defined "ssh_node_init_commands".
     # Should match the user defined in cloud-init for image access.
     ssh_user = "cloud-user"
-    # Optional - SSH private key. Same as above.
+    # Optional - SSH private key. Same as above. Can be encrypted (built-in decrypt support).
     ssh_private_key = file("~/.ssh/id_rsa")
     # Optional - Brings "provisioner" functionality inside "flexbot_server" resource for better
     # error handling and node updates functionality.
@@ -171,6 +171,7 @@ resource "flexbot_server" "k8s-node1" {
   ]
 
   # Optional - Cloud Arguments are user defined key/value pairs to resolve in cloud-init template
+  # Values can be encrypted (built-in decrypt support)
   cloud_args = {
     cloud_user = "cloud-user"
     ssh_pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAxxxxxxxxxxxxxxxxxxxxxxx"

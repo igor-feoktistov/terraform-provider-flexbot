@@ -9,46 +9,52 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/denisbrodbeck/machineid"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ipam"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
-	"github.com/denisbrodbeck/machineid"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	version = "1.7.7"
+	version = "1.7.8"
 )
 
+// OperationResult interface
 type OperationResult interface {
 	DumpResult(r interface{}, resultDest string, resultFormat string, resultErr error)
 }
 
+// BaseResult type
 type BaseResult struct {
 	Status       string `yaml:"status" json:"status"`
 	ErrorMessage string `yaml:"errorMessage,omitempty" json:"errorMessage,omitempty"`
 }
 
+// NodeResult type
 type NodeResult struct {
-	BaseResult              `yaml:",inline" json:",inline"`
-	Node *config.NodeConfig `yaml:"server,omitempty" json:"server,omitempty"`
+	BaseResult `yaml:",inline" json:",inline"`
+	Node       *config.NodeConfig `yaml:"server,omitempty" json:"server,omitempty"`
 }
 
+// ImageResult type
 type ImageResult struct {
-	BaseResult      `yaml:",inline" json:",inline"`
-	Images []string `yaml:"images,omitempty" json:"images,omitempty"`
+	BaseResult `yaml:",inline" json:",inline"`
+	Images     []string `yaml:"images,omitempty" json:"images,omitempty"`
 }
 
+// TemplateResult type
 type TemplateResult struct {
-	BaseResult         `yaml:",inline" json:",inline"`
-	Templates []string `yaml:"templates,omitempty" json:"templates,omitempty"`
+	BaseResult `yaml:",inline" json:",inline"`
+	Templates  []string `yaml:"templates,omitempty" json:"templates,omitempty"`
 }
 
+// SnapshotResult type
 type SnapshotResult struct {
-	BaseResult         `yaml:",inline" json:",inline"`
-	Snapshots []string `yaml:"snapshots,omitempty" json:"snapshots,omitempty"`
+	BaseResult `yaml:",inline" json:",inline"`
+	Snapshots  []string `yaml:"snapshots,omitempty" json:"snapshots,omitempty"`
 }
 
 func usage() {
@@ -85,10 +91,9 @@ func printProgess(done <-chan bool) {
 			if res && valid {
 				fmt.Println("success")
 				return
-			} else {
-				fmt.Println("failure")
-				return
 			}
+			fmt.Println("failure")
+			return
 		default:
 			time.Sleep(1 * time.Second)
 			fmt.Print(".")
@@ -96,6 +101,7 @@ func printProgess(done <-chan bool) {
 	}
 }
 
+// DumpResult is BaseResult output method
 func (result *BaseResult) DumpResult(r interface{}, resultDest string, resultFormat string, resultErr error) {
 	var b []byte
 	var err error
@@ -121,16 +127,15 @@ func (result *BaseResult) DumpResult(r interface{}, resultDest string, resultFor
 			}
 		}
 	}
-        return
 }
 
+// DumpResult is NodeResult output method
 func (result *NodeResult) DumpResult(r interface{}, resultDest string, resultFormat string, resultErr error) {
 	result.Node.Ipam.IbCredentials = config.InfobloxCredentials{}
 	result.Node.Storage.CdotCredentials = config.CdotCredentials{}
 	result.Node.Compute.UcsmCredentials = config.Credentials{}
 	result.Node.CloudArgs = map[string]string{}
 	result.BaseResult.DumpResult(r, resultDest, resultFormat, resultErr)
-	return
 }
 
 func provisionServer(nodeConfig *config.NodeConfig) (err error) {
@@ -217,11 +222,10 @@ func deprovisionServer(nodeConfig *config.NodeConfig) (err error) {
 	}
 	if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
 		return
-	} else {
-		if powerState == "up" {
-			err = fmt.Errorf("DeprovisionServer: server \"%s\" has power state \"%s\"", nodeConfig.Compute.HostName, powerState)
-			return
-		}
+	}
+	if powerState == "up" {
+		err = fmt.Errorf("DeprovisionServer: server \"%s\" has power state \"%s\"", nodeConfig.Compute.HostName, powerState)
+		return
 	}
 	if stepErr = ucsm.DeleteServer(nodeConfig); stepErr != nil {
 		if err == nil {
@@ -251,13 +255,12 @@ func restoreSnapshot(nodeConfig *config.NodeConfig, snapshotName string) (err er
 	var powerState string
 	if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
 		return
-	} else {
-		if powerState == "up" {
-			err = fmt.Errorf("RestoreSnapshot: cannot restore LUNs from snapshot, server \"%s\" has power state \"%s\"", nodeConfig.Compute.HostName, powerState)
-			return
-		}
 	}
-	err = ontap.RestoreSnapshot(nodeConfig, snapshotName)
+	if powerState == "up" {
+		err = fmt.Errorf("RestoreSnapshot: cannot restore LUNs from snapshot, server \"%s\" has power state \"%s\"", nodeConfig.Compute.HostName, powerState)
+	} else {
+		err = ontap.RestoreSnapshot(nodeConfig, snapshotName)
+	}
 	return
 }
 
@@ -370,7 +373,7 @@ func main() {
 		} else {
 			var serverExists bool
 			if serverExists, err = discoverServer(&nodeConfig); err == nil {
-				if serverExists == false {
+				if !serverExists {
 					if err = provisionServerPreflight(&nodeConfig); err == nil {
 						if err = provisionServer(&nodeConfig); err != nil {
 							deprovisionServer(&nodeConfig)

@@ -1,23 +1,25 @@
 package client
 
 import (
-	"time"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"math"
 	"strconv"
 	"strings"
-	"math"
-	"io"
-	"encoding/hex"
+	"time"
 
-	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/go-ontap-sdk/ontap"
 	"github.com/igor-feoktistov/go-ontap-sdk/util"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
 
+// OntapZAPI is ontap ZAPI client
 type OntapZAPI struct {
 	Client *ontap.Client
 }
 
+// NewOntapZAPI creates ontap ZAPI client
 func NewOntapZAPI(nodeConfig *config.NodeConfig) (c *OntapZAPI, err error) {
 	c = &OntapZAPI{}
 	c.Client = ontap.NewClient(
@@ -47,21 +49,21 @@ func NewOntapZAPI(nodeConfig *config.NodeConfig) (c *OntapZAPI, err error) {
 	var vserverResponse *ontap.VserverGetResponse
 	if vserverResponse, _, err = c.Client.VserverGetAPI(vserverOptions); err != nil {
 		return
+	}
+	if vserverResponse.Results.NumRecords == 1 {
+		nodeConfig.Storage.SvmName = vserverResponse.Results.VserverAttributes[0].VserverName
+		c.Client.SetVserver(nodeConfig.Storage.SvmName)
 	} else {
-		if vserverResponse.Results.NumRecords == 1 {
-			nodeConfig.Storage.SvmName = vserverResponse.Results.VserverAttributes[0].VserverName
-			c.Client.SetVserver(nodeConfig.Storage.SvmName)
+		if nodeConfig.Storage.SvmName == "" {
+			err = fmt.Errorf("CreateCdotClient(): expected svmName in storage configuration")
 		} else {
-			if nodeConfig.Storage.SvmName == "" {
-				err = fmt.Errorf("CreateCdotClient(): expected svmName in storage configuration")
-			} else {
-				err = fmt.Errorf("CreateCdotClient: vserver not found: " + nodeConfig.Storage.SvmName)
-			}
+			err = fmt.Errorf("CreateCdotClient: vserver not found: " + nodeConfig.Storage.SvmName)
 		}
 	}
 	return
 }
 
+// GetAggregateMax finds aggregate with MAX space available
 func (c *OntapZAPI) GetAggregateMax(nodeConfig *config.NodeConfig) (aggregateName string, err error) {
 	aggrOptions := &ontap.VserverShowAggrGetOptions{
 		MaxRecords: 1024,
@@ -71,30 +73,31 @@ func (c *OntapZAPI) GetAggregateMax(nodeConfig *config.NodeConfig) (aggregateNam
 	if aggrResponse, _, err = c.Client.VserverShowAggrGetAPI(aggrOptions); err != nil {
 		err = fmt.Errorf("VserverShowAggrGetAPI() failure: %s", err)
 		return
-	} else {
-		if aggrResponse.Results.NumRecords > 0 {
-			var maxAvailableSize int
-			for _, aggr := range aggrResponse.Results.AggrAttributes {
-				if aggr.AvailableSize > maxAvailableSize {
-					aggregateName = aggr.AggregateName
-					maxAvailableSize = aggr.AvailableSize
-				}
+	}
+	if aggrResponse.Results.NumRecords > 0 {
+		var maxAvailableSize int
+		for _, aggr := range aggrResponse.Results.AggrAttributes {
+			if aggr.AvailableSize > maxAvailableSize {
+				aggregateName = aggr.AggregateName
+				maxAvailableSize = aggr.AvailableSize
 			}
-			if (nodeConfig.Storage.BootLun.Size*1024*1024*1024+nodeConfig.Storage.DataLun.Size*1024*1024*1024)*2 > maxAvailableSize {
-				err = fmt.Errorf("VserverShowAggrGetAPI(): no aggregates found for requested storage size %dGB", (nodeConfig.Storage.BootLun.Size+nodeConfig.Storage.DataLun.Size)*2)
-			}
-		} else {
-			err = fmt.Errorf("VserverShowAggrGetAPI(): no aggregates found for vserver %s", nodeConfig.Storage.SvmName)
 		}
+		if (nodeConfig.Storage.BootLun.Size*1024*1024*1024+nodeConfig.Storage.DataLun.Size*1024*1024*1024)*2 > maxAvailableSize {
+			err = fmt.Errorf("VserverShowAggrGetAPI(): no aggregates found for requested storage size %dGB", (nodeConfig.Storage.BootLun.Size+nodeConfig.Storage.DataLun.Size)*2)
+		}
+	} else {
+		err = fmt.Errorf("VserverShowAggrGetAPI(): no aggregates found for vserver %s", nodeConfig.Storage.SvmName)
 	}
 	return
 }
 
+// VolumeExists checks if volume exists
 func (c *OntapZAPI) VolumeExists(volumeName string) (exists bool, err error) {
 	exists, err = util.VolumeExists(c.Client, volumeName)
 	return
 }
 
+// VolumeCreateSAN creates volume for SAN
 func (c *OntapZAPI) VolumeCreateSAN(volumeName string, aggregateName string, volumeSize int) (err error) {
 	volOptions := &ontap.VolumeCreateOptions{
 		VolumeType:                "rw",
@@ -111,6 +114,7 @@ func (c *OntapZAPI) VolumeCreateSAN(volumeName string, aggregateName string, vol
 	return
 }
 
+// VolumeCreateNAS creates volume for NAS
 func (c *OntapZAPI) VolumeCreateNAS(volumeName string, aggregateName string, exportPolicyName string, volumeSize int) (err error) {
 	volOptions := &ontap.VolumeCreateOptions{
 		VolumeType:                "rw",
@@ -122,7 +126,7 @@ func (c *OntapZAPI) VolumeCreateNAS(volumeName string, aggregateName string, exp
 		UnixPermissions:           "0755",
 		Size:                      strconv.Itoa(volumeSize) + "g",
 		ExportPolicy:              exportPolicyName,
-		ContainingAggregateName: aggregateName,
+		ContainingAggregateName:   aggregateName,
 	}
 	if _, _, err = c.Client.VolumeCreateAPI(volOptions); err != nil {
 		err = fmt.Errorf("CreateRepoImage: VolumeCreateAPI() failure: %s", err)
@@ -130,6 +134,7 @@ func (c *OntapZAPI) VolumeCreateNAS(volumeName string, aggregateName string, exp
 	return
 }
 
+// VolumeDestroy deletes volume
 func (c *OntapZAPI) VolumeDestroy(volumeName string) (err error) {
 	var response *ontap.SingleResultResponse
 	if response, _, err = c.Client.VolumeOfflineAPI(volumeName); err != nil {
@@ -144,13 +149,15 @@ func (c *OntapZAPI) VolumeDestroy(volumeName string) (err error) {
 	return
 }
 
+// VolumeResize sets volume new size
 func (c *OntapZAPI) VolumeResize(volumeName string, volumeSize int) (err error) {
-	if _, _, err = c.Client.VolumeSizeAPI(volumeName, strconv.Itoa(volumeSize) + "g"); err != nil {
+	if _, _, err = c.Client.VolumeSizeAPI(volumeName, strconv.Itoa(volumeSize)+"g"); err != nil {
 		err = fmt.Errorf("VolumeSizeAPI() failure: %s", err)
 	}
 	return
 }
 
+// ExportPolicyCreate creates export-policy
 func (c *OntapZAPI) ExportPolicyCreate(exportPolicyName string) (err error) {
 	if _, _, err = c.Client.ExportPolicyCreateAPI(exportPolicyName, false); err != nil {
 		err = fmt.Errorf("ExportPolicyCreateAPI() failure: %s", err)
@@ -158,11 +165,13 @@ func (c *OntapZAPI) ExportPolicyCreate(exportPolicyName string) (err error) {
 	return
 }
 
+// IgroupExists checks if iGroup exists
 func (c *OntapZAPI) IgroupExists(igroupName string) (exists bool, err error) {
 	exists, err = util.IgroupExists(c.Client, igroupName)
 	return
 }
 
+// IgroupCreate creates iGroup
 func (c *OntapZAPI) IgroupCreate(igroupName string) (err error) {
 	if _, _, err = c.Client.IgroupCreateAPI(igroupName, "iscsi", "linux", ""); err != nil {
 		err = fmt.Errorf("IgroupCreateAPI() failure: %s", err)
@@ -170,6 +179,7 @@ func (c *OntapZAPI) IgroupCreate(igroupName string) (err error) {
 	return
 }
 
+// IgroupAddInitiator adds iSCSI initiator to iGroup
 func (c *OntapZAPI) IgroupAddInitiator(igroupName string, initiatorName string) (err error) {
 	if _, _, err = c.Client.IgroupAddAPI(igroupName, initiatorName, false); err != nil {
 		err = fmt.Errorf("IgroupAddAPI() failure: %s", err)
@@ -177,6 +187,7 @@ func (c *OntapZAPI) IgroupAddInitiator(igroupName string, initiatorName string) 
 	return
 }
 
+// IgroupDestroy deletes iGroup
 func (c *OntapZAPI) IgroupDestroy(igroupName string) (err error) {
 	if _, _, err = c.Client.IgroupDestroyAPI(igroupName, false); err != nil {
 		err = fmt.Errorf("IgroupDestroyAPI() failure: %s", err)
@@ -184,16 +195,19 @@ func (c *OntapZAPI) IgroupDestroy(igroupName string) (err error) {
 	return
 }
 
+// LunExists checks if iGroup exists
 func (c *OntapZAPI) LunExists(lunPath string) (exists bool, err error) {
 	exists, err = util.LunExists(c.Client, lunPath)
 	return
 }
 
+// IsLunMapped checks if LUN is mapped to iGroup
 func (c *OntapZAPI) IsLunMapped(lunPath string, igroupName string) (mapped bool, err error) {
 	mapped, err = util.IsLunMapped(c.Client, lunPath, igroupName)
 	return
 }
 
+// LunCopy copies LUN from src to dst
 func (c *OntapZAPI) LunCopy(imagePath string, lunPath string) (err error) {
 	if err = util.LunCopy(c.Client, imagePath, lunPath); err != nil {
 		err = fmt.Errorf("LunCopy() failure: %s", err)
@@ -201,6 +215,7 @@ func (c *OntapZAPI) LunCopy(imagePath string, lunPath string) (err error) {
 	return
 }
 
+// LunResize sets LUN new size
 func (c *OntapZAPI) LunResize(lunPath string, lunSize int) (err error) {
 	resizeLunOptions := &ontap.LunResizeOptions{
 		Path: lunPath,
@@ -212,9 +227,10 @@ func (c *OntapZAPI) LunResize(lunPath string, lunSize int) (err error) {
 	return
 }
 
-func (c *OntapZAPI) LunMap(lunPath string, lunId int, igroupName string) (err error) {
+// LunMap maps LUN to iGroup
+func (c *OntapZAPI) LunMap(lunPath string, lunID int, igroupName string) (err error) {
 	bootLunMapOptions := &ontap.LunMapOptions{
-		LunId:          lunId,
+		LunId:          lunID,
 		InitiatorGroup: igroupName,
 		Path:           lunPath,
 	}
@@ -224,6 +240,7 @@ func (c *OntapZAPI) LunMap(lunPath string, lunId int, igroupName string) (err er
 	return
 }
 
+// LunUnmap unmaps LUN from iGroup
 func (c *OntapZAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 	lunUnmapOptions := &ontap.LunUnmapOptions{
 		InitiatorGroup: igroupName,
@@ -240,6 +257,7 @@ func (c *OntapZAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 	return
 }
 
+// LunCreate creates LUN
 func (c *OntapZAPI) LunCreate(lunPath string, lunSize int) (err error) {
 	lunOptions := &ontap.LunCreateBySizeOptions{
 		Path:                    lunPath,
@@ -254,6 +272,7 @@ func (c *OntapZAPI) LunCreate(lunPath string, lunSize int) (err error) {
 	return
 }
 
+// LunCreateFromFile creates LUN from file
 func (c *OntapZAPI) LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string) (err error) {
 	lunCreateOptions := &ontap.LunCreateFromFileOptions{
 		Comment:                 lunComment,
@@ -269,6 +288,7 @@ func (c *OntapZAPI) LunCreateFromFile(volumeName string, filePath string, lunPat
 	return
 }
 
+// LunDestroy deletes LUN
 func (c *OntapZAPI) LunDestroy(lunPath string) (err error) {
 	lunDestroyOptions := &ontap.LunDestroyOptions{
 		Path: lunPath,
@@ -284,6 +304,7 @@ func (c *OntapZAPI) LunDestroy(lunPath string) (err error) {
 	return
 }
 
+// LunGetInfo gets LUN generic attributes
 func (c *OntapZAPI) LunGetInfo(lunPath string) (lunInfo *LunInfo, err error) {
 	lunOptions := &ontap.LunGetOptions{
 		MaxRecords: 1,
@@ -302,13 +323,14 @@ func (c *OntapZAPI) LunGetInfo(lunPath string) (lunInfo *LunInfo, err error) {
 		err = fmt.Errorf("LunGetAPI() failure: LUN %s not found", lunPath)
 		return
 	}
-    	lunInfo = &LunInfo{
-    		Comment: lunResponse.Results.AttributesList.LunAttributes[0].Comment,
-    		Size: int(math.Round(float64(lunResponse.Results.AttributesList.LunAttributes[0].Size)/1024/1024/1024)),
+	lunInfo = &LunInfo{
+		Comment: lunResponse.Results.AttributesList.LunAttributes[0].Comment,
+		Size:    int(math.Round(float64(lunResponse.Results.AttributesList.LunAttributes[0].Size) / 1024 / 1024 / 1024)),
 	}
 	return
 }
 
+// LunGetList gets list of LUN's
 func (c *OntapZAPI) LunGetList(volumeName string) (lunList []string, err error) {
 	lunList = []string{}
 	options := &ontap.LunGetOptions{
@@ -333,6 +355,7 @@ func (c *OntapZAPI) LunGetList(volumeName string) (lunList []string, err error) 
 	return
 }
 
+// IscsiTargetGetName gets iSCSI target node name
 func (c *OntapZAPI) IscsiTargetGetName() (targetName string, err error) {
 	var iscsiNodeGetNameResponse *ontap.IscsiNodeGetNameResponse
 	if iscsiNodeGetNameResponse, _, err = c.Client.IscsiNodeGetNameAPI(); err != nil {
@@ -343,6 +366,7 @@ func (c *OntapZAPI) IscsiTargetGetName() (targetName string, err error) {
 	return
 }
 
+// DiscoverIscsiLIFs gets list of iSCSI interfaces for LUN
 func (c *OntapZAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) (lifs []string, err error) {
 	var iscsiLifs []*ontap.NetInterfaceInfo
 	lifs = []string{}
@@ -355,22 +379,24 @@ func (c *OntapZAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) (l
 		return
 	}
 	for _, lif := range iscsiLifs {
-		lifs  = append(lifs, lif.Address)
+		lifs = append(lifs, lif.Address)
 	}
 	return
 }
 
+// FileExists checks if file exists
 func (c *OntapZAPI) FileExists(volumeName string, filePath string) (exists bool, err error) {
-	if exists, err = util.FileExists(c.Client, "/vol/" + volumeName + filePath); err != nil {
+	if exists, err = util.FileExists(c.Client, "/vol/"+volumeName+filePath); err != nil {
 		err = fmt.Errorf("FileExists() failure: %s", err)
 	}
 	return
 }
 
+// FileGetList get list of files
 func (c *OntapZAPI) FileGetList(volumeName string, dirPath string) (fileList []string, err error) {
-	listDirOptions := &ontap.FileListDirectoryOptions {
-		    MaxRecords: 1024,
-		    Path: "/vol/" + volumeName + dirPath,
+	listDirOptions := &ontap.FileListDirectoryOptions{
+		MaxRecords: 1024,
+		Path:       "/vol/" + volumeName + dirPath,
 	}
 	var listDirResponse []*ontap.FileListDirectoryResponse
 	if listDirResponse, err = c.Client.FileListDirectoryIterAPI(listDirOptions); err != nil {
@@ -387,6 +413,7 @@ func (c *OntapZAPI) FileGetList(volumeName string, dirPath string) (fileList []s
 	return
 }
 
+// FileDelete deletes file
 func (c *OntapZAPI) FileDelete(volumeName string, filePath string) (err error) {
 	if _, _, err = c.Client.FileDeleteFileAPI("/vol/" + volumeName + filePath); err != nil {
 		err = fmt.Errorf("FileDeleteFileAPI() failure: %s", err)
@@ -394,14 +421,15 @@ func (c *OntapZAPI) FileDelete(volumeName string, filePath string) (err error) {
 	return
 }
 
+// FileDownload gets file content
 func (c *OntapZAPI) FileDownload(volumeName string, filePath string) (fileContent []byte, err error) {
 	var fileInfoResponse *ontap.FileGetFileInfoResponse
 	if fileInfoResponse, _, err = c.Client.FileGetFileInfoAPI("/vol/" + volumeName + filePath); err != nil {
 		err = fmt.Errorf("FileGetFileInfoAPI() failure: %s", err)
 		return
 	}
-	readFileOptions := &ontap.FileReadFileOptions {
-		Path: "/vol/" + volumeName + filePath,
+	readFileOptions := &ontap.FileReadFileOptions{
+		Path:   "/vol/" + volumeName + filePath,
 		Offset: 0,
 		Length: fileInfoResponse.Results.FileInfo.FileSize,
 	}
@@ -416,6 +444,7 @@ func (c *OntapZAPI) FileDownload(volumeName string, filePath string) (fileConten
 	return
 }
 
+// FileUploadAPI uploads file content via ZAPI
 func (c *OntapZAPI) FileUploadAPI(volumeName string, filePath string, reader io.Reader) (err error) {
 	if _, err = util.UploadFileAPI(c.Client, volumeName, filePath, reader); err != nil {
 		err = fmt.Errorf("UploadFileAPI() failure: %s", err)
@@ -423,6 +452,7 @@ func (c *OntapZAPI) FileUploadAPI(volumeName string, filePath string, reader io.
 	return
 }
 
+// FileUploadNFS uploads file content via NFS
 func (c *OntapZAPI) FileUploadNFS(volumeName string, filePath string, reader io.Reader) (err error) {
 	if _, err = util.UploadFileNFS(c.Client, volumeName, filePath, reader); err != nil {
 		err = fmt.Errorf("UploadFileNFS() failure: %s", err)
@@ -430,9 +460,10 @@ func (c *OntapZAPI) FileUploadNFS(volumeName string, filePath string, reader io.
 	return
 }
 
+// SnapshotGetList gets list of snapshots
 func (c *OntapZAPI) SnapshotGetList(volumeName string) (snapshots []string, err error) {
 	snapshots = []string{}
-	snapOptions := &ontap.SnapshotListInfoOptions {
+	snapOptions := &ontap.SnapshotListInfoOptions{
 		Volume: volumeName,
 	}
 	var snapResponse *ontap.SnapshotListInfoResponse
@@ -446,11 +477,12 @@ func (c *OntapZAPI) SnapshotGetList(volumeName string) (snapshots []string, err 
 	return
 }
 
+// SnapshotCreate creates snapshot
 func (c *OntapZAPI) SnapshotCreate(volumeName string, snapshotName string, snapshotComment string) (err error) {
-	options := &ontap.SnapshotCreateOptions {
-		Volume: volumeName,
+	options := &ontap.SnapshotCreateOptions{
+		Volume:   volumeName,
 		Snapshot: snapshotName,
-		Comment: snapshotComment,
+		Comment:  snapshotComment,
 	}
 	if _, _, err = c.Client.SnapshotCreateAPI(options); err != nil {
 		err = fmt.Errorf("SnapshotCreateAPI() failure: %s", err)
@@ -458,9 +490,10 @@ func (c *OntapZAPI) SnapshotCreate(volumeName string, snapshotName string, snaps
 	return
 }
 
+// SnapshotDelete deletes snapshot
 func (c *OntapZAPI) SnapshotDelete(volumeName string, snapshotName string) (err error) {
-	options := &ontap.SnapshotDeleteOptions {
-		Volume: volumeName,
+	options := &ontap.SnapshotDeleteOptions{
+		Volume:   volumeName,
 		Snapshot: snapshotName,
 	}
 	var response *ontap.SingleResultResponse
@@ -474,11 +507,12 @@ func (c *OntapZAPI) SnapshotDelete(volumeName string, snapshotName string) (err 
 	return
 }
 
+// SnapshotRestore restores volume from snapshot
 func (c *OntapZAPI) SnapshotRestore(volumeName string, snapshotName string) (err error) {
-	options := &ontap.SnapshotRestoreVolumeOptions {
+	options := &ontap.SnapshotRestoreVolumeOptions{
 		PreserveLunIds: false,
-		Volume: volumeName,
-		Snapshot: snapshotName,
+		Volume:         volumeName,
+		Snapshot:       snapshotName,
 	}
 	if _, _, err = c.Client.SnapshotRestoreVolumeAPI(options); err != nil {
 		err = fmt.Errorf("SnapshotRestoreVolumeAPI() failure: %s", err)

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-        "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func schemaFlexbotServer() map[string]*schema.Schema {
@@ -51,10 +51,10 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 						Default:  "",
 					},
 					"ssh_private_key": {
-						Type:     schema.TypeString,
-						Optional: true,
+						Type:      schema.TypeString,
+						Optional:  true,
 						Sensitive: true,
-						Default:  "",
+						Default:   "",
 					},
 					"ssh_node_init_commands": {
 						Type:     schema.TypeList,
@@ -135,9 +135,7 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 									},
 								},
 							},
-
 						},
-
 					},
 					"blade_assigned": {
 						Type:     schema.TypeList,
@@ -182,14 +180,12 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 									Computed: true,
 								},
 							},
-
 						},
-
 					},
 					"powerstate": {
 						Type:     schema.TypeString,
 						Optional: true,
-						Default: "up",
+						Default:  "up",
 						ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 							v := val.(string)
 							if !(v == "up" || v == "down") {
@@ -201,12 +197,12 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 					"description": {
 						Type:     schema.TypeString,
 						Optional: true,
-						Default: "",
+						Default:  "",
 					},
 					"label": {
 						Type:     schema.TypeString,
 						Optional: true,
-						Default: "",
+						Default:  "",
 					},
 				},
 			},
@@ -626,7 +622,7 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 					},
 					"fsfreeze": {
 						Type:     schema.TypeBool,
-		    				Optional: true,
+						Optional: true,
 						Default:  false,
 					},
 				},

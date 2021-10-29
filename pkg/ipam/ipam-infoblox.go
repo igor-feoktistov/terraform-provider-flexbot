@@ -13,15 +13,18 @@ import (
 	ibclient "github.com/infobloxopen/infoblox-go-client"
 )
 
+// IpPool is generic IP pool definition
 type IpPool struct {
 	Ips []string `json:"ips,omitempty"`
 }
 
+// HostIpAddress is Infoblox IP address definition
 type HostIpAddress struct {
 	IpAddress string   `json:"ip_address,omitempty"`
 	Names     []string `json:"names,omitempty"`
 }
 
+// HostRecord is Infoblox host record
 type HostRecord struct {
 	Ipv4Addrs []struct {
 		Ipv4Addr string `json:"ipv4addr,omitempty"`
@@ -29,6 +32,7 @@ type HostRecord struct {
 	Name string `json:"names,omitempty"`
 }
 
+// IpRange is Infoblox IP range
 type IpRange struct {
 	Ref         string `json:"_ref,omitempty"`
 	Network     string `json:"network,omitempty"`
@@ -38,6 +42,7 @@ type IpRange struct {
 	Comment     string `json:"comment,omitempty"`
 }
 
+// InfobloxProvider is Infoblox IPAM provider
 type InfobloxProvider struct {
 	HostConfig  ibclient.HostConfig
 	DnsView     string
@@ -50,8 +55,8 @@ func validateIpRange(c *ibclient.Connector, networkView string, networkCidr stri
 	re = regexp.MustCompile(`(\d+\.\d+\.\d+\.\d+)\s*-\s*(\d+\.\d+\.\d+\.\d+)`)
 	var subMatch, path []string
 	var startAddr, endAddr string
-        subMatch = re.FindStringSubmatch(rangeStr)
-        if len(subMatch) == 3 {
+	subMatch = re.FindStringSubmatch(rangeStr)
+	if len(subMatch) == 3 {
 		startAddr = subMatch[1]
 		endAddr = subMatch[2]
 	} else {
@@ -119,16 +124,16 @@ func validateIpRange(c *ibclient.Connector, networkView string, networkCidr stri
 		err = fmt.Errorf("validateIpRange(): Unmarshal(): %s", string(res))
 		return
 	}
-        if len(ipPool.Ips) == 0 {
-    		err = fmt.Errorf("validateIpRange(): no IPs available in IP range \"%s\"", rangeStr)
+	if len(ipPool.Ips) == 0 {
+		err = fmt.Errorf("validateIpRange(): no IPs available in IP range \"%s\"", rangeStr)
 	}
 	return
 }
 
-func getAvailableIPs(conn *ibclient.Connector, network_view string, cidr string, numIPs int) (ippool IpPool, err error) {
+func getAvailableIPs(conn *ibclient.Connector, networkView string, cidr string, numIPs int) (ippool IpPool, err error) {
 	objMgr := ibclient.NewObjectManager(conn, "flexbot", "admin")
 	var network *ibclient.Network
-	if network, err = objMgr.GetNetwork(network_view, cidr, nil); err != nil {
+	if network, err = objMgr.GetNetwork(networkView, cidr, nil); err != nil {
 		return
 	}
 	if network == nil {
@@ -164,13 +169,13 @@ func getAvailableIPs(conn *ibclient.Connector, network_view string, cidr string,
 	return
 }
 
-func getHostByIp(c *ibclient.Connector, network_view string, ipaddr string) (fqdn string, err error) {
+func getHostByIp(c *ibclient.Connector, networkView string, ipaddr string) (fqdn string, err error) {
 	path := []string{"wapi", "v" + c.HostConfig.Version, "ipv4address"}
 	u := url.URL{
 		Scheme:   "https",
 		Host:     c.HostConfig.Host + ":" + c.HostConfig.Port,
 		Path:     strings.Join(path, "/"),
-		RawQuery: "ip_address=" + ipaddr + "&network_view=" + network_view,
+		RawQuery: "ip_address=" + ipaddr + "&network_view=" + networkView,
 	}
 	var req *http.Request
 	if req, err = http.NewRequest(http.MethodGet, u.String(), nil); err != nil {
@@ -193,13 +198,13 @@ func getHostByIp(c *ibclient.Connector, network_view string, ipaddr string) (fqd
 	return
 }
 
-func getIpByHost(c *ibclient.Connector, network_view string, fqdn string) (ipaddr string, err error) {
+func getIpByHost(c *ibclient.Connector, networkView string, fqdn string) (ipaddr string, err error) {
 	path := []string{"wapi", "v" + c.HostConfig.Version, "record:host"}
 	u := url.URL{
 		Scheme:   "https",
 		Host:     c.HostConfig.Host + ":" + c.HostConfig.Port,
 		Path:     strings.Join(path, "/"),
-		RawQuery: "name=" + fqdn + "&network_view=" + network_view,
+		RawQuery: "name=" + fqdn + "&network_view=" + networkView,
 	}
 	var req *http.Request
 	req, err = http.NewRequest(http.MethodGet, u.String(), nil)
@@ -224,6 +229,7 @@ func getIpByHost(c *ibclient.Connector, network_view string, fqdn string) (ipadd
 	return
 }
 
+// NewInfobloxProvider initializes Infoblox IPAM provider
 func NewInfobloxProvider(ipam *config.Ipam) (provider *InfobloxProvider) {
 	provider = &InfobloxProvider{
 		HostConfig: ibclient.HostConfig{
@@ -240,6 +246,7 @@ func NewInfobloxProvider(ipam *config.Ipam) (provider *InfobloxProvider) {
 	return
 }
 
+// AllocateIp allocates and (optionally) assigns IP in Infoblox
 func (p *InfobloxProvider) AllocateIp(cidr string, fqdn string) (ipaddr string, err error) {
 	transportConfig := ibclient.NewTransportConfig("false", 20, 10)
 	requestBuilder := &ibclient.WapiRequestBuilder{}
@@ -289,6 +296,7 @@ func (p *InfobloxProvider) AllocateIp(cidr string, fqdn string) (ipaddr string, 
 	return
 }
 
+// AssignIp assigns IP in Infoblox
 func (p *InfobloxProvider) AssignIp(ipaddr string, fqdn string) (err error) {
 	transportConfig := ibclient.NewTransportConfig("false", 20, 10)
 	requestBuilder := &ibclient.WapiRequestBuilder{}
@@ -328,6 +336,7 @@ func (p *InfobloxProvider) AssignIp(ipaddr string, fqdn string) (err error) {
 	return
 }
 
+// ReleaseIp releases IP in Infoblox
 func (p *InfobloxProvider) ReleaseIp(fqdn string) (ipaddr string, err error) {
 	transportConfig := ibclient.NewTransportConfig("false", 20, 10)
 	requestBuilder := &ibclient.WapiRequestBuilder{}
@@ -346,17 +355,18 @@ func (p *InfobloxProvider) ReleaseIp(fqdn string) (ipaddr string, err error) {
 	}
 	if host != nil {
 		ipaddr = host.Ipv4Addrs[0].Ipv4Addr
-		if _, err := objMgr.DeleteHostRecord(host.Ref); err != nil {
+		if _, err = objMgr.DeleteHostRecord(host.Ref); err != nil {
 			err = fmt.Errorf("ReleaseIP(): DeleteHostRecord(): %s", err)
 		}
 	}
 	return
 }
 
+// Allocate allocates and assigns IP's for all network nodes in compute
 func (p *InfobloxProvider) Allocate(nodeConfig *config.NodeConfig) (err error) {
 	var ipaddr string
 	var hostSuffix string = ""
-	for i, _ := range nodeConfig.Network.Node {
+	for i := range nodeConfig.Network.Node {
 		if len(nodeConfig.Network.Node[i].Ip) > 0 {
 			ipaddr = nodeConfig.Network.Node[i].Ip
 			err = p.AssignIp(ipaddr, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone)
@@ -374,7 +384,7 @@ func (p *InfobloxProvider) Allocate(nodeConfig *config.NodeConfig) (err error) {
 		nodeConfig.Network.Node[i].Fqdn = nodeConfig.Compute.HostName + hostSuffix + "." + p.DnsZone
 		hostSuffix = "-n" + strconv.Itoa(i+1)
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator {
+	for i := range nodeConfig.Network.IscsiInitiator {
 		hostSuffix = "-i" + strconv.Itoa(i+1)
 		if len(nodeConfig.Network.IscsiInitiator[i].Ip) > 0 {
 			ipaddr = nodeConfig.Network.IscsiInitiator[i].Ip
@@ -395,6 +405,7 @@ func (p *InfobloxProvider) Allocate(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// Discover discovers all assigned to network nodes IP's for the compute node
 func (p *InfobloxProvider) Discover(nodeConfig *config.NodeConfig) (err error) {
 	transportConfig := ibclient.NewTransportConfig("false", 20, 10)
 	requestBuilder := &ibclient.WapiRequestBuilder{}
@@ -406,7 +417,7 @@ func (p *InfobloxProvider) Discover(nodeConfig *config.NodeConfig) (err error) {
 	}
 	defer conn.Logout()
 	var hostSuffix string = ""
-	for i, _ := range nodeConfig.Network.Node {
+	for i := range nodeConfig.Network.Node {
 		var ipaddr string
 		if ipaddr, err = getIpByHost(conn, p.NetworkView, nodeConfig.Compute.HostName+hostSuffix+"."+p.DnsZone); err != nil {
 			err = fmt.Errorf("Discover(): getIpByHost(): %s", err)
@@ -420,7 +431,7 @@ func (p *InfobloxProvider) Discover(nodeConfig *config.NodeConfig) (err error) {
 		nodeConfig.Network.Node[i].Fqdn = nodeConfig.Compute.HostName + hostSuffix + "." + p.DnsZone
 		hostSuffix = "-n" + strconv.Itoa(i+1)
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator {
+	for i := range nodeConfig.Network.IscsiInitiator {
 		hostSuffix = "-i" + strconv.Itoa(i+1)
 		if nodeConfig.Network.IscsiInitiator[i].Ip != "" {
 			var fqdn string
@@ -443,6 +454,7 @@ func (p *InfobloxProvider) Discover(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
+// AllocatePreflight is sanity check before IP allocation happens
 func (p *InfobloxProvider) AllocatePreflight(nodeConfig *config.NodeConfig) (err error) {
 	transportConfig := ibclient.NewTransportConfig("false", 20, 10)
 	requestBuilder := &ibclient.WapiRequestBuilder{}
@@ -453,7 +465,7 @@ func (p *InfobloxProvider) AllocatePreflight(nodeConfig *config.NodeConfig) (err
 		return
 	}
 	defer conn.Logout()
-	for i, _ := range nodeConfig.Network.Node {
+	for i := range nodeConfig.Network.Node {
 		if len(nodeConfig.Network.Node[i].IpRange) > 0 {
 			err = validateIpRange(conn, p.NetworkView, nodeConfig.Network.Node[i].Subnet, nodeConfig.Network.Node[i].IpRange)
 		} else {
@@ -463,7 +475,7 @@ func (p *InfobloxProvider) AllocatePreflight(nodeConfig *config.NodeConfig) (err
 			return
 		}
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator {
+	for i := range nodeConfig.Network.IscsiInitiator {
 		if len(nodeConfig.Network.IscsiInitiator[i].IpRange) > 0 {
 			err = validateIpRange(conn, p.NetworkView, nodeConfig.Network.IscsiInitiator[i].Subnet, nodeConfig.Network.IscsiInitiator[i].IpRange)
 		} else {
@@ -476,17 +488,18 @@ func (p *InfobloxProvider) AllocatePreflight(nodeConfig *config.NodeConfig) (err
 	return
 }
 
+// Release releases all IP's from compute node
 func (p *InfobloxProvider) Release(nodeConfig *config.NodeConfig) (err error) {
 	var ipaddr string
 	var hostSuffix string = ""
-	for i, _ := range nodeConfig.Network.Node {
+	for i := range nodeConfig.Network.Node {
 		if ipaddr, err = p.ReleaseIp(nodeConfig.Compute.HostName + hostSuffix + "." + p.DnsZone); err != nil {
 			return
 		}
 		nodeConfig.Network.Node[i].Ip = ipaddr
 		hostSuffix = "-n" + strconv.Itoa(i+1)
 	}
-	for i, _ := range nodeConfig.Network.IscsiInitiator {
+	for i := range nodeConfig.Network.IscsiInitiator {
 		hostSuffix = "-i" + strconv.Itoa(i+1)
 		if ipaddr, err = p.ReleaseIp(nodeConfig.Compute.HostName + hostSuffix + "." + p.DnsZone); err != nil {
 			return

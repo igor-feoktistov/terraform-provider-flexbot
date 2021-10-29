@@ -1,3 +1,19 @@
+## 1.7.8 (October 29, 2021)
+
+ENHANCEMENTS:
+* Updated go.mod to support latest Rancher client.
+* The source code is formatted by "gofmt".
+* The source code is "staticcheck" compliant.
+
+FEATURES:
+* Built-in "decrypt" support for "ssh_private_key" attribute:
+  * encrypted "ssh_private_key" attribute will stay encrypted in tfstate file
+  * see [flexbot-crypt](./tools/flexbot-crypt) utility
+* Built-in "decrypt" support for values in "cloud_args" attribute:
+  * any values in "cloud_args" can be encryped and therefore stay encrypted in tfstate file
+  * see [flexbot-crypt](./tools/flexbot-crypt) utility
+
+
 ## 1.7.7 (July 29, 2021)
 
 ENHANCEMENTS:
