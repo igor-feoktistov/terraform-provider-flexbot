@@ -61,7 +61,8 @@ provider "flexbot" {
     insecure = true
     cluster_id = rancher2_cluster.cluster.id
     # Optional - Grace timeout in seconds after each node update in changing
-    #            blade_spec or os_image/seed_template.
+    #            blade_spec or os_image/seed_template. Checks for node status
+    #            "active" during timeout.
     node_grace_timeout = 60
     # Optional - Wait timeout for node status "active". Assigned compute blade
     #            specs will be recorded in node annotations if timeout > 0.

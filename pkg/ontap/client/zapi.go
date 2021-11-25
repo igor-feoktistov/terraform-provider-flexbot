@@ -415,8 +415,13 @@ func (c *OntapZAPI) FileGetList(volumeName string, dirPath string) (fileList []s
 
 // FileDelete deletes file
 func (c *OntapZAPI) FileDelete(volumeName string, filePath string) (err error) {
-	if _, _, err = c.Client.FileDeleteFileAPI("/vol/" + volumeName + filePath); err != nil {
-		err = fmt.Errorf("FileDeleteFileAPI() failure: %s", err)
+        var response *ontap.SingleResultResponse
+	if response, _, err = c.Client.FileDeleteFileAPI("/vol/" + volumeName + filePath); err != nil {
+	        if response.Results.ErrorNo != ontap.EONTAPI_ENOENT {
+		        err = fmt.Errorf("FileDeleteFileAPI() failure: %s", err)
+	        } else {
+	                err = nil
+		}
 	}
 	return
 }

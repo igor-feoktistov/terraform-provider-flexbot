@@ -1,4 +1,13 @@
-## 1.7.8 (October 28, 2021)
+## 1.7.9 (November 24, 2021)
+
+ENHANCEMENTS:
+* Improvements in rancher API code:
+  * wait for node registration to finish until node is in "active" state
+  * make sure that during node_grace_timeout wait node is in "active" state
+* Improvements on OnTap API code:
+  * no error response for NotFound errors in delete's to deal with occasional storage leftovers
+
+## 1.7.8 (October 29, 2021)
 
 ENHANCEMENTS:
 * Updated go.mod to support latest Rancher client.
