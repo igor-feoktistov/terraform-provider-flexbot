@@ -85,7 +85,9 @@ func rancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 		}
 		for time.Now().Before(giveupTime) {
 			if node.NodeID, err = node.RancherClient.GetNode(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
-				return
+			        if !rancher.IsNotFound(err) {
+				        return
+				}
 			}
 			if len(node.NodeID) > 0 {
 				if err = node.RancherClient.NodeWaitForState(node.NodeID, "active", int(math.Round(time.Until(giveupTime).Seconds()))); err == nil {
@@ -104,6 +106,18 @@ func (node *RancherNode) rancherAPIClusterWaitForState(state string, timeout int
 		err = node.RancherClient.ClusterWaitForState(node.ClusterID, state, timeout)
 	}
 	return
+}
+
+func (node *RancherNode) rancherAPINodeWaitForGracePeriod(timeout int) (err error) {
+	if node.RancherClient != nil {
+                giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
+		for time.Now().Before(giveupTime) {
+	                if err = node.RancherClient.NodeWaitForState(node.NodeID, "active", int(math.Round(time.Until(giveupTime).Seconds()))); err == nil {
+			        time.Sleep(5 * time.Second)
+			}
+		}
+        }
+        return
 }
 
 func (node *RancherNode) rancherAPINodeCordon() (err error) {

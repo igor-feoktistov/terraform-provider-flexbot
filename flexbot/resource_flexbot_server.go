@@ -421,7 +421,11 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 				return
 			}
 			if meta.(*FlexbotConfig).NodeGraceTimeout > 0 {
-				time.Sleep(time.Duration(meta.(*FlexbotConfig).NodeGraceTimeout) * time.Second)
+			        if err = rancherNode.rancherAPINodeWaitForGracePeriod(meta.(*FlexbotConfig).NodeGraceTimeout); err != nil {
+				        err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
+				        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+				        return
+				}
 			}
 		}
 	}
