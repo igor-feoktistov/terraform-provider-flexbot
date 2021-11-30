@@ -1,4 +1,4 @@
-## 1.7.9 (November 24, 2021)
+## 1.7.9 (November 30, 2021)
 
 ENHANCEMENTS:
 * Improvements in rancher API code:
