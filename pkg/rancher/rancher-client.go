@@ -279,23 +279,57 @@ func (client *Client) GetNodeRole(nodeID string) (controlplane bool, etcd bool, 
 func (client *Client) ClusterWaitForState(clusterID string, states string, timeout int) (err error) {
 	var cluster *managementClient.Cluster
 	var clusterLastState string
+	var settleDown int
 	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 	for time.Now().Before(giveupTime) {
 		if cluster, err = client.Management.Cluster.ByID(clusterID); err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
-				err = fmt.Errorf("rancher.ClusterWaitForState(): cluster has been removed")
+				err = fmt.Errorf("rancher.ClusterWaitForState(): cluster not found")
 			}
 			return
 		}
+		if clusterLastState != cluster.State {
+	                settleDown = 10
+		}
 		for _, state := range strings.Split(states, ",") {
 			if cluster.State == state {
-				return
+			        if settleDown == 0 {
+				        return
+				} else {
+				        settleDown--
+				        break
+				}
 			}
 		}
 		clusterLastState = cluster.State
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
+	}
+	for _, state := range strings.Split(states, ",") {
+	        if clusterLastState == state {
+	                return
+	        }
 	}
 	err = fmt.Errorf("rancher.ClusterWaitForState(): wait for cluster state exceeded timeout=%d: expected states=%s, last state=%s", timeout, states, clusterLastState)
+	return
+}
+
+// ClusterWaitForTransitioning waits until cluster enters transitioning state
+func (client *Client) ClusterWaitForTransitioning(clusterID string, timeout int) (err error) {
+	var cluster *managementClient.Cluster
+	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
+	for time.Now().Before(giveupTime) {
+		if cluster, err = client.Management.Cluster.ByID(clusterID); err != nil {
+			if IsNotFound(err) || IsForbidden(err) {
+				err = fmt.Errorf("rancher.ClusterWaitForTransitioning(): cluster not found")
+			}
+			return
+		}
+		if (cluster.State == "updating" || cluster.State == "upgrading") && (cluster.Transitioning == "yes" || cluster.Transitioning == "error") {
+		        return
+		}
+		time.Sleep(1 * time.Second)
+	}
+	err = fmt.Errorf("rancher.ClusterWaitForTransitioning(): wait for cluster transitioning exceeded timeout=%d", timeout)
 	return
 }
 
@@ -326,7 +360,7 @@ func (client *Client) NodeWaitForState(nodeID string, states string, timeout int
 			}
 		}
 		nodeLastState = node.State
-		time.Sleep(5 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	err = fmt.Errorf("rancher.NodeWaitForState(): wait for node state exceeded timeout=%d: expected states=%s, last state=%s", timeout, states, nodeLastState)
 	return

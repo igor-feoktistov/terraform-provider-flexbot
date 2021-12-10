@@ -21,9 +21,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Default timeout to restart node
+// Default timeouts
 const (
 	NodeRestartTimeout = 600
+	Wait4ClusterTransitioningTimeout = 120
 )
 
 // Change status definition while update routine
@@ -492,24 +493,28 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			meta.(*FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
-		if powerState == "up" {
-			// Cordon/drain worker nodes
-			if rancherNode.NodeWorker {
-				if err = rancherNode.rancherAPINodeCordon(); err != nil {
-					err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
-					meta.(*FlexbotConfig).UpdateManagerSetError(err)
-					return
-				}
+	        // Cordon/drain worker nodes
+		if powerState == "up" && rancherNode.NodeWorker {
+		        if err = rancherNode.rancherAPINodeCordon(); err != nil {
+			        err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
+				meta.(*FlexbotConfig).UpdateManagerSetError(err)
+				return
 			}
-			if err = ucsm.StopServer(nodeConfig); err != nil {
+                }
+		// Delete etcd/controlplane node
+		if rancherNode.NodeEtcd || rancherNode.NodeControlPlane {
+			if err = rancherNode.rancherAPINodeDelete(); err == nil {
+			        rancherNode.rancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
+				err = rancherNode.rancherAPIClusterWaitForState("active", Wait4ClusterStateTimeout)
+			}
+			if err != nil {
+				err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
 				meta.(*FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
 		}
-		// Delete etcd/controlplane node
-		if rancherNode.NodeEtcd || rancherNode.NodeControlPlane {
-			if err = rancherNode.rancherAPINodeDelete(); err != nil {
-				err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
+		if powerState == "up" {
+			if err = ucsm.StopServer(nodeConfig); err != nil {
 				meta.(*FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
@@ -546,11 +551,6 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 					meta.(*FlexbotConfig).UpdateManagerSetError(err)
 					return
 				}
-				if err = rancherNode.rancherAPIClusterWaitForState("active", Wait4ClusterStateTimeout); err != nil {
-					err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
-					meta.(*FlexbotConfig).UpdateManagerSetError(err)
-					return
-				}
 				for _, cmd := range compute["ssh_node_init_commands"].([]interface{}) {
 					var cmdOutput string
 					log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
@@ -565,23 +565,38 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			}
 		}
 		if rancherNode.NodeEtcd || rancherNode.NodeControlPlane {
-			rancherNode.rancherAPIClusterWaitForState("updating", 60)
+			rancherNode.rancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
+		        if err = rancherNode.rancherAPIClusterWaitForState("active", Wait4ClusterStateTimeout); err == nil {
+		                err = rancherNode.rancherAPINodeGetID(d);
+		        }
+		        if err != nil {
+			        err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
+			        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+			        return
+		        }
 		}
 		// Uncordon worker nodes
 		if rancherNode.NodeWorker {
-			if err = rancherNode.rancherAPINodeUncordon(); err != nil {
+		        if err = rancherNode.rancherAPIClusterWaitForState("active", Wait4ClusterStateTimeout); err == nil {
+			        err = rancherNode.rancherAPINodeUncordon()
+			}
+			if err != nil {
 				err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
 				meta.(*FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
 		}
-		if err = rancherNode.rancherAPIClusterWaitForState("active", Wait4ClusterStateTimeout); err != nil {
+		if err = rancherNode.rancherAPINodeWaitForState("active", Wait4NodeStateTimeout); err != nil {
 			err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
 			meta.(*FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
 		if meta.(*FlexbotConfig).NodeGraceTimeout > 0 {
-			time.Sleep(time.Duration(meta.(*FlexbotConfig).NodeGraceTimeout) * time.Second)
+		        if err = rancherNode.rancherAPINodeWaitForGracePeriod(meta.(*FlexbotConfig).NodeGraceTimeout); err != nil {
+			        err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
+				meta.(*FlexbotConfig).UpdateManagerSetError(err)
+				return
+			}
 		}
 	}
 	if oldBootLun["size"].(int) != newBootLun["size"].(int) {
@@ -796,24 +811,32 @@ func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta inte
 		diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 		return
 	}
-	if powerState == "up" {
-		// Cordon/drain worker nodes
-		if rancherNode.NodeWorker {
-			if err = rancherNode.rancherAPINodeCordon(); err != nil {
-				diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
-				return
-			}
-		}
-		if err = ucsm.StopServer(nodeConfig); err != nil {
-			diags = diag.FromErr(err)
+	// Cordon/drain worker node
+	if powerState == "up" && rancherNode.NodeWorker {
+	        if err = rancherNode.rancherAPINodeCordon(); err != nil {
+		        diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 			return
 		}
-	}
+        }
 	// Delete node
 	if err = rancherNode.rancherAPINodeDelete(); err != nil {
 		diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 		return
 	}
+	// Wait for etcd/controlplane node cluster update
+	if powerState == "up" && (rancherNode.NodeEtcd || rancherNode.NodeControlPlane) {
+	        rancherNode.rancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
+		if err = rancherNode.rancherAPIClusterWaitForState("active", Wait4ClusterStateTimeout); err != nil {
+		        diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
+			return
+		}
+        }
+	if powerState == "up" {
+		if err = ucsm.StopServer(nodeConfig); err != nil {
+			diags = diag.FromErr(err)
+			return
+		}
+        }
 	if err = ucsm.DeleteServer(nodeConfig); err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,

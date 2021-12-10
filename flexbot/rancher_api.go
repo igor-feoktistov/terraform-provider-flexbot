@@ -95,7 +95,7 @@ func rancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 				}
 				return
 			}
-			time.Sleep(5 * time.Second)
+			time.Sleep(1 * time.Second)
 		}
 	}
 	return
@@ -108,12 +108,39 @@ func (node *RancherNode) rancherAPIClusterWaitForState(state string, timeout int
 	return
 }
 
+func (node *RancherNode) rancherAPIClusterWaitForTransitioning(timeout int) (err error) {
+	if node.RancherClient != nil {
+		err = node.RancherClient.ClusterWaitForTransitioning(node.ClusterID, timeout)
+	}
+	return
+}
+
+func (node *RancherNode) rancherAPINodeGetID(d *schema.ResourceData) (err error) {
+	if node.RancherClient != nil {
+	        network := d.Get("network").([]interface{})[0].(map[string]interface{})
+	        if node.NodeID, err = node.RancherClient.GetNode(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+			err = fmt.Errorf("rancherAPINodeGetID(): node %s not found", node.NodeConfig.Compute.HostName)
+		}
+	}
+	return
+}
+
+func (node *RancherNode) rancherAPINodeWaitForState(state string, timeout int) (err error) {
+	if node.RancherClient != nil {
+	        err = node.RancherClient.NodeWaitForState(node.NodeID, state, timeout)
+	}
+	return
+}
+
 func (node *RancherNode) rancherAPINodeWaitForGracePeriod(timeout int) (err error) {
 	if node.RancherClient != nil {
                 giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 		for time.Now().Before(giveupTime) {
-	                if err = node.RancherClient.NodeWaitForState(node.NodeID, "active", int(math.Round(time.Until(giveupTime).Seconds()))); err == nil {
-			        time.Sleep(5 * time.Second)
+                        nextTimeout := int(math.Round(time.Until(giveupTime).Seconds()))
+                        if nextTimeout > 0 {
+	                        if err = node.RancherClient.NodeWaitForState(node.NodeID, "active", nextTimeout); err == nil {
+			                time.Sleep(1 * time.Second)
+			        }
 			}
 		}
         }
