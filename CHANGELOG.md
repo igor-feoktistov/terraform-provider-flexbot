@@ -1,3 +1,10 @@
+## 1.7.10 (December 10, 2021)
+
+ENHANCEMENTS:
+* Adjustments in Rancher API code to fix node update issues in Rancher 2.6.*:
+  * node shutdown is delayed until cluster completes updates to allow catlle-node-cleanup job be executed
+
+
 ## 1.7.9 (November 30, 2021)
 
 ENHANCEMENTS:
@@ -6,6 +13,7 @@ ENHANCEMENTS:
   * make sure that during node_grace_timeout wait node is in "active" state
 * Improvements in OnTap API code:
   * no error response for NotFound errors in delete's to deal with occasional storage leftovers
+
 
 ## 1.7.8 (October 29, 2021)
 
