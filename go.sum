@@ -338,6 +338,8 @@ github.com/igor-feoktistov/go-ontap-sdk v1.0.3 h1:lC1JEaqMCyIWeRAjhMAwA4ID8/Uv/r
 github.com/igor-feoktistov/go-ontap-sdk v1.0.3/go.mod h1:oOr8HpXRFz2R8XSZ5vRoNCoScHqGbe2ze1BrxcCohcE=
 github.com/igor-feoktistov/go-ontap-sdk v1.0.4 h1:jNKpZjomSYj57eD4Ed0TtxOfEkgUXE2uG1V4d+Nv2PM=
 github.com/igor-feoktistov/go-ontap-sdk v1.0.4/go.mod h1:oOr8HpXRFz2R8XSZ5vRoNCoScHqGbe2ze1BrxcCohcE=
+github.com/igor-feoktistov/go-ontap-sdk v1.0.5 h1:hnvRjPT4DvZHjqMBANJZhwJBuv4CcppyCvNdqN6L9EE=
+github.com/igor-feoktistov/go-ontap-sdk v1.0.5/go.mod h1:oOr8HpXRFz2R8XSZ5vRoNCoScHqGbe2ze1BrxcCohcE=
 github.com/igor-feoktistov/go-ucsm-sdk v1.0.6 h1:9tBsMI9WdHAlf0EYYidYq9CXS39MqKmeRJ7IHwE8968=
 github.com/igor-feoktistov/go-ucsm-sdk v1.0.6/go.mod h1:4mJNNQkZ0NRrVHsO/7lRbNLvt/x0cZYIbaJ/+Is2UCE=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
