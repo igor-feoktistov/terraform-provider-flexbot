@@ -66,7 +66,9 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 		diags = diag.FromErr(err)
 		return
 	}
+        meta.(*FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
+        meta.(*FlexbotConfig).Sync.Unlock()
 	sshUser := compute["ssh_user"].(string)
 	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
 		diags = diag.FromErr(err)
@@ -131,7 +133,9 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 		diags = diag.FromErr(fmt.Errorf("resourceCreateServer(): %s", err))
 		return
 	}
+        meta.(*FlexbotConfig).Sync.Lock()
 	d.SetId(nodeConfig.Compute.HostName)
+        meta.(*FlexbotConfig).Sync.Unlock()
 	err = ontap.CreateBootStorage(nodeConfig)
 	if err == nil {
 		_, err = ucsm.CreateServer(nodeConfig)
@@ -143,7 +147,9 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 		err = ucsm.StartServer(nodeConfig)
 	}
 	if err == nil {
+                meta.(*FlexbotConfig).Sync.Lock()
 		d.SetConnInfo(map[string]string{"type": "ssh", "host": nodeConfig.Network.Node[0].Ip})
+                meta.(*FlexbotConfig).Sync.Unlock()
 	}
 	if compute["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 && err == nil {
 		if err = waitForSSH(nodeConfig, compute["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err == nil {
@@ -215,7 +221,9 @@ func resourceReadServer(ctx context.Context, d *schema.ResourceData, meta interf
 		}
 		setFlexbotOutput(d, meta, nodeConfig)
 	} else {
+                meta.(*FlexbotConfig).Sync.Lock()
 		d.SetId("")
+                meta.(*FlexbotConfig).Sync.Unlock()
 	}
 	return
 }
@@ -223,44 +231,58 @@ func resourceReadServer(ctx context.Context, d *schema.ResourceData, meta interf
 func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
 	var nodeConfig *config.NodeConfig
+	var isNew, isSnapshot, isCompute, isStorage, isLabels, isRestore bool
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
 		return
 	}
-	if d.HasChange("snapshot") && !d.IsNewResource() {
+        meta.(*FlexbotConfig).Sync.Lock()
+	isNew = d.IsNewResource()
+	isSnapshot = d.HasChange("snapshot")
+        isCompute = d.HasChange("compute")
+        isStorage = d.HasChange("storage")
+        isLabels = d.HasChange("labels")
+        isRestore = d.HasChange("restore")
+        if isCompute || isStorage || isSnapshot || isRestore {
+	        d.Partial(true)
+        }
+        meta.(*FlexbotConfig).Sync.Unlock()
+	if isSnapshot && !isNew {
 		if err = resourceUpdateServerSnapshot(d, meta, nodeConfig); err != nil {
 			diags = diag.FromErr(err)
 			return
 		}
 	}
-	if d.HasChange("compute") && !d.IsNewResource() {
+	if isCompute && !isNew {
 		if err = resourceUpdateServerCompute(d, meta, nodeConfig); err != nil {
 			resourceReadServer(ctx, d, meta)
 			diags = diag.FromErr(err)
 			return
 		}
 	}
-	if d.HasChange("storage") && !d.IsNewResource() {
+	if isStorage && !isNew {
 		if err = resourceUpdateServerStorage(d, meta, nodeConfig); err != nil {
 			resourceReadServer(ctx, d, meta)
 			diags = diag.FromErr(err)
 			return
 		}
 	}
-	if d.HasChange("labels") {
+	if isLabels {
 		if err = resourceUpdateServerLabels(d, meta, nodeConfig); err != nil {
 			diags = diag.FromErr(err)
 			return
 		}
 	}
-	if d.HasChange("restore") {
+	if isRestore {
 		if err = resourceUpdateServerRestore(d, meta, nodeConfig); err != nil {
 			diags = diag.FromErr(err)
 			return
 		}
 	}
 	resourceReadServer(ctx, d, meta)
+        meta.(*FlexbotConfig).Sync.Lock()
 	d.Partial(false)
+        meta.(*FlexbotConfig).Sync.Unlock()
 	if (nodeConfig.ChangeStatus & (ChangeBladeSpec | ChangeOsImage | ChangeSeedTemplate | ChangeSnapshotRestore)) > 0 {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherAPIInitialize(d, meta, nodeConfig, (nodeConfig.Compute.Powerstate == "up")); err == nil {
@@ -277,13 +299,15 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
 	var powerState, newPowerState, sshPrivateKey string
 	var oldBladeSpec, newBladeSpec map[string]interface{}
+        meta.(*FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
+	oldCompute, newCompute := d.GetChange("compute")
+        meta.(*FlexbotConfig).Sync.Unlock()
 	sshUser := compute["ssh_user"].(string)
 	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
 		err = fmt.Errorf("resourceUpdateServer(compute): failure: %s", err)
 		return
 	}
-	oldCompute, newCompute := d.GetChange("compute")
 	if len((oldCompute.([]interface{})[0].(map[string]interface{}))["blade_spec"].([]interface{})) > 0 {
 		oldBladeSpec = (oldCompute.([]interface{})[0].(map[string]interface{}))["blade_spec"].([]interface{})[0].(map[string]interface{})
 	} else {
@@ -439,13 +463,15 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 
 func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
 	var powerState, sshPrivateKey string
+        meta.(*FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
+	oldStorage, newStorage := d.GetChange("storage")
+        meta.(*FlexbotConfig).Sync.Unlock()
 	sshUser := compute["ssh_user"].(string)
 	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
 		err = fmt.Errorf("resourceUpdateServer(storage): failure: %s", err)
 		return
 	}
-	oldStorage, newStorage := d.GetChange("storage")
 	oldBootLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
 	newBootLun := (newStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
 	oldSeedLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["seed_lun"].([]interface{})[0].(map[string]interface{})
@@ -567,7 +593,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		if rancherNode.NodeEtcd || rancherNode.NodeControlPlane {
 			rancherNode.rancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
 		        if err = rancherNode.rancherAPIClusterWaitForState("active", Wait4ClusterStateTimeout); err == nil {
-		                err = rancherNode.rancherAPINodeGetID(d);
+		                err = rancherNode.rancherAPINodeGetID(d, meta);
 		        }
 		        if err != nil {
 			        err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
@@ -649,13 +675,15 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
 	var oldSnapState, newSnapState, snapStateInter, snapStorage []string
 	var sshPrivateKey string
+        meta.(*FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
+	oldSnapshot, newSnapshot := d.GetChange("snapshot")
+        meta.(*FlexbotConfig).Sync.Unlock()
 	sshUser := compute["ssh_user"].(string)
 	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
 		err = fmt.Errorf("resourceUpdateServer(snapshot): failure: %s", err)
 		return
 	}
-	oldSnapshot, newSnapshot := d.GetChange("snapshot")
 	for _, snapshot := range oldSnapshot.([]interface{}) {
 		oldSnapState = append(oldSnapState, snapshot.(map[string]interface{})["name"].(string))
 	}
@@ -703,13 +731,15 @@ func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, node
 
 func resourceUpdateServerRestore(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
 	var powerState, sshPrivateKey string
+        meta.(*FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
+	oldRestore, newRestore := d.GetChange("restore")
+        meta.(*FlexbotConfig).Sync.Unlock()
 	sshUser := compute["ssh_user"].(string)
 	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
 		err = fmt.Errorf("resourceUpdateServer(restore): failure: %s", err)
 		return
 	}
-	oldRestore, newRestore := d.GetChange("restore")
 	if len(newRestore.([]interface{})) == 0 {
 		return
 	}
@@ -775,13 +805,17 @@ func resourceUpdateServerRestore(d *schema.ResourceData, meta interface{}, nodeC
 		}
 	}
 	nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeSnapshotRestore
+        meta.(*FlexbotConfig).Sync.Lock()
 	d.Set("restore", oldRestore)
+        meta.(*FlexbotConfig).Sync.Unlock()
 	return
 }
 
 func resourceUpdateServerLabels(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
 	var rancherNode *RancherNode
+        meta.(*FlexbotConfig).Sync.Lock()
 	oldLabels, newLabels := d.GetChange("labels")
+        meta.(*FlexbotConfig).Sync.Unlock()
 	if rancherNode, err = rancherAPIInitialize(d, meta, nodeConfig, true); err == nil {
 		err = rancherNode.rancherAPINodeUpdateLabels(oldLabels.(map[string]interface{}), newLabels.(map[string]interface{}))
 	}
@@ -797,7 +831,9 @@ func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta inte
 		return
 	}
 	log.Infof("Deleting Server %s", nodeConfig.Compute.HostName)
+        meta.(*FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
+        meta.(*FlexbotConfig).Sync.Unlock()
 	if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
 		diags = diag.FromErr(err)
 		return
@@ -1095,6 +1131,8 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 }
 
 func decryptAttribute(meta interface{}, encrypted string) (decrypted string, err error) {
+	meta.(*FlexbotConfig).Sync.Lock()
+	defer meta.(*FlexbotConfig).Sync.Unlock()
 	passPhrase := meta.(*FlexbotConfig).FlexbotProvider.Get("pass_phrase").(string)
 	if passPhrase == "" {
 		if passPhrase, err = machineid.ID(); err != nil {

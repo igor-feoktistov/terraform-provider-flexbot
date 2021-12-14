@@ -1,3 +1,10 @@
+## 1.7.11 (December 14, 2021)
+
+ENHANCEMENTS:
+* Adjustments in OnTap API code:
+  * increased client context timeout to mitigate "context deadline exceeded" in ZAPI calls
+
+
 ## 1.7.10 (December 10, 2021)
 
 ENHANCEMENTS:
