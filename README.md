@@ -9,6 +9,8 @@ Flexbot provider is a tool to build and manage bare-metal Linux on [FlexPod](htt
 
 Compared to other bare-metal tools it does not require any additional infrastructure like PXE/DHCP servers.
 
+The provider is integrated with Rancher API for Rancher downstream clusters nodes lifecycle management.
+
 Requirements
 ------------
 
