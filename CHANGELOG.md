@@ -1,3 +1,10 @@
+## 1.7.11 (December 15, 2021)
+
+ENHANCEMENTS:
+* Workaround for concurency issue (concurrent map read and map write) in terraform upstream code
+* Adjustments in OnTap API code to mitigate "context deadline exceeded" in ZAPI calls
+
+
 ## 1.7.10 (December 10, 2021)
 
 ENHANCEMENTS:

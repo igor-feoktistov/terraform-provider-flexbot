@@ -17,7 +17,7 @@ type UpdateManager struct {
 
 // FlexbotConfig is main provider configration
 type FlexbotConfig struct {
-	Sync                  sync.Mutex
+	Sync                  *sync.Mutex
 	FlexbotProvider       *schema.ResourceData
 	RancherApiEnabled     bool
 	RancherConfig         *rancher.Config

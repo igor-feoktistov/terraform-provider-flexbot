@@ -307,7 +307,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			Retries:        3,
 		}
 		config = &FlexbotConfig{
-			Sync:               sync.Mutex{},
+			Sync:               &sync.Mutex{},
 			FlexbotProvider:    d,
 			RancherApiEnabled:  rancherAPI["enabled"].(bool),
 			RancherConfig:      rancherConfig,
@@ -326,7 +326,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		}
 	} else {
 		config = &FlexbotConfig{
-			Sync:              sync.Mutex{},
+			Sync:              &sync.Mutex{},
 			FlexbotProvider:   d,
 			RancherApiEnabled: false,
 			NodeConfig:        make(map[string]*nodeConfig.NodeConfig),
