@@ -357,6 +357,7 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 	if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
 		return
 	}
+	nodeConfig.Compute.Powerstate = powerState
 	newPowerState = (newCompute.([]interface{})[0].(map[string]interface{}))["powerstate"].(string)
 	if newPowerState != powerState {
 		nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangePowerState
@@ -369,6 +370,13 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 			return
 		}
 		log.Infof("Updating Server Compute for node %s", nodeConfig.Compute.HostName)
+	        if (nodeConfig.ChangeStatus & ChangeBladeSpec) > 0 {
+	                if err = ucsm.UpdateServerPreflight(nodeConfig); err != nil {
+			        err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
+			        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+			        return
+	                }
+	        }
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherAPIInitialize(d, meta, nodeConfig, false); err != nil {
 			err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
