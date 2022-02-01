@@ -2,6 +2,7 @@
 
 ENHANCEMENTS:
 * Check if physical blade per new bladeSpec is available prior to node cordon/drain calls
+* Re-check node powerstate right before applying new bladeSpec
 
 
 ## 1.7.11 (December 15, 2021)
