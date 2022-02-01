@@ -320,6 +320,27 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 	return
 }
 
+// UpdateServerPreflight check blade availability before re-assigning
+func UpdateServerPreflight(nodeConfig *config.NodeConfig) (err error) {
+	var client *api.Client
+	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
+	if err != nil {
+		err = fmt.Errorf("UpdateServerPreflight: AaaLogin() failure: %s", err)
+		return
+	}
+	defer client.AaaLogout()
+	var computeBlades *[]mo.ComputeBlade
+	if computeBlades, err = util.ComputeBladeGetAvailable(client, &nodeConfig.Compute.BladeSpec); err != nil {
+		err = fmt.Errorf("UpdateServerPreflight: ComputeBladeGetAvailable() failure: %s", err)
+		return
+	}
+	if len(*computeBlades) == 0 {
+		err = fmt.Errorf("UpdateServerPreflight: ComputeBladeGetAvailable(): no blades found per BladeSpec")
+		return
+	}
+	return
+}
+
 // UpdateServer re-assigns physical blade
 func UpdateServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
