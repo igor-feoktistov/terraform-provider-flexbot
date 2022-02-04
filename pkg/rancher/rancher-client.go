@@ -366,6 +366,21 @@ func (client *Client) NodeWaitForState(nodeID string, states string, timeout int
 	return
 }
 
+// NodeCordon cordon Rancher node
+func (client *Client) NodeCordon(nodeID string) (err error) {
+	var node *managementClient.Node
+	var ok bool
+	if node, err = client.Management.Node.ByID(nodeID); err != nil {
+		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		return
+	}
+	_, ok = node.Actions["cordon"]
+	if ok {
+                err = client.Management.Node.ActionCordon(node)
+	}
+	return
+}
+
 // NodeCordonDrain cordon/drain Rancher node
 func (client *Client) NodeCordonDrain(nodeID string, nodeDrainInput *managementClient.NodeDrainInput) (err error) {
 	var node *managementClient.Node

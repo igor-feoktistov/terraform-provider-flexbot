@@ -154,6 +154,15 @@ func (node *RancherNode) rancherAPINodeWaitForGracePeriod(timeout int) (err erro
 func (node *RancherNode) rancherAPINodeCordon() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", Wait4ClusterStateTimeout); err == nil {
+			err = node.RancherClient.NodeCordon(node.NodeID)
+		}
+	}
+	return
+}
+
+func (node *RancherNode) rancherAPINodeCordonDrain() (err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", Wait4ClusterStateTimeout); err == nil {
 			err = node.RancherClient.NodeCordonDrain(node.NodeID, node.NodeDrainInput)
 		}
 	}
