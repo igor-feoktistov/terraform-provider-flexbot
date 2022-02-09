@@ -727,7 +727,7 @@ func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, node
 }
 
 func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
-	var powerState string
+	var powerState, nodeState string
         meta.(*FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	oldMaintenance, newMaintenance := d.GetChange("maintenance")
@@ -736,7 +736,7 @@ func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, n
 		return
 	}
 	maintenance := newMaintenance.([]interface{})[0].(map[string]interface{})
-	if !maintenance["execute"].(bool) || len(maintenance["tasks"].([]string)) == 0 {
+	if !maintenance["execute"].(bool) || len(maintenance["tasks"].([]interface{})) == 0 {
 		return
 	}
 	log.Infof("Running Server Maintenance Tasks")
@@ -757,38 +757,41 @@ func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, n
 		        return
 		}
 	}
-	for _, task := range maintenance["tasks"].([]string) {
-                switch task {
+	for _, task := range maintenance["tasks"].([]interface{}) {
+                switch task.(string) {
                 case "cordon":
                         if rancherNode.NodeWorker {
 	                        if err = rancherNode.rancherAPINodeCordon(); err != nil {
-	                                err = fmt.Errorf("resourceUpdateServer(maintenance): error: %s", err)
+	                                err = fmt.Errorf("resourceUpdateServer(maintenance): cordon error: %s", err)
 		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
 		                        return
 		                }
 		        }
+		        nodeState = "cordoned"
                 case "uncordon":
                         if rancherNode.NodeWorker {
 			        if err = rancherNode.rancherAPINodeUncordon(); err != nil {
-				        err = fmt.Errorf("resourceUpdateServer(maintenance): error: %s", err)
+				        err = fmt.Errorf("resourceUpdateServer(maintenance): uncordon error: %s", err)
 				        meta.(*FlexbotConfig).UpdateManagerSetError(err)
 				        return
 			        }
 			}
+		        nodeState = "active"
                 case "drain":
                         if rancherNode.NodeWorker {
 	                        if err = rancherNode.rancherAPINodeCordonDrain(); err != nil {
-	                                err = fmt.Errorf("resourceUpdateServer(maintenance): error: %s", err)
+	                                err = fmt.Errorf("resourceUpdateServer(maintenance): drain error: %s", err)
 		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
 		                        return
 		                }
 		        }
+		        nodeState = "cordoned,drained"
                 case "restart":
 	                var sshPrivateKey string
                         sshUser := compute["ssh_user"].(string)
                         if len(compute["ssh_private_key"].(string)) > 0 {
                                 if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
-                                        err = fmt.Errorf("resourceUpdateServer(maintenance): failure: %s", err)
+                                        err = fmt.Errorf("resourceUpdateServer(maintenance): decryptAttribute() failure: %s", err)
 		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
                                         return
                                 }
@@ -809,28 +812,30 @@ func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, n
 			} else {
 	                        if err = ucsm.StopServer(nodeConfig); err == nil {
 	                                time.Sleep(NodeGraceShutdownTimeout * time.Second)
-                                        if err = ucsm.StartServer(nodeConfig); err != nil {
-			                        err = fmt.Errorf("resourceUpdateServer(maintenance): error: %s", err)
-			                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
-			                        return
-                                        }
+                                        err = ucsm.StartServer(nodeConfig)
 	                        }
-			}
-		        if maintenance["wait_for_node_timeout"].(int) > 0 {
-		                if err = rancherNode.rancherAPINodeWaitForState("active", maintenance["wait_for_node_timeout"].(int)); err != nil {
-			                err = fmt.Errorf("resourceUpdateServer(maintenance): error: %s", err)
+	                        if err != nil {
+			                err = fmt.Errorf("resourceUpdateServer(maintenance): restart error: %s", err)
 			                meta.(*FlexbotConfig).UpdateManagerSetError(err)
 			                return
-		                }
-		        }
-		        if maintenance["node_grace_timeout"].(int) > 0 {
-		                if err = rancherNode.rancherAPINodeWaitForGracePeriod(maintenance["node_grace_timeout"].(int)); err != nil {
-			                err = fmt.Errorf("resourceUpdateServer(maintenance): error: %s", err)
-				        meta.(*FlexbotConfig).UpdateManagerSetError(err)
-				        return
-			        }
+                                }
 			}
+		        nodeState = "cordoned,drained,active"
                 }
+	}
+	if maintenance["wait_for_node_timeout"].(int) > 0 {
+	        if err = rancherNode.rancherAPINodeWaitForState(nodeState, maintenance["wait_for_node_timeout"].(int)); err != nil {
+		        err = fmt.Errorf("resourceUpdateServer(maintenance): rancherAPINodeWaitForState() error: %s", err)
+			meta.(*FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+	}
+	if maintenance["node_grace_timeout"].(int) > 0 {
+	        if err = rancherNode.rancherAPINodeWaitForGracePeriod(maintenance["node_grace_timeout"].(int)); err != nil {
+		        err = fmt.Errorf("resourceUpdateServer(maintenance): rancherAPINodeWaitForGracePeriod() error: %s", err)
+			meta.(*FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
 	}
         meta.(*FlexbotConfig).Sync.Lock()
 	d.Set("maintenance", oldMaintenance)
