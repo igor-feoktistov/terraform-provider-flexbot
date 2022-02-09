@@ -24,6 +24,7 @@ import (
 // Default timeouts
 const (
 	NodeRestartTimeout = 600
+	NodeGraceShutdownTimeout = 60
 	Wait4ClusterTransitioningTimeout = 120
 )
 
@@ -231,7 +232,7 @@ func resourceReadServer(ctx context.Context, d *schema.ResourceData, meta interf
 func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
 	var nodeConfig *config.NodeConfig
-	var isNew, isSnapshot, isCompute, isStorage, isLabels, isRestore bool
+	var isNew, isSnapshot, isCompute, isStorage, isLabels, isRestore, isMaintenance bool
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
 		return
@@ -243,7 +244,8 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
         isStorage = d.HasChange("storage")
         isLabels = d.HasChange("labels")
         isRestore = d.HasChange("restore")
-        if isCompute || isStorage || isSnapshot || isRestore {
+        isMaintenance = d.HasChange("maintenance")
+        if isCompute || isStorage || isSnapshot || isRestore || isMaintenance {
 	        d.Partial(true)
         }
         meta.(*FlexbotConfig).Sync.Unlock()
@@ -269,6 +271,12 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 	if isLabels {
 		if err = resourceUpdateServerLabels(d, meta, nodeConfig); err != nil {
+			diags = diag.FromErr(err)
+			return
+		}
+	}
+	if isMaintenance {
+		if err = resourceUpdateServerMaintenance(d, meta, nodeConfig); err != nil {
 			diags = diag.FromErr(err)
 			return
 		}
@@ -391,36 +399,17 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 			}
 			// Cordon/drain worker nodes
 			if rancherNode.NodeWorker {
-				if err = rancherNode.rancherAPINodeCordon(); err != nil {
+				if err = rancherNode.rancherAPINodeCordonDrain(); err != nil {
 					err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
 					meta.(*FlexbotConfig).UpdateManagerSetError(err)
 					return
 				}
 			}
 			if (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
-				// Trying graceful node shutdown
-				if _, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, "sudo shutdown -h 0"); err != nil {
-					err = fmt.Errorf("resourceUpdateServer(compute): runSSHCommand(shutdown) error: %s", err)
-					meta.(*FlexbotConfig).UpdateManagerSetError(err)
-					return
-				}
-				waitForShutdown := time.Now().Add(time.Second * time.Duration(60))
-				for time.Now().Before(waitForShutdown) {
-					if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
-						meta.(*FlexbotConfig).UpdateManagerSetError(err)
-						return
-					}
-					if powerState == "down" {
-						break
-					}
-					time.Sleep(1 * time.Second)
-				}
-			}
-			if powerState == "up" {
-				if err = ucsm.StopServer(nodeConfig); err != nil {
-					meta.(*FlexbotConfig).UpdateManagerSetError(err)
-					return
-				}
+                                if err = shutdownServer(nodeConfig, (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err != nil {
+		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+		                        return
+                                }
 			}
 		}
 		if (nodeConfig.ChangeStatus & ChangeBladeSpec) > 0 {
@@ -529,7 +518,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		}
 	        // Cordon/drain worker nodes
 		if powerState == "up" && rancherNode.NodeWorker {
-		        if err = rancherNode.rancherAPINodeCordon(); err != nil {
+		        if err = rancherNode.rancherAPINodeCordonDrain(); err != nil {
 			        err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
 				meta.(*FlexbotConfig).UpdateManagerSetError(err)
 				return
@@ -737,6 +726,123 @@ func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, node
 	return
 }
 
+func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
+	var powerState, nodeState string
+        meta.(*FlexbotConfig).Sync.Lock()
+	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
+	oldMaintenance, newMaintenance := d.GetChange("maintenance")
+        meta.(*FlexbotConfig).Sync.Unlock()
+	if len(newMaintenance.([]interface{})) == 0 {
+		return
+	}
+	maintenance := newMaintenance.([]interface{})[0].(map[string]interface{})
+	if !maintenance["execute"].(bool) || len(maintenance["tasks"].([]interface{})) == 0 {
+		return
+	}
+	log.Infof("Running Server Maintenance Tasks")
+	if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil || powerState == "down" {
+		return
+	}
+	var rancherNode *RancherNode
+	if rancherNode, err = rancherAPIInitialize(d, meta, nodeConfig, false); err != nil {
+	        err = fmt.Errorf("resourceUpdateServer(maintenance): error: %s", err)
+		meta.(*FlexbotConfig).UpdateManagerSetError(err)
+	        return
+	}
+	if maintenance["synchronized_run"].(bool) {
+	        err = meta.(*FlexbotConfig).UpdateManagerAcquire()
+	        defer meta.(*FlexbotConfig).UpdateManagerRelease()
+	        if err != nil {
+		        err = fmt.Errorf("resourceUpdateServer(maintenance): last resource instance update returned error: %s", err)
+		        return
+		}
+	}
+	for _, task := range maintenance["tasks"].([]interface{}) {
+                switch task.(string) {
+                case "cordon":
+                        if rancherNode.NodeWorker {
+	                        if err = rancherNode.rancherAPINodeCordon(); err != nil {
+	                                err = fmt.Errorf("resourceUpdateServer(maintenance): cordon error: %s", err)
+		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+		                        return
+		                }
+		        }
+		        nodeState = "cordoned"
+                case "uncordon":
+                        if rancherNode.NodeWorker {
+			        if err = rancherNode.rancherAPINodeUncordon(); err != nil {
+				        err = fmt.Errorf("resourceUpdateServer(maintenance): uncordon error: %s", err)
+				        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+				        return
+			        }
+			}
+		        nodeState = "active"
+                case "drain":
+                        if rancherNode.NodeWorker {
+	                        if err = rancherNode.rancherAPINodeCordonDrain(); err != nil {
+	                                err = fmt.Errorf("resourceUpdateServer(maintenance): drain error: %s", err)
+		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+		                        return
+		                }
+		        }
+		        nodeState = "cordoned,drained"
+                case "restart":
+	                var sshPrivateKey string
+                        sshUser := compute["ssh_user"].(string)
+                        if len(compute["ssh_private_key"].(string)) > 0 {
+                                if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
+                                        err = fmt.Errorf("resourceUpdateServer(maintenance): decryptAttribute() failure: %s", err)
+		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+                                        return
+                                }
+                        }
+			if compute["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
+                                if err = shutdownServer(nodeConfig, compute["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err != nil {
+		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+		                        return
+                                }
+	                        if err = ucsm.StartServer(nodeConfig); err != nil {
+		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+		                        return
+	                        }
+		                if err = waitForSSH(nodeConfig, compute["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err != nil {
+		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
+			                return
+		                }
+			} else {
+	                        if err = ucsm.StopServer(nodeConfig); err == nil {
+	                                time.Sleep(NodeGraceShutdownTimeout * time.Second)
+                                        err = ucsm.StartServer(nodeConfig)
+	                        }
+	                        if err != nil {
+			                err = fmt.Errorf("resourceUpdateServer(maintenance): restart error: %s", err)
+			                meta.(*FlexbotConfig).UpdateManagerSetError(err)
+			                return
+                                }
+			}
+		        nodeState = "cordoned,drained,active"
+                }
+	}
+	if maintenance["wait_for_node_timeout"].(int) > 0 {
+	        if err = rancherNode.rancherAPINodeWaitForState(nodeState, maintenance["wait_for_node_timeout"].(int)); err != nil {
+		        err = fmt.Errorf("resourceUpdateServer(maintenance): rancherAPINodeWaitForState() error: %s", err)
+			meta.(*FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+	}
+	if maintenance["node_grace_timeout"].(int) > 0 {
+	        if err = rancherNode.rancherAPINodeWaitForGracePeriod(maintenance["node_grace_timeout"].(int)); err != nil {
+		        err = fmt.Errorf("resourceUpdateServer(maintenance): rancherAPINodeWaitForGracePeriod() error: %s", err)
+			meta.(*FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+	}
+        meta.(*FlexbotConfig).Sync.Lock()
+	d.Set("maintenance", oldMaintenance)
+        meta.(*FlexbotConfig).Sync.Unlock()
+        return
+}
+
 func resourceUpdateServerRestore(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
 	var powerState, sshPrivateKey string
         meta.(*FlexbotConfig).Sync.Lock()
@@ -857,7 +963,7 @@ func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 	// Cordon/drain worker node
 	if powerState == "up" && rancherNode.NodeWorker {
-	        if err = rancherNode.rancherAPINodeCordon(); err != nil {
+	        if err = rancherNode.rancherAPINodeCordonDrain(); err != nil {
 		        diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 			return
 		}
@@ -1266,4 +1372,27 @@ func waitForSSH(nodeConfig *config.NodeConfig, waitForSSHTimeout int, sshUser st
 		err = fmt.Errorf("waitForSsh(): exceeded timeout %d: %s", waitForSSHTimeout, err)
 	}
 	return
+}
+
+func shutdownServer(nodeConfig *config.NodeConfig, waitForSSHTimeout int, sshUser string, sshPrivateKey string) (err error) {
+        var powerState string
+        // Trying graceful node shutdown
+	if _, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, "sudo shutdown -h 0"); err != nil {
+	        err = fmt.Errorf("shutdownServer() error: %s", err)
+		return
+	}
+	waitForShutdown := time.Now().Add(time.Second * time.Duration(NodeGraceShutdownTimeout))
+	for time.Now().Before(waitForShutdown) {
+	        if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
+			return
+		}
+		if powerState == "down" {
+		        break
+		}
+		time.Sleep(5 * time.Second)
+	}
+	if powerState == "up" {
+	        err = ucsm.StopServer(nodeConfig)
+        }
+        return
 }

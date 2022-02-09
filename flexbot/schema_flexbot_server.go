@@ -5,7 +5,15 @@ import (
 	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
+
+var (
+        // Available maintenance tasks
+        MaintenanceTasks = []string{"cordon", "uncordon", "drain", "restart"}
+)
+
+// Schemas
 
 func schemaFlexbotServer() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
@@ -643,6 +651,43 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 						Type:     schema.TypeString,
 						Optional: true,
 						Default:  "",
+					},
+				},
+			},
+		},
+		"maintenance": {
+			Type:     schema.TypeList,
+			Optional: true,
+			MaxItems: 1,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"execute": {
+						Type:     schema.TypeBool,
+						Optional: true,
+						Default:  false,
+					},
+					"synchronized_run": {
+						Type:     schema.TypeBool,
+						Optional: true,
+						Default:  false,
+					},
+                                        "wait_for_node_timeout": {
+                                                Optional: true,
+                                                Type:     schema.TypeInt,
+                                                Default:  0,
+                                        },
+                                        "node_grace_timeout": {
+                                                Optional: true,
+                                                Type:     schema.TypeInt,
+                                                Default:  0,
+                                        },
+					"tasks": {
+						Type:     schema.TypeList,
+						Optional: true,
+						Elem:     &schema.Schema{
+						        Type: schema.TypeString,
+						        ValidateFunc: validation.StringInSlice(MaintenanceTasks, true),
+						},
 					},
 				},
 			},

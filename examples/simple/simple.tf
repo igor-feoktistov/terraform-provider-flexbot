@@ -272,6 +272,24 @@ resource "flexbot_server" "k8s-node1" {
     snapshot_name = "k8s-node1.snap.1"
   }
 
+  # Maintenance tasks
+  # Optional - execute list of maintenance tasks in defined sequence
+  maintenance {
+    # Make sure to set "execute=false" once it's completed.
+    execute = true
+    # Run one node at time, skip execution on other nodes if current node task failed
+    synchronized_run = true
+    # Number of seconds to wait for node state "active" after restart task is completed and node is available in network
+    # Requires Rancher API enabled in provider
+    wait_for_node_timeout = 0
+    # Number of seconds to wait after restart is completed or node state change to "active" (see above)
+    node_grace_timeout = 0
+    # List of tasks to execute sequentially
+    # The following tasks are supported: cordon, uncordon, drain, restart
+    # The tasks cordon, uncordon, and drain require Rancher API enabled in provider
+    tasks = ["cordon","drain","restart","uncordon"]
+  }
+
   # Optional - Connection info for provisioners
   connection {
     type = "ssh"

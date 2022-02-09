@@ -1,3 +1,10 @@
+## 1.7.14 (February 9, 2022)
+
+ENHANCEMENTS:
+* **New Argument:** `maintenance` - (Optional) executes maintenance tasks on the node.
+  See resource documentation for more details.
+
+
 ## 1.7.12 (January 31, 2022)
 
 ENHANCEMENTS:
