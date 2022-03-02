@@ -406,7 +406,7 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 				}
 			}
 			if (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
-                                if err = shutdownServer(nodeConfig, (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err != nil {
+                                if err = shutdownServer(nodeConfig, sshUser, sshPrivateKey); err != nil {
 		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
 		                        return
                                 }
@@ -730,7 +730,7 @@ func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, n
 	var powerState, nodeState string
         meta.(*FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
-	oldMaintenance, newMaintenance := d.GetChange("maintenance")
+	_, newMaintenance := d.GetChange("maintenance")
         meta.(*FlexbotConfig).Sync.Unlock()
 	if len(newMaintenance.([]interface{})) == 0 {
 		return
@@ -797,7 +797,7 @@ func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, n
                                 }
                         }
 			if compute["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
-                                if err = shutdownServer(nodeConfig, compute["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err != nil {
+                                if err = shutdownServer(nodeConfig, sshUser, sshPrivateKey); err != nil {
 		                        meta.(*FlexbotConfig).UpdateManagerSetError(err)
 		                        return
                                 }
@@ -837,9 +837,6 @@ func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, n
 			return
 		}
 	}
-        meta.(*FlexbotConfig).Sync.Lock()
-	d.Set("maintenance", oldMaintenance)
-        meta.(*FlexbotConfig).Sync.Unlock()
         return
 }
 
@@ -1354,14 +1351,14 @@ func waitForSSH(nodeConfig *config.NodeConfig, waitForSSHTimeout int, sshUser st
 					if err = checkSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey); err == nil {
 						break
 					}
-					time.Sleep(1 * time.Second)
+					time.Sleep(5 * time.Second)
 				}
 			}
 			if err == nil {
 				break
 			}
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 		if time.Now().After(restartTime) {
 			ucsm.StopServer(nodeConfig)
 			ucsm.StartServer(nodeConfig)
@@ -1374,25 +1371,21 @@ func waitForSSH(nodeConfig *config.NodeConfig, waitForSSHTimeout int, sshUser st
 	return
 }
 
-func shutdownServer(nodeConfig *config.NodeConfig, waitForSSHTimeout int, sshUser string, sshPrivateKey string) (err error) {
+func shutdownServer(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey string) (err error) {
         var powerState string
         // Trying graceful node shutdown
-	if _, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, "sudo shutdown -h 0"); err != nil {
-	        err = fmt.Errorf("shutdownServer() error: %s", err)
-		return
+	if _, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, "sudo shutdown -h 0"); err == nil {
+	        waitForShutdown := time.Now().Add(time.Second * time.Duration(NodeGraceShutdownTimeout))
+	        for time.Now().Before(waitForShutdown) {
+	                if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
+			        return
+		        }
+		        if powerState == "down" {
+		                break
+		        }
+		        time.Sleep(5 * time.Second)
+	        }
 	}
-	waitForShutdown := time.Now().Add(time.Second * time.Duration(NodeGraceShutdownTimeout))
-	for time.Now().Before(waitForShutdown) {
-	        if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
-			return
-		}
-		if powerState == "down" {
-		        break
-		}
-		time.Sleep(5 * time.Second)
-	}
-	if powerState == "up" {
-	        err = ucsm.StopServer(nodeConfig)
-        }
+	err = ucsm.StopServer(nodeConfig)
         return
 }

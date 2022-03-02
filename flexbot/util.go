@@ -35,6 +35,7 @@ func checkSSHCommand(host string, sshUser string, sshPrivateKey string) (err err
 			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout: time.Second * time.Duration(15),
 	}
 	if conn, err = ssh.Dial("tcp", host+":22", config); err != nil {
 		return
@@ -63,6 +64,7 @@ func runSSHCommand(sshHost string, sshUser string, sshPrivateKey string, command
 			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout: time.Second * time.Duration(15),
 	}
 	if conn, err = ssh.Dial("tcp", sshHost+":22", config); err != nil {
 		err = fmt.Errorf("runSSHCommand(): failed to connect to host %s: %s", sshHost, err)
