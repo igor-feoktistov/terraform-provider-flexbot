@@ -1,3 +1,9 @@
+## 1.7.15 (March 2, 2022)
+
+ENHANCEMENTS:
+* SSH timeout for dial method to prevent ssh hangs under certain conditions.
+
+
 ## 1.7.14 (February 9, 2022)
 
 ENHANCEMENTS:
