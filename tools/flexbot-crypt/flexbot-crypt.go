@@ -7,13 +7,14 @@ import (
 	"io/ioutil"
 	"os"
 
+        "github.com/denisbrodbeck/machineid"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 )
 
 func usage() {
 	flag.Usage()
 	fmt.Println("")
-	fmt.Printf("flexbot-crypt --passphrase=<password phrase> [--sourceString <string to encrypt (STDIN by default)>]\n\n")
+	fmt.Printf("flexbot-crypt [--passphrase=<password phrase (machineID by default)>] [--sourceString <string to encrypt (STDIN by default)>]\n\n")
 }
 
 func encryptString(srcString []byte, passPhrase string) (encrypted string, err error) {
@@ -27,14 +28,16 @@ func encryptString(srcString []byte, passPhrase string) (encrypted string, err e
 }
 
 func main() {
-	optPassPhrase := flag.String("passphrase", "", "passphrase to encrypt string")
-	optSourceString := flag.String("sourceString", "", "source string to encrypt")
+	var err error
+	optPassPhrase := flag.String("passphrase", "", "passphrase to encrypt string (machineID by default)")
+	optSourceString := flag.String("sourceString", "", "source string to encrypt (STDIN by default)")
 	flag.Parse()
 	if len(*optPassPhrase) == 0 {
-		usage()
-		return
+	        if *optPassPhrase, err = machineid.ID(); err != nil {
+		        fmt.Printf("Error: %s\n", err)
+		        return
+		}
 	}
-	var err error
 	var srcString []byte
 	if len(*optSourceString) == 0 {
 		if srcString, err = ioutil.ReadAll(os.Stdin); err != nil {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/denisbrodbeck/machineid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
@@ -237,13 +236,7 @@ func setRepoInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.
 	nodeConfig.Storage.CdotCredentials.User = cdotCredentials["user"].(string)
 	nodeConfig.Storage.CdotCredentials.Password = cdotCredentials["password"].(string)
 	nodeConfig.Storage.CdotCredentials.ZapiVersion = cdotCredentials["zapi_version"].(string)
-	passPhrase := p.Get("pass_phrase").(string)
-	if passPhrase == "" {
-		if passPhrase, err = machineid.ID(); err != nil {
-			return
-		}
-	}
-	if err = config.SetDefaults(nodeConfig, "", "", "", passPhrase); err != nil {
+	if err = config.SetDefaults(nodeConfig, "", "", "", p.Get("pass_phrase").(string)); err != nil {
 		err = fmt.Errorf("SetDefaults(): failure: %s", err)
 	}
 	return

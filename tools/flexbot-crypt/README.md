@@ -11,3 +11,9 @@
 ```flexbot --passphrase=<password phrase>```
 
 to read string from STDIN
+
+ or just
+
+```flexbot```
+
+to read string from STDIN and use machineID for passphrase
