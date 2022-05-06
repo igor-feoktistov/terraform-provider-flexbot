@@ -8,7 +8,7 @@ ENHANCEMENTS:
   * See [flexbot-crypt](./tools/flexbot-crypt) utility
 * **New provider argument:** `pass_phrase_env_key`:
   * Optional argument to provide ENV variable name for passing encryption key
-  See provider documentation for more details.
+  * See provider documentation for more details.
 
 
 ## 1.7.15 (March 2, 2022)
