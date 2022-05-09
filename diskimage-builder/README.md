@@ -6,5 +6,5 @@
 
 ### Steps to build OS image:
 * Clone content of this folder to `/usr/local/diskimage-builder` directory.
-* Run script [create-ubuntu-18.04-iboot.sh](create-ubuntu-18.04-iboot.sh).
+* Run script [create-ubuntu-20.04-iboot.sh](create-ubuntu-20.04-iboot.sh).
 * Newly created RAW image is ready to be submitted to image repository.

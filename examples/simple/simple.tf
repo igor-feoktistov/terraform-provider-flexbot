@@ -6,6 +6,10 @@ provider "flexbot" {
   # See "flexbot_crypt" datasource example on how to generate encrypted user / password values.
   pass_phrase = "secret"
 
+  # Optional - environment variable to pass encryption key to decrypt "pass_phrase" (if encrypted).
+  # If "pass_phrase" is encrypted, machine ID is used as default password phrase unless "pass_phrase_env_key" is defined.
+  pass_phrase_env_key = "PASS_PHRASE_ENC_KEY"
+
   # Required - IPAM is implemented via pluggable providers.
   # Only "Infoblox" and "Internal" providers are supported at this time.
   # "Internal" provider expects you to supply "ip" and "fqdn" in network configuration.

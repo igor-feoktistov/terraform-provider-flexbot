@@ -2,10 +2,10 @@ package flexbot
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"sync"
+	"os"
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -25,6 +25,22 @@ func Provider() *schema.Provider {
 				Optional:  true,
 				Sensitive: true,
 				Default:   "",
+			},
+			"pass_phrase_env_key": {
+				Type:      schema.TypeString,
+				Optional:  true,
+				Sensitive: true,
+				Default:   "",
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(string)
+					if len(v) > 0 {
+					        _, ok := os.LookupEnv(v)
+					        if !ok {
+					                errs = append(errs, fmt.Errorf("ENV variable \"%s\" is undefined", v))
+					        }
+					}
+					return
+				},
 			},
 			"synchronized_updates": {
 				Type:     schema.TypeBool,
@@ -257,6 +273,44 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	var err error
 	var diags diag.Diagnostics
 	var config *FlexbotConfig
+	passPhrase := d.Get("pass_phrase").(string)
+	if len(passPhrase) == 0 {
+	        if passPhrase, err = machineid.ID(); err != nil {
+		        diags = append(diags, diag.Diagnostic{
+			        Severity: diag.Error,
+				Summary:  "providerConfigure(): machineid.ID() failure",
+				Detail:   err.Error(),
+		        })
+			return nil, diags
+		}
+	}
+	if strings.HasPrefix(passPhrase, "base64:") {
+	        var passPhraseKey string
+	        var passPhraseDecrypted string
+	        if len(d.Get("pass_phrase_env_key").(string)) > 0 {
+	                passPhraseKey = os.Getenv(d.Get("pass_phrase_env_key").(string))
+	        } else {
+	                passPhraseKey, err = machineid.ID()
+	                if err != nil {
+		                diags = append(diags, diag.Diagnostic{
+			                Severity: diag.Error,
+				        Summary:  "providerConfigure(): machineid.ID() failure",
+				        Detail:   err.Error(),
+			        })
+			        return nil, diags
+			}
+		}
+		if passPhraseDecrypted, err = crypt.DecryptString(passPhrase, passPhraseKey); err != nil {
+		        diags = append(diags, diag.Diagnostic{
+			        Severity: diag.Error,
+			        Summary:  "providerConfigure(): DecryptString() failure",
+			        Detail:   err.Error(),
+			})
+			return nil, diags
+		}
+		passPhrase = passPhraseDecrypted
+	}
+	d.Set("pass_phrase", passPhrase)
 	if len(d.Get("rancher_api").([]interface{})) > 0 {
 		rancherAPI := d.Get("rancher_api").([]interface{})[0].(map[string]interface{})
 		ignoreDaemonSets := rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["ignore_daemon_sets"].(bool)
@@ -267,37 +321,14 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			GracePeriod:      int64(rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["grace_period"].(int)),
 			Timeout:          int64(rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["timeout"].(int)),
 		}
-		tokenKey := rancherAPI["token_key"].(string)
-		if strings.HasPrefix(tokenKey, "base64:") {
-			var b, b64 []byte
-			passPhrase := d.Get("pass_phrase").(string)
-			if len(passPhrase) == 0 {
-				if passPhrase, err = machineid.ID(); err != nil {
-					diags = append(diags, diag.Diagnostic{
-						Severity: diag.Error,
-						Summary:  "providerConfigure(): machineid.ID() failure",
-						Detail:   err.Error(),
-					})
-					return nil, diags
-				}
-			}
-			if b64, err = base64.StdEncoding.DecodeString(tokenKey[7:]); err != nil {
-				diags = append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "providerConfigure(): base64.StdEncoding.DecodeString() failure",
-					Detail:   err.Error(),
-				})
-				return nil, diags
-			}
-			if b, err = crypt.Decrypt(b64, passPhrase); err != nil {
-				diags = append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "providerConfigure(): Decrypt() failure",
-					Detail:   err.Error(),
-				})
-				return nil, diags
-			}
-			tokenKey = string(b)
+		var tokenKey string
+		if tokenKey, err = crypt.DecryptString(rancherAPI["token_key"].(string), passPhrase); err != nil {
+		        diags = append(diags, diag.Diagnostic{
+			        Severity: diag.Error,
+			        Summary:  "providerConfigure(): DecryptString() failure",
+			        Detail:   err.Error(),
+		        })
+		        return nil, diags
 		}
 		rancherConfig := &rancher.Config{
 			URL:            rancherAPI["api_url"].(string),
@@ -305,15 +336,6 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			Insecure:       rancherAPI["insecure"].(bool),
 			NodeDrainInput: nodeDrainInput,
 			Retries:        3,
-		}
-		config = &FlexbotConfig{
-			Sync:               &sync.Mutex{},
-			FlexbotProvider:    d,
-			RancherApiEnabled:  rancherAPI["enabled"].(bool),
-			RancherConfig:      rancherConfig,
-			WaitForNodeTimeout: rancherAPI["wait_for_node_timeout"].(int),
-			NodeGraceTimeout:   rancherAPI["node_grace_timeout"].(int),
-			NodeConfig:         make(map[string]*nodeConfig.NodeConfig),
 		}
 		if rancherAPI["enabled"].(bool) {
 			if err = rancherConfig.ManagementClient(); err != nil {
@@ -323,6 +345,15 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 					Detail:   err.Error(),
 				})
 			}
+		}
+		config = &FlexbotConfig{
+			Sync:               &sync.Mutex{},
+			FlexbotProvider:    d,
+			RancherApiEnabled:  rancherAPI["enabled"].(bool),
+			RancherConfig:      rancherConfig,
+			WaitForNodeTimeout: rancherAPI["wait_for_node_timeout"].(int),
+			NodeGraceTimeout:   rancherAPI["node_grace_timeout"].(int),
+			NodeConfig:         make(map[string]*nodeConfig.NodeConfig),
 		}
 	} else {
 		config = &FlexbotConfig{

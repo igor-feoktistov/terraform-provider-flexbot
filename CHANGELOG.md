@@ -1,3 +1,16 @@
+## 1.7.16 (May 9, 2022)
+
+ENHANCEMENTS:
+* Encryption support for `pass_phrase` provider argument:
+  * Encryption key can be one of the following:
+    * machineID() if `pass_phrase_env_key` is not provided
+    * ENV variable `pass_phrase_env_key` value
+  * See [flexbot-crypt](./tools/flexbot-crypt) utility
+* **New provider argument:** `pass_phrase_env_key`:
+  * Optional argument to provide ENV variable name for passing encryption key
+  * See provider documentation for more details.
+
+
 ## 1.7.15 (March 2, 2022)
 
 ENHANCEMENTS:

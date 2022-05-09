@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/denisbrodbeck/machineid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
@@ -1136,13 +1135,7 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	for labelKey, labelValue := range d.Get("labels").(map[string]interface{}) {
 		nodeConfig.Labels[labelKey] = labelValue.(string)
 	}
-	passPhrase := p.Get("pass_phrase").(string)
-	if passPhrase == "" {
-		if passPhrase, err = machineid.ID(); err != nil {
-			return nil, err
-		}
-	}
-	if err = config.SetDefaults(nodeConfig, compute["hostname"].(string), bootLun["os_image"].(string), seedLun["seed_template"].(string), passPhrase); err != nil {
+	if err = config.SetDefaults(nodeConfig, compute["hostname"].(string), bootLun["os_image"].(string), seedLun["seed_template"].(string), p.Get("pass_phrase").(string)); err != nil {
 		err = fmt.Errorf("SetDefaults(): failure: %s", err)
 	} else {
 		meta.(*FlexbotConfig).NodeConfig[compute["hostname"].(string)] = nodeConfig
@@ -1244,14 +1237,7 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 func decryptAttribute(meta interface{}, encrypted string) (decrypted string, err error) {
 	meta.(*FlexbotConfig).Sync.Lock()
 	defer meta.(*FlexbotConfig).Sync.Unlock()
-	passPhrase := meta.(*FlexbotConfig).FlexbotProvider.Get("pass_phrase").(string)
-	if passPhrase == "" {
-		if passPhrase, err = machineid.ID(); err != nil {
-			err = fmt.Errorf("decryptAttribute(): failure to retrieve pass_phrase: %s", err)
-			return
-		}
-	}
-	if decrypted, err = crypt.DecryptString(encrypted, passPhrase); err != nil {
+	if decrypted, err = crypt.DecryptString(encrypted, meta.(*FlexbotConfig).FlexbotProvider.Get("pass_phrase").(string)); err != nil {
 		err = fmt.Errorf("decryptAttribute(): failure to decrypt: %s", err)
 	}
 	return

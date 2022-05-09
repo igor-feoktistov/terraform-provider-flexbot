@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/denisbrodbeck/machineid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
@@ -41,12 +40,6 @@ func dataSourceFlexbotCryptRead(ctx context.Context, d *schema.ResourceData, met
 	var err error
 	var b, b64 []byte
 	passPhrase := meta.(*FlexbotConfig).FlexbotProvider.Get("pass_phrase").(string)
-	if len(passPhrase) == 0 {
-		if passPhrase, err = machineid.ID(); err != nil {
-			diags = diag.FromErr(fmt.Errorf("dataSourceFlexbotCryptRead(): machineid.ID() failure: %s", err))
-			return
-		}
-	}
 	name := d.Get("name").(string)
 	encrypted := d.Get("encrypted").(string)
 	decrypted := d.Get("decrypted").(string)
