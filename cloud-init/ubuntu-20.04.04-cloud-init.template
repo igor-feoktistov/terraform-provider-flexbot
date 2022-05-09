@@ -1,0 +1,140 @@
+{{define "meta-data"}}{{/* meta-data template starts here */ -}}
+instance-id: {{.Compute.HostName}}
+{{end}}{{/* meta-data template ends here */}}
+{{define "network-config"}}{{/* network-config template starts here */ -}}
+version: 2
+ethernets:
+{{- range .Network.Node}}
+  {{.Name}}:
+    link-local: []
+    match:
+      macaddress: {{.Macaddr}}
+    {{- range $paramName, $paramValue := .Parameters}}
+    {{$paramName}}: {{$paramValue}}
+    {{- end}}
+    addresses:
+    - {{.Ip}}/{{.NetLen}}
+    {{- if .Gateway}}
+    gateway4: {{.Gateway}}
+    {{- end}}
+    {{- if .DnsServer1}}
+    nameservers:
+      addresses: [{{.DnsServer1}}{{if .DnsServer2}},{{.DnsServer2}}{{end}}{{if .DnsServer3}},{{.DnsServer3}}{{end}}]
+      {{- if .DnsDomain}}
+      search: [{{.DnsDomain}}]
+      {{- end}}
+    {{- end}}
+{{- end}}
+{{end}}{{/* network-config template ends here */}}
+{{define "user-data"}}{{/* user-data template starts here */ -}}
+#cloud-config
+debug: true
+disable_root: false
+ssh_deletekeys: false
+ssh_pwauth: true
+hostname: {{(index .Network.Node 0).Fqdn}}
+fqdn: {{(index .Network.Node 0).Fqdn}}
+
+write_files:
+- path: /etc/netplan/50-cloud-init.yaml
+  permissions: '0644'
+  owner: root:root
+  content: |
+    network:
+      version: 2
+      ethernets:
+      {{- range .Network.Node}}
+        {{.Name}}:
+          link-local: []
+          match:
+            macaddress: {{.Macaddr}}
+          {{- range $paramName, $paramValue := .Parameters}}
+          {{$paramName}}: {{$paramValue}}
+          {{- end}}
+          addresses:
+          - {{.Ip}}/{{.NetLen}}
+          {{- if .Gateway}}
+          gateway4: {{.Gateway}}
+          {{- end}}
+          {{- if .DnsServer1}}
+          nameservers:
+            {{- if .DnsDomain}}
+            search: [{{.DnsDomain}}]
+            {{- end}}
+            addresses: [{{.DnsServer1}}{{if .DnsServer2}},{{.DnsServer2}}{{end}}{{if .DnsServer3}},{{.DnsServer3}}{{end}}]
+          {{- end}}
+      {{- end}}
+- path: /etc/docker/daemon.json
+  permissions: '0644'
+  owner: root:root
+  content: |
+    {
+      "log-driver": "json-file",
+      "log-opts": {
+        "max-size": "100m",
+        "max-file": "3"
+      }
+    }
+
+{{if .Storage.DataLun.Size -}}
+remotedisk_setup:
+  - device: iscsi:{{index ((index .Network.IscsiInitiator 0).IscsiTarget.Interfaces) 0}}:6:3260:{{.Storage.DataLun.Id}}:{{(index .Network.IscsiInitiator 0).IscsiTarget.NodeName}}
+    initiator_name: {{(index .Network.IscsiInitiator 0).InitiatorName}}
+    fs_type: xfs
+    fs_label: datafs
+    mount_point: /kubernetes
+    mount_opts: defaults,noatime,nodiratime,_netdev
+{{- end}}
+
+groups:
+  - docker
+
+system_info:
+  default_user:
+    groups:
+      - docker
+
+users:
+  - name: {{index .CloudArgs "cloud_user"}}
+    gecos: Default cloud user
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups:
+      - users
+      - admin
+      - docker
+    lock_passwd: true
+    ssh_authorized_keys:
+      - {{index .CloudArgs "ssh_pub_key"}}
+
+random_seed:
+  file: /dev/urandom
+  command: ["pollinate", "-r", "-s", "https://entropy.ubuntu.com"]
+  command_required: true
+
+runcmd:
+  - netplan apply
+  - systemctl enable ondemand
+  - systemctl start ondemand
+  - mkdir /kubernetes/kubelet
+  - mkdir /kubernetes/docker
+  - mkdir /kubernetes/log
+  - mkdir /kubernetes/etcd
+  - ln -s /kubernetes/kubelet /var/lib/kubelet
+  - ln -s /kubernetes/docker /var/lib/docker
+  - ln -s /kubernetes/log /var/log/pods
+  - ln -s /kubernetes/etcd /var/lib/etcd
+  - groupadd --gid 52034 etcd
+  - useradd --comment "etcd service account" --uid 52034 --gid 52034 etcd
+  - until $(curl --output /dev/null --silent --head --fail {{index .CloudArgs "engine_install_url"}}); do sleep 5; done
+  - systemctl restart chronyd && sleep 5
+  - chronyc -a makestep || true
+  {{- if (index .CloudArgs "engine_install_url")}}
+  - curl --retry-connrefused --retry-delay 15 --retry 20 {{index .CloudArgs "engine_install_url"}} | sh
+  - systemctl enable docker
+  {{- end}}
+  {{- if (index .CloudArgs "node_registration_command")}}
+  - {{index .CloudArgs "node_registration_command"}}
+  {{- end}}
+  - touch /etc/cloud/cloud-init.disabled
+  - /usr/local/cloud-init/post-install
+{{end}}{{/* user-data template ends here */}}

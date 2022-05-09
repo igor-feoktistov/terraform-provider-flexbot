@@ -69,6 +69,7 @@ provider "flexbot" {
 The following arguments are supported:
 
 * `pass_phrase` - (Optional) Password phrase to decrypt passwords in credentials (if encrypted). See `flexbot_crypt` datasource example on how to generate encrypted user / password values.
+* `pass_phrase_env_key` - (Optional) Environment variable to pass encryption key to decrypt `pass_phrase` (if encrypted). If `pass_phrase` is encrypted, machine ID is used as default password phrase unless `pass_phrase_env_key` is defined.
 * `ipam` - (Required) IPAM is implemented via pluggable providers. Only "Infoblox" and "Internal" providers are supported at this time. "Internal" provider expects you to supply "ip" and "fqdn" in network configurations.
 * `compute` - (Required) UCS compute, credentials to access UCSM
 * `storage` - (Required) cDOT storage, credentials to access cDOT cluster or SVM
