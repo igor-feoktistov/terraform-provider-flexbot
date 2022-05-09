@@ -1,4 +1,4 @@
-## 1.7.16 (May 6, 2022)
+## 1.7.16 (May 9, 2022)
 
 ENHANCEMENTS:
 * Encryption support for `pass_phrase` provider argument:
