@@ -1,3 +1,11 @@
+## 1.7.17 (May 11, 2022)
+
+ENHANCEMENTS:
+* **New argument:** `storage`/`force_update`:
+  * Optional argument to force node re-imaging.
+  * See resource documentation for more details.
+
+
 ## 1.7.16 (May 9, 2022)
 
 ENHANCEMENTS:

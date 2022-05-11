@@ -334,6 +334,11 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 						Optional: true,
 						Default:  false,
 					},
+					"force_update": {
+						Type:     schema.TypeBool,
+						Optional: true,
+						Default:  false,
+					},
 					"snapshots": {
 						Type:     schema.TypeList,
 						Optional: true,
