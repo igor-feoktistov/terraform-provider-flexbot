@@ -93,6 +93,9 @@ resource "flexbot_server" "k8s-node1" {
     }
     # Optional - automatically take a snapshot before any image update
     auto_snapshot_on_update = true
+    # Optional - force node re-imaging.
+    # Make sure to set it back to "false" once completed in order to avoid node re-imaging on next apply.
+    force_update = true
   }
 
   # Required - Compute network

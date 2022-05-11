@@ -472,11 +472,11 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 	newBootLun := (newStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
 	oldSeedLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["seed_lun"].([]interface{})[0].(map[string]interface{})
 	newSeedLun := (newStorage.([]interface{})[0].(map[string]interface{}))["seed_lun"].([]interface{})[0].(map[string]interface{})
-	if oldBootLun["os_image"].(string) != newBootLun["os_image"].(string) || oldSeedLun["seed_template"].(string) != newSeedLun["seed_template"].(string) {
-		if oldBootLun["os_image"].(string) != newBootLun["os_image"].(string) {
+	if oldBootLun["os_image"].(string) != newBootLun["os_image"].(string) || oldSeedLun["seed_template"].(string) != newSeedLun["seed_template"].(string) || (newStorage.([]interface{})[0].(map[string]interface{}))["force_update"].(bool) {
+		if oldBootLun["os_image"].(string) != newBootLun["os_image"].(string) || (newStorage.([]interface{})[0].(map[string]interface{}))["force_update"].(bool){
 			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeOsImage
 		}
-		if oldSeedLun["seed_template"].(string) != newSeedLun["seed_template"].(string) {
+		if oldSeedLun["seed_template"].(string) != newSeedLun["seed_template"].(string) || (newStorage.([]interface{})[0].(map[string]interface{}))["force_update"].(bool) {
 			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeSeedTemplate
 		}
 		log.Infof("Updating Server Storage image for node %s", nodeConfig.Compute.HostName)
@@ -1200,6 +1200,7 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	for _, snapshot := range nodeConfig.Storage.Snapshots {
 		storage["snapshots"] = append(storage["snapshots"].([]string), snapshot)
 	}
+	storage["force_update"] = false
 	for i := range network["node"].([]interface{}) {
 		node := network["node"].([]interface{})[i].(map[string]interface{})
 		node["macaddr"] = nodeConfig.Network.Node[i].Macaddr
