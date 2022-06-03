@@ -185,6 +185,12 @@ resource "flexbot_server" "k8s-node1" {
     "kubernetes.io/cluster-name" = "us-west-flexpod-01"
   }
 
+  # Optional - Kubernetes node taints - requires Rancher API enabled
+  taints = [
+    {key = "app", value = "MyApp", effect = "NoSchedule"},
+    {key = "app", value = "MyApp", effect = "NoExecute"}
+  ]
+
   # Restore from snapshot
   # Optional - restore server LUN's from snapshot.
   restore {

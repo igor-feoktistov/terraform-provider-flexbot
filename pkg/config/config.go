@@ -14,6 +14,7 @@ import (
 
 	"github.com/igor-feoktistov/go-ucsm-sdk/util"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
+	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	"gopkg.in/yaml.v3"
 )
 
@@ -153,13 +154,14 @@ type Network struct {
 
 // NodeConfig is aggregated node configuration
 type NodeConfig struct {
-	Ipam         Ipam              `yaml:"ipam" json:"ipam"`
-	Compute      Compute           `yaml:"compute" json:"compute"`
-	Storage      Storage           `yaml:"storage" json:"storage"`
-	Network      Network           `yaml:"network" json:"network"`
-	CloudArgs    map[string]string `yaml:"cloudArgs,omitempty" json:"cloudArgs,omitempty"`
-	Labels       map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"`
-	ChangeStatus uint32            `yaml:"changeStatus,omitempty" json:"changeStatus,omitempty"`
+	Ipam         Ipam                               `yaml:"ipam" json:"ipam"`
+	Compute      Compute                            `yaml:"compute" json:"compute"`
+	Storage      Storage                            `yaml:"storage" json:"storage"`
+	Network      Network                            `yaml:"network" json:"network"`
+	CloudArgs    map[string]string                  `yaml:"cloudArgs,omitempty" json:"cloudArgs,omitempty"`
+	Labels       map[string]string                  `yaml:"labels,omitempty" json:"labels,omitempty"`
+	Taints       []rancherManagementClient.Taint    `yaml:"taints,omitempty" json:"taints,omitempty"`
+	ChangeStatus uint32                             `yaml:"changeStatus,omitempty" json:"changeStatus,omitempty"`
 }
 
 // SetDefaults sets initial configuration with default values
