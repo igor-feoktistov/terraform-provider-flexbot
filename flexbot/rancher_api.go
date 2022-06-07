@@ -189,7 +189,7 @@ func (node *RancherNode) rancherAPINodeDelete() (err error) {
 	return
 }
 
-func (node *RancherNode) rancherAPINodeSetAnnotationsLabels() (err error) {
+func (node *RancherNode) rancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 	var computeB, storageB []byte
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		annotations := make(map[string]string)
@@ -222,7 +222,7 @@ func (node *RancherNode) rancherAPINodeSetAnnotationsLabels() (err error) {
 			}
 			annotations[NodeAnnotationStorage] = string(storageB)
 		}
-		err = node.RancherClient.NodeSetAnnotationsLabels(node.NodeID, annotations, node.NodeConfig.Labels)
+		err = node.RancherClient.NodeSetAnnotationsLabelsTaints(node.NodeID, annotations, node.NodeConfig.Labels, node.NodeConfig.Taints)
 	}
 	return
 }
@@ -230,6 +230,13 @@ func (node *RancherNode) rancherAPINodeSetAnnotationsLabels() (err error) {
 func (node *RancherNode) rancherAPINodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		err = node.RancherClient.NodeUpdateLabels(node.NodeID, oldLabels, newLabels)
+	}
+	return
+}
+
+func (node *RancherNode) rancherAPINodeUpdateTaints(oldTaints []interface{}, newTaints []interface{}) (err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+		err = node.RancherClient.NodeUpdateTaints(node.NodeID, oldTaints, newTaints)
 	}
 	return
 }

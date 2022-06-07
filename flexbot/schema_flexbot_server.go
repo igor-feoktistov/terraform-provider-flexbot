@@ -11,10 +11,11 @@ import (
 var (
         // Available maintenance tasks
         MaintenanceTasks = []string{"cordon", "uncordon", "drain", "restart"}
+        // Node taint effects
+        TaintEffects = []string{"PreferNoSchedule", "NoSchedule", "NoExecute"}
 )
 
 // Schemas
-
 func schemaFlexbotServer() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
 		"compute": {
@@ -623,6 +624,27 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 			Type:     schema.TypeMap,
 			Optional: true,
 			Elem:     &schema.Schema{Type: schema.TypeString},
+		},
+		"taints": {
+			Type:     schema.TypeList,
+			Optional: true,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"key": {
+						Type:     schema.TypeString,
+						Required: true,
+					},
+					"value": {
+						Type:     schema.TypeString,
+						Required: true,
+					},
+					"effect": {
+						Type:     schema.TypeString,
+						Required: true,
+						ValidateFunc: validation.StringInSlice(TaintEffects, true),
+					},
+				},
+			},
 		},
 		"snapshot": {
 			Type:     schema.TypeList,

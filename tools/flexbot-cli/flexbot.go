@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	version = "1.7.16"
+	version = "1.7.18"
 )
 
 // OperationResult interface

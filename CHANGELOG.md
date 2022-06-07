@@ -1,3 +1,10 @@
+## 1.7.18 (June 7, 2022)
+
+FEATURES:
+* **New Resource Argument:** **taints** - (Optional) allows to set and manage k8s node taints, requires Rancher API enabled.
+  * See resource documentation for more details.
+
+
 ## 1.7.17 (May 11, 2022)
 
 ENHANCEMENTS:

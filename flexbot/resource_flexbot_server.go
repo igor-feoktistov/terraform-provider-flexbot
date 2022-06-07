@@ -17,6 +17,7 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
+	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -182,7 +183,7 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	if err == nil {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherAPIInitialize(d, meta, nodeConfig, true); err == nil {
-			err = rancherNode.rancherAPINodeSetAnnotationsLabels()
+			err = rancherNode.rancherAPINodeSetAnnotationsLabelsTaints()
 		}
 	}
 	if err != nil {
@@ -231,7 +232,7 @@ func resourceReadServer(ctx context.Context, d *schema.ResourceData, meta interf
 func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
 	var nodeConfig *config.NodeConfig
-	var isNew, isSnapshot, isCompute, isStorage, isLabels, isRestore, isMaintenance bool
+	var isNew, isSnapshot, isCompute, isStorage, isLabels, isTaints, isRestore, isMaintenance bool
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
 		return
@@ -242,6 +243,7 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
         isCompute = d.HasChange("compute")
         isStorage = d.HasChange("storage")
         isLabels = d.HasChange("labels")
+        isTaints = d.HasChange("taints")
         isRestore = d.HasChange("restore")
         isMaintenance = d.HasChange("maintenance")
         if isCompute || isStorage || isSnapshot || isRestore || isMaintenance {
@@ -274,6 +276,12 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 			return
 		}
 	}
+	if isTaints {
+		if err = resourceUpdateServerTaints(d, meta, nodeConfig); err != nil {
+			diags = diag.FromErr(err)
+			return
+		}
+	}
 	if isMaintenance {
 		if err = resourceUpdateServerMaintenance(d, meta, nodeConfig); err != nil {
 			diags = diag.FromErr(err)
@@ -293,7 +301,7 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	if (nodeConfig.ChangeStatus & (ChangeBladeSpec | ChangeOsImage | ChangeSeedTemplate | ChangeSnapshotRestore)) > 0 {
 		var rancherNode *RancherNode
 		if rancherNode, err = rancherAPIInitialize(d, meta, nodeConfig, (nodeConfig.Compute.Powerstate == "up")); err == nil {
-			if err = rancherNode.rancherAPINodeSetAnnotationsLabels(); err != nil {
+			if err = rancherNode.rancherAPINodeSetAnnotationsLabelsTaints(); err != nil {
 				diags = diag.FromErr(err)
 			}
 		} else {
@@ -932,6 +940,17 @@ func resourceUpdateServerLabels(d *schema.ResourceData, meta interface{}, nodeCo
 	return
 }
 
+func resourceUpdateServerTaints(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
+	var rancherNode *RancherNode
+        meta.(*FlexbotConfig).Sync.Lock()
+	oldTaints, newTaints := d.GetChange("taints")
+        meta.(*FlexbotConfig).Sync.Unlock()
+	if rancherNode, err = rancherAPIInitialize(d, meta, nodeConfig, true); err == nil {
+		err = rancherNode.rancherAPINodeUpdateTaints(oldTaints.([]interface{}), newTaints.([]interface{}))
+	}
+	return
+}
+
 func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
 	var powerState string
@@ -1134,6 +1153,15 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.Labels = make(map[string]string)
 	for labelKey, labelValue := range d.Get("labels").(map[string]interface{}) {
 		nodeConfig.Labels[labelKey] = labelValue.(string)
+	}
+	for _, taint := range d.Get("taints").([]interface{}) {
+		nodeConfig.Taints = append(
+                        nodeConfig.Taints,
+                        rancherManagementClient.Taint{
+                                Key: taint.(map[string]interface{})["key"].(string),
+                                Value: taint.(map[string]interface{})["value"].(string),
+                                Effect: taint.(map[string]interface{})["effect"].(string),
+                        })
 	}
 	if err = config.SetDefaults(nodeConfig, compute["hostname"].(string), bootLun["os_image"].(string), seedLun["seed_template"].(string), p.Get("pass_phrase").(string)); err != nil {
 		err = fmt.Errorf("SetDefaults(): failure: %s", err)
