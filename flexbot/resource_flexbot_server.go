@@ -52,8 +52,8 @@ func resourceFlexbotServer() *schema.Resource {
 			StateContext: resourceImportServer,
 		},
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(3600 * time.Second),
-			Update: schema.DefaultTimeout(7200 * time.Second),
+			Create: schema.DefaultTimeout(7200 * time.Second),
+			Update: schema.DefaultTimeout(28800 * time.Second),
 			Delete: schema.DefaultTimeout(1800 * time.Second),
 		},
 	}
