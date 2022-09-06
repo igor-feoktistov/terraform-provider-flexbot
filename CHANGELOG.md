@@ -1,3 +1,8 @@
+## 1.7.19 (September 6, 2022)
+
+ENHANCEMENTS:
+* Increase default timeouts for Create and Update routines.
+
 ## 1.7.18 (June 7, 2022)
 
 FEATURES:
