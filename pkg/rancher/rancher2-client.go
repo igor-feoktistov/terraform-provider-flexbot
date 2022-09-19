@@ -5,17 +5,18 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
 	"github.com/hashicorp/go-version"
 	"github.com/rancher/norman/clientbase"
 	"github.com/rancher/norman/types"
 	clusterClient "github.com/rancher/rancher/pkg/client/generated/cluster/v3"
 	managementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"strings"
-	"sync"
-	"time"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
 
 const (
@@ -26,29 +27,23 @@ const (
 	maxHTTPRedirect                  = 5
 )
 
-// Client is Rancher client
-type Client struct {
+// Rancher2Client is rancher2 client
+type Rancher2Client struct {
 	Management *managementClient.Client
 	CatalogV2  map[string]*clientbase.APIBaseClient
 	Cluster    map[string]*clusterClient.Client
 }
 
-// Config is Rancher client config
-type Config struct {
-	TokenKey             string `json:"tokenKey"`
-	URL                  string `json:"url"`
-	CACerts              string `json:"cacert"`
-	Insecure             bool   `json:"insecure"`
-	Bootstrap            bool   `json:"bootstrap"`
-	ClusterID            string `json:"clusterId"`
-	ProjectID            string `json:"projectId"`
-	Retries              int
+// Rancher2Config is rancher2 client configuration
+type Rancher2Config struct {
+        config.RancherConfig
+	Bootstrap            bool
+	ClusterID            string
+	ProjectID            string
 	RancherVersion       string
 	K8SDefaultVersion    string
 	K8SSupportedVersions []string
-	Sync                 sync.Mutex
-	NodeDrainInput       *managementClient.NodeDrainInput
-	Client               Client
+	Client               Rancher2Client
 }
 
 // NormalizeURL normalizes URL
@@ -159,7 +154,7 @@ func IsForbidden(err error) bool {
 }
 
 // GetRancherVersion gets Rancher version
-func (c *Config) GetRancherVersion() (string, error) {
+func (c *Rancher2Config) GetRancherVersion() (string, error) {
 	if len(c.RancherVersion) > 0 {
 		return c.RancherVersion, nil
 	}
@@ -177,7 +172,7 @@ func (c *Config) GetRancherVersion() (string, error) {
 	return c.RancherVersion, nil
 }
 
-func (c *Config) isRancherReady() error {
+func (c *Rancher2Config) isRancherReady() error {
 	var err error
 	var resp []byte
 	url := RootURL(c.URL) + "/ping"
@@ -192,7 +187,7 @@ func (c *Config) isRancherReady() error {
 }
 
 // IsRancherVersionLessThan compares Rancher version
-func (c *Config) IsRancherVersionLessThan(ver string) (bool, error) {
+func (c *Rancher2Config) IsRancherVersionLessThan(ver string) (bool, error) {
 	if len(ver) == 0 {
 		return false, fmt.Errorf("[ERROR] version is nil")
 	}
@@ -204,7 +199,7 @@ func (c *Config) IsRancherVersionLessThan(ver string) (bool, error) {
 }
 
 // ManagementClient initializes Rancher Management Client
-func (c *Config) ManagementClient() error {
+func (c *Rancher2Config) ManagementClient() error {
 	c.Sync.Lock()
 	defer c.Sync.Unlock()
 	if c.Client.Management != nil {
@@ -225,7 +220,7 @@ func (c *Config) ManagementClient() error {
 }
 
 // CreateClientOpts creates client options
-func (c *Config) CreateClientOpts() *clientbase.ClientOpts {
+func (c *Rancher2Config) CreateClientOpts() *clientbase.ClientOpts {
 	c.NormalizeURL()
 	options := &clientbase.ClientOpts{
 		URL:      c.URL,
@@ -237,12 +232,12 @@ func (c *Config) CreateClientOpts() *clientbase.ClientOpts {
 }
 
 // NormalizeURL normalizes URL
-func (c *Config) NormalizeURL() {
+func (c *Rancher2Config) NormalizeURL() {
 	c.URL = NormalizeURL(c.URL)
 }
 
 // GetNode gets Rancher node by cluster ID and node IP address
-func (client *Client) GetNode(clusterID string, nodeIPAddr string) (nodeID string, err error) {
+func (client *Rancher2Client) GetNode(clusterID string, nodeIPAddr string) (nodeID string, err error) {
 	var clusters *managementClient.ClusterCollection
 	var nodes *managementClient.NodeCollection
 	filters := map[string]interface{}{
@@ -260,23 +255,23 @@ func (client *Client) GetNode(clusterID string, nodeIPAddr string) (nodeID strin
 		}
 	}
 	if err != nil {
-		err = fmt.Errorf("rancher.GetNode() error: %s", err)
+		err = fmt.Errorf("rancher2-client.GetNode() error: %s", err)
 	}
 	return
 }
 
 // GetNodeRole gets Rancher node role
-func (client *Client) GetNodeRole(nodeID string) (controlplane bool, etcd bool, worker bool, err error) {
+func (client *Rancher2Client) GetNodeRole(nodeID string) (controlplane bool, etcd bool, worker bool, err error) {
 	var node *managementClient.Node
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 		return
 	}
 	return node.ControlPlane, node.Etcd, node.Worker, nil
 }
 
 // ClusterWaitForState waits until cluster in specified state
-func (client *Client) ClusterWaitForState(clusterID string, states string, timeout int) (err error) {
+func (client *Rancher2Client) ClusterWaitForState(clusterID string, states string, timeout int) (err error) {
 	var cluster *managementClient.Cluster
 	var clusterLastState string
 	var settleDown int
@@ -284,7 +279,7 @@ func (client *Client) ClusterWaitForState(clusterID string, states string, timeo
 	for time.Now().Before(giveupTime) {
 		if cluster, err = client.Management.Cluster.ByID(clusterID); err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
-				err = fmt.Errorf("rancher.ClusterWaitForState(): cluster not found")
+				err = fmt.Errorf("rancher2-client.ClusterWaitForState(): cluster not found")
 			}
 			return
 		}
@@ -309,18 +304,18 @@ func (client *Client) ClusterWaitForState(clusterID string, states string, timeo
 	                return
 	        }
 	}
-	err = fmt.Errorf("rancher.ClusterWaitForState(): wait for cluster state exceeded timeout=%d: expected states=%s, last state=%s", timeout, states, clusterLastState)
+	err = fmt.Errorf("rancher2-client.ClusterWaitForState(): wait for cluster state exceeded timeout=%d: expected states=%s, last state=%s", timeout, states, clusterLastState)
 	return
 }
 
 // ClusterWaitForTransitioning waits until cluster enters transitioning state
-func (client *Client) ClusterWaitForTransitioning(clusterID string, timeout int) (err error) {
+func (client *Rancher2Client) ClusterWaitForTransitioning(clusterID string, timeout int) (err error) {
 	var cluster *managementClient.Cluster
 	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 	for time.Now().Before(giveupTime) {
 		if cluster, err = client.Management.Cluster.ByID(clusterID); err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
-				err = fmt.Errorf("rancher.ClusterWaitForTransitioning(): cluster not found")
+				err = fmt.Errorf("rancher2-client.ClusterWaitForTransitioning(): cluster not found")
 			}
 			return
 		}
@@ -329,15 +324,15 @@ func (client *Client) ClusterWaitForTransitioning(clusterID string, timeout int)
 		}
 		time.Sleep(1 * time.Second)
 	}
-	err = fmt.Errorf("rancher.ClusterWaitForTransitioning(): wait for cluster transitioning exceeded timeout=%d", timeout)
+	err = fmt.Errorf("rancher2-client.ClusterWaitForTransitioning(): wait for cluster transitioning exceeded timeout=%d", timeout)
 	return
 }
 
 // NodeGetState gets Rancher node state
-func (client *Client) NodeGetState(nodeID string) (state string, err error) {
+func (client *Rancher2Client) NodeGetState(nodeID string) (state string, err error) {
 	var node *managementClient.Node
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 	} else {
 		state = node.State
 	}
@@ -345,13 +340,13 @@ func (client *Client) NodeGetState(nodeID string) (state string, err error) {
 }
 
 // NodeWaitForState waits until Rancher node in specified state
-func (client *Client) NodeWaitForState(nodeID string, states string, timeout int) (err error) {
+func (client *Rancher2Client) NodeWaitForState(nodeID string, states string, timeout int) (err error) {
 	var node *managementClient.Node
 	var nodeLastState string
 	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 	for time.Now().Before(giveupTime) {
 		if node, err = client.Management.Node.ByID(nodeID); err != nil {
-			err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+			err = fmt.Errorf("rancher-client.Node.ByID() error: %s", err)
 			return
 		}
 		for _, state := range strings.Split(states, ",") {
@@ -362,16 +357,16 @@ func (client *Client) NodeWaitForState(nodeID string, states string, timeout int
 		nodeLastState = node.State
 		time.Sleep(1 * time.Second)
 	}
-	err = fmt.Errorf("rancher.NodeWaitForState(): wait for node state exceeded timeout=%d: expected states=%s, last state=%s", timeout, states, nodeLastState)
+	err = fmt.Errorf("rancher2-client.NodeWaitForState(): wait for node state exceeded timeout=%d: expected states=%s, last state=%s", timeout, states, nodeLastState)
 	return
 }
 
 // NodeCordon cordon Rancher node
-func (client *Client) NodeCordon(nodeID string) (err error) {
+func (client *Rancher2Client) NodeCordon(nodeID string) (err error) {
 	var node *managementClient.Node
 	var ok bool
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 		return
 	}
 	_, ok = node.Actions["cordon"]
@@ -382,11 +377,11 @@ func (client *Client) NodeCordon(nodeID string) (err error) {
 }
 
 // NodeCordonDrain cordon/drain Rancher node
-func (client *Client) NodeCordonDrain(nodeID string, nodeDrainInput *managementClient.NodeDrainInput) (err error) {
+func (client *Rancher2Client) NodeCordonDrain(nodeID string, nodeDrainInput *managementClient.NodeDrainInput) (err error) {
 	var node *managementClient.Node
 	var ok bool
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 		return
 	}
 	_, ok = node.Actions["cordon"]
@@ -411,16 +406,16 @@ func (client *Client) NodeCordonDrain(nodeID string, nodeDrainInput *managementC
 		}
 	}
 	if err != nil {
-		err = fmt.Errorf("rancher.NodeCordonDrain() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeCordonDrain() error: %s", err)
 	}
 	return
 }
 
 // NodeUncordon uncordon Rancher node
-func (client *Client) NodeUncordon(nodeID string) (err error) {
+func (client *Rancher2Client) NodeUncordon(nodeID string) (err error) {
 	var node *managementClient.Node
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 		return
 	}
 	_, ok := node.Actions["uncordon"]
@@ -428,30 +423,30 @@ func (client *Client) NodeUncordon(nodeID string) (err error) {
 		err = client.Management.Node.ActionUncordon(node)
 	}
 	if err != nil {
-		err = fmt.Errorf("rancher.NodeUncordon() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeUncordon() error: %s", err)
 	}
 	return
 }
 
 // DeleteNode deletes Rancher node
-func (client *Client) DeleteNode(nodeID string) (err error) {
+func (client *Rancher2Client) DeleteNode(nodeID string) (err error) {
 	var node *managementClient.Node
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 		return
 	}
 	err = client.Management.Node.Delete(node)
 	if err != nil {
-		err = fmt.Errorf("rancher.DeleteNode() error: %s", err)
+		err = fmt.Errorf("rancher2-client.DeleteNode() error: %s", err)
 	}
 	return
 }
 
 // NodeSetAnnotationsLabelsTaints sets Rancher node annotations, labels, and taints
-func (client *Client) NodeSetAnnotationsLabelsTaints(nodeID string, annotations map[string]string, labels map[string]string, taints []managementClient.Taint) (err error) {
+func (client *Rancher2Client) NodeSetAnnotationsLabelsTaints(nodeID string, annotations map[string]string, labels map[string]string, taints []managementClient.Taint) (err error) {
 	var node *managementClient.Node
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 		return
 	}
 	for key, elem := range annotations {
@@ -472,16 +467,16 @@ func (client *Client) NodeSetAnnotationsLabelsTaints(nodeID string, annotations 
 	        }
         }
 	if _, err = client.Management.Node.Update(node, node); err != nil {
-		err = fmt.Errorf("rancher.NodeSetAnnotations() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeSetAnnotationsLabelsTaints() error: %s", err)
 	}
 	return
 }
 
 // NodeUpdateLabels updates Rancher node labels
-func (client *Client) NodeUpdateLabels(nodeID string, oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
+func (client *Rancher2Client) NodeUpdateLabels(nodeID string, oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
 	var node *managementClient.Node
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 		return
 	}
 	for key := range oldLabels {
@@ -491,17 +486,17 @@ func (client *Client) NodeUpdateLabels(nodeID string, oldLabels map[string]inter
 		node.Labels[key] = elem.(string)
 	}
 	if _, err = client.Management.Node.Update(node, node); err != nil {
-		err = fmt.Errorf("rancher.NodeSetLabels() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeSetLabels() error: %s", err)
 	}
 	return
 }
 
 // NodeUpdateTaints updates Rancher node taints
-func (client *Client) NodeUpdateTaints(nodeID string, oldTaints []interface{}, newTaints []interface{}) (err error) {
+func (client *Rancher2Client) NodeUpdateTaints(nodeID string, oldTaints []interface{}, newTaints []interface{}) (err error) {
 	var node *managementClient.Node
 	var taints []managementClient.Taint
 	if node, err = client.Management.Node.ByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher.Node.ByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
 		return
 	}
 	for _, taint := range node.Taints {
@@ -534,7 +529,7 @@ func (client *Client) NodeUpdateTaints(nodeID string, oldTaints []interface{}, n
         }
         node.Taints = taints
 	if _, err = client.Management.Node.Update(node, node); err != nil {
-		err = fmt.Errorf("rancher.NodeSetLabels() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeSetLabels() error: %s", err)
 	}
 	return
 }

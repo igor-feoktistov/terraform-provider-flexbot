@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 )
 
@@ -39,7 +40,7 @@ func dataSourceFelxbotCrypt() *schema.Resource {
 func dataSourceFlexbotCryptRead(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
 	var b, b64 []byte
-	passPhrase := meta.(*FlexbotConfig).FlexbotProvider.Get("pass_phrase").(string)
+	passPhrase := meta.(*config.FlexbotConfig).FlexbotProvider.Get("pass_phrase").(string)
 	name := d.Get("name").(string)
 	encrypted := d.Get("encrypted").(string)
 	decrypted := d.Get("decrypted").(string)

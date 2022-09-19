@@ -226,10 +226,10 @@ func resourceImportRepo(ctx context.Context, d *schema.ResourceData, meta interf
 }
 
 func setRepoInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.NodeConfig, err error) {
-	meta.(*FlexbotConfig).Sync.Lock()
-	defer meta.(*FlexbotConfig).Sync.Unlock()
+	meta.(*config.FlexbotConfig).Sync.Lock()
+	defer meta.(*config.FlexbotConfig).Sync.Unlock()
 	nodeConfig = &config.NodeConfig{}
-	p := meta.(*FlexbotConfig).FlexbotProvider
+	p := meta.(*config.FlexbotConfig).FlexbotProvider
 	pStorage := p.Get("storage").([]interface{})[0].(map[string]interface{})
 	cdotCredentials := pStorage["credentials"].([]interface{})[0].(map[string]interface{})
 	nodeConfig.Storage.CdotCredentials.Host = cdotCredentials["host"].(string)
@@ -244,8 +244,8 @@ func setRepoInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.
 
 func setRepoOutput(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
 	var images, templates []string
-	meta.(*FlexbotConfig).Sync.Lock()
-	defer meta.(*FlexbotConfig).Sync.Unlock()
+	meta.(*config.FlexbotConfig).Sync.Lock()
+	defer meta.(*config.FlexbotConfig).Sync.Unlock()
 	if images, err = ontap.GetRepoImages(nodeConfig); err == nil {
 		d.Set("images", images)
 		if templates, err = ontap.GetRepoTemplates(nodeConfig); err == nil {

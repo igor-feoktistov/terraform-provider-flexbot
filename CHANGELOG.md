@@ -1,7 +1,18 @@
+## 1.8.0 (September 19, 2022)
+
+ENHANCEMENTS:
+* GoLang v1.19
+* Support Kubernetes API in ***rancher_api*** provider configuration:
+  * Node operations `cordon`, `uncordon`, `drain`.
+  * Maintain nodes `labels`, `annotations`, and `taints`.
+  * See resource documentation for more details.
+
+
 ## 1.7.19 (September 6, 2022)
 
 ENHANCEMENTS:
 * Increase default timeouts for Create and Update routines.
+
 
 ## 1.7.18 (June 7, 2022)
 

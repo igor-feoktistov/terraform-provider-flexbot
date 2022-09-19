@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	nodeConfig "github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
@@ -193,6 +193,11 @@ func Provider() *schema.Provider {
 							Optional: true,
 							Default:  false,
 						},
+						"provider": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "rancher2",
+						},
 						"api_url": {
 							Type:     schema.TypeString,
 							Required: true,
@@ -272,7 +277,7 @@ func Provider() *schema.Provider {
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	var err error
 	var diags diag.Diagnostics
-	var config *FlexbotConfig
+	var flexbotConfig *config.FlexbotConfig
 	passPhrase := d.Get("pass_phrase").(string)
 	if len(passPhrase) == 0 {
 	        if passPhrase, err = machineid.ID(); err != nil {
@@ -330,23 +335,15 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		        })
 		        return nil, diags
 		}
-		rancherConfig := &rancher.Config{
+		rancherConfig := &config.RancherConfig{
+		        Provider:       rancherAPI["provider"].(string),
 			URL:            rancherAPI["api_url"].(string),
 			TokenKey:       tokenKey,
 			Insecure:       rancherAPI["insecure"].(bool),
 			NodeDrainInput: nodeDrainInput,
 			Retries:        3,
 		}
-		if rancherAPI["enabled"].(bool) {
-			if err = rancherConfig.ManagementClient(); err != nil {
-				diags = append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "providerConfigure(): rancherConfig.ManagementClient() error",
-					Detail:   err.Error(),
-				})
-			}
-		}
-		config = &FlexbotConfig{
+		flexbotConfig = &config.FlexbotConfig{
 			Sync:               &sync.Mutex{},
 			FlexbotProvider:    d,
 			RancherApiEnabled:  rancherAPI["enabled"].(bool),
@@ -356,12 +353,12 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			NodeConfig:         make(map[string]*nodeConfig.NodeConfig),
 		}
 	} else {
-		config = &FlexbotConfig{
+		flexbotConfig = &config.FlexbotConfig{
 			Sync:              &sync.Mutex{},
 			FlexbotProvider:   d,
 			RancherApiEnabled: false,
 			NodeConfig:        make(map[string]*nodeConfig.NodeConfig),
 		}
 	}
-	return config, diags
+	return flexbotConfig, diags
 }
