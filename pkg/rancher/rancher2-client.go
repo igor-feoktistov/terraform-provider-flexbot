@@ -177,7 +177,7 @@ func (c *Rancher2Config) isRancherReady() error {
 	var resp []byte
 	url := RootURL(c.URL) + "/ping"
 	for i := 0; i <= c.Retries; i++ {
-		resp, err = DoGet(url, "", "", "", c.CACerts, c.Insecure)
+		resp, err = DoGet(url, "", "", "", string(c.ServerCAData), c.Insecure)
 		if err == nil && rancher2ReadyAnswer == string(resp) {
 			return nil
 		}
@@ -225,7 +225,7 @@ func (c *Rancher2Config) CreateClientOpts() *clientbase.ClientOpts {
 	options := &clientbase.ClientOpts{
 		URL:      c.URL,
 		TokenKey: c.TokenKey,
-		CACerts:  c.CACerts,
+		CACerts:  string(c.ServerCAData),
 		Insecure: c.Insecure,
 	}
 	return options

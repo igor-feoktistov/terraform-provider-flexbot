@@ -6,14 +6,21 @@ import (
 	"strings"
 	"sync"
 	"os"
+	"encoding/base64"
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	nodeConfig "github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
 	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
+)
+
+var (
+        // Available rancher_api provides
+        RancherApiProviders = []string{"rancher2", "rke"}
 )
 
 // Provider builds schema
@@ -197,6 +204,7 @@ func Provider() *schema.Provider {
 							Type:     schema.TypeString,
 							Optional: true,
 							Default:  "rancher2",
+							ValidateFunc: validation.StringInSlice(RancherApiProviders, true),
 						},
 						"api_url": {
 							Type:     schema.TypeString,
@@ -204,7 +212,23 @@ func Provider() *schema.Provider {
 						},
 						"token_key": {
 							Type:     schema.TypeString,
-							Required: true,
+							Optional: true,
+							Default:  "",
+						},
+						"server_ca_data": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+						"client_cert_data": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+						"client_key_data": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
 						},
 						"insecure": {
 							Type:     schema.TypeBool,
@@ -326,19 +350,64 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			GracePeriod:      int64(rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["grace_period"].(int)),
 			Timeout:          int64(rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["timeout"].(int)),
 		}
-		var tokenKey string
-		if tokenKey, err = crypt.DecryptString(rancherAPI["token_key"].(string), passPhrase); err != nil {
-		        diags = append(diags, diag.Diagnostic{
-			        Severity: diag.Error,
-			        Summary:  "providerConfigure(): DecryptString() failure",
-			        Detail:   err.Error(),
-		        })
-		        return nil, diags
+		var tokenKey, decrypted string
+		var serverCAData, clientCertData, clientKeyData []byte
+                if len(rancherAPI["token_key"].(string)) > 0 {
+		        if tokenKey, err = crypt.DecryptString(rancherAPI["token_key"].(string), passPhrase); err != nil {
+		                diags = append(diags, diag.Diagnostic{
+			                Severity: diag.Error,
+			                Summary:  "providerConfigure(): DecryptString(token_key) failure",
+			                Detail:   err.Error(),
+		                })
+		                return nil, diags
+		        }
+		}
+                if len(rancherAPI["server_ca_data"].(string)) > 0 {
+		        if decrypted, err = crypt.DecryptString(rancherAPI["server_ca_data"].(string), passPhrase); err == nil {
+		                serverCAData, err = base64.StdEncoding.DecodeString(decrypted)
+		        }
+		        if err != nil {
+		                diags = append(diags, diag.Diagnostic{
+			                Severity: diag.Error,
+			                Summary:  "providerConfigure(): DecryptString(server_ca_data) failure",
+			                Detail:   err.Error(),
+		                })
+		                return nil, diags
+		        }
+		}
+                if len(rancherAPI["client_cert_data"].(string)) > 0 {
+		        if decrypted, err = crypt.DecryptString(rancherAPI["client_cert_data"].(string), passPhrase); err == nil {
+		                clientCertData, err = base64.StdEncoding.DecodeString(decrypted)
+		        }
+		        if err != nil {
+		                diags = append(diags, diag.Diagnostic{
+			                Severity: diag.Error,
+			                Summary:  "providerConfigure(): DecryptString(client_cert_data) failure",
+			                Detail:   err.Error(),
+		                })
+		                return nil, diags
+		        }
+		}
+                if len(rancherAPI["client_key_data"].(string)) > 0 {
+		        if decrypted, err = crypt.DecryptString(rancherAPI["client_key_data"].(string), passPhrase); err == nil {
+		                clientKeyData, err = base64.StdEncoding.DecodeString(decrypted)
+		        }
+		        if err != nil {
+		                diags = append(diags, diag.Diagnostic{
+			                Severity: diag.Error,
+			                Summary:  "providerConfigure(): DecryptString(client_key_data) failure",
+			                Detail:   err.Error(),
+		                })
+		                return nil, diags
+		        }
 		}
 		rancherConfig := &config.RancherConfig{
 		        Provider:       rancherAPI["provider"].(string),
 			URL:            rancherAPI["api_url"].(string),
 			TokenKey:       tokenKey,
+			ServerCAData:   serverCAData,
+			ClientCertData: clientCertData,
+			ClientKeyData:  clientKeyData,
 			Insecure:       rancherAPI["insecure"].(bool),
 			NodeDrainInput: nodeDrainInput,
 			Retries:        3,

@@ -36,21 +36,25 @@ func RkeAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 		return
 	}
 	node.NodeDrainInput = meta.(*config.FlexbotConfig).RancherConfig.NodeDrainInput
+        meta.(*config.FlexbotConfig).Sync.Lock()
+	p := meta.(*config.FlexbotConfig).FlexbotProvider
+	network := d.Get("network").([]interface{})[0].(map[string]interface{})
+	node.ClusterID = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_id"].(string)
+        meta.(*config.FlexbotConfig).Sync.Unlock()
 	rkeConfig := &rest.Config{
 	        Host: meta.(*config.FlexbotConfig).RancherConfig.URL,
-	        TLSClientConfig: rest.TLSClientConfig{},
-	        BearerToken: meta.(*config.FlexbotConfig).RancherConfig.TokenKey,
+                BearerToken: meta.(*config.FlexbotConfig).RancherConfig.TokenKey,
+	        TLSClientConfig: rest.TLSClientConfig{
+                        CAData: meta.(*config.FlexbotConfig).RancherConfig.ServerCAData,
+                        CertData: meta.(*config.FlexbotConfig).RancherConfig.ClientCertData,
+                        KeyData: meta.(*config.FlexbotConfig).RancherConfig.ClientKeyData,
+	        },
 	}
 	rkeClient := &RkeClient{}
 	if rkeClient.Management, err = kubernetes.NewForConfig(rkeConfig); err != nil {
 	        return
 	}
 	node.RancherClient = rkeClient
-        meta.(*config.FlexbotConfig).Sync.Lock()
-	p := meta.(*config.FlexbotConfig).FlexbotProvider
-	network := d.Get("network").([]interface{})[0].(map[string]interface{})
-	node.ClusterID = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_id"].(string)
-        meta.(*config.FlexbotConfig).Sync.Unlock()
 	if node.NodeID, err = node.RancherClient.GetNode(network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
 		if len(node.NodeID) > 0 {
 			node.NodeControlPlane, node.NodeEtcd, node.NodeWorker, err = node.RancherClient.GetNodeRole(node.NodeID)

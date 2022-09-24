@@ -32,15 +32,21 @@ type RancherNode interface {
 }
 
 func RancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node RancherNode, err error) {
+	if meta.(*config.FlexbotConfig).RancherConfig == nil || !meta.(*config.FlexbotConfig).RancherApiEnabled {
+	        node = &Rancher2Node{
+		        NodeConfig:       nodeConfig,
+	        }
+		return
+	}
 	switch meta.(*config.FlexbotConfig).RancherConfig.Provider {
-	case "rke":
-		if node, err = RkeAPIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
-                        err = fmt.Errorf("RkeAPIInitialize(): error: %s", err)
-                }
 	case "rancher2":
 		if node, err = Rancher2APIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
                         err = fmt.Errorf("Rancher2APIInitialize(): error: %s", err)
 		}
+	case "rke":
+	        if node, err = RkeAPIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
+                        err = fmt.Errorf("RkeAPIInitialize(): error: %s", err)
+                }
 	default:
 		err = fmt.Errorf("RancherAPIInitialize(): rancher API provider %s is not implemented", meta.(*config.FlexbotConfig).RancherConfig.Provider)
 	}

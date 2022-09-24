@@ -419,9 +419,11 @@ type UpdateManager struct {
 // RancherConfig is Rancher generic client config
 type RancherConfig struct {
         Provider       string
-	TokenKey       string
 	URL            string
-	CACerts        string
+	TokenKey       string
+	ServerCAData   []byte
+	ClientCertData []byte
+	ClientKeyData  []byte
 	Insecure       bool
 	Retries        int
 	Sync           sync.Mutex
