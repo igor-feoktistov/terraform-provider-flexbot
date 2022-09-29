@@ -1,0 +1,71 @@
+{
+   "apiVersion": "audit.k8s.io/v1",
+   "kind": "Policy",
+   "rules": [
+      {
+         "level": "None",
+         "userGroups": [
+            "system:serviceaccounts:kube-system"
+         ]
+      },
+      {
+         "level": "None",
+         "users": [
+            "system:apiserver",
+            "system:kube-scheduler",
+            "system:volume-scheduler",
+            "system:kube-controller-manager",
+            "system:node"
+         ]
+      },
+      {
+         "level": "None",
+         "userGroups": [
+            "system:serviceaccounts:cattle-monitoring-system",
+            "system:serviceaccounts:fleet-system",
+            "system:serviceaccounts:ingress-nginx",
+            "system:serviceaccounts:rancher-operator-system"
+         ]
+      },
+      {
+         "level": "None",
+         "users": [
+            "system:serviceaccount:cattle-system:rancher"
+         ]
+      },
+      {
+         "level": "None",
+         "users": [
+            "system:serviceaccount:collectorforkubernetes:collectorforkubernetes"
+         ]
+      },
+      {
+         "level": "None",
+         "userGroups": [
+            "system:nodes"
+         ]
+      },
+      {
+         "level": "None",
+         "nonResourceURLs": [
+            "/healthz*",
+            "/version",
+            "/swagger*"
+         ]
+      },
+      {
+         "level": "Metadata",
+         "resources": [
+            {
+               "resources": [
+                  "secrets",
+                  "configmaps"
+               ]
+            }
+         ]
+      },
+      {
+         "level": "Request"
+      }
+   ]
+}

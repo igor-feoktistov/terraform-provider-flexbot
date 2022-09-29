@@ -204,6 +204,7 @@ The following arguments are supported:
   * `user` - (Required) Username, can be encrypted by `flexbot-crypt` (string).
   * `password` - (Required) Password, can be encrypted by `flexbot-crypt` (string).
   * `api_method` - (Optional) ONTAP API method is either `zapi` or `rest`. Method `rest` is experimental and still under development (string, default is `zapi`).
+  * `zapi_version` - (Optional) Typically not required except some older ONTAP releases (string).
 
 #### `rancher_api`
 
