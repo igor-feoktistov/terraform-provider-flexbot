@@ -472,6 +472,17 @@ func (client *Rancher2Client) NodeSetAnnotationsLabelsTaints(nodeID string, anno
 	return
 }
 
+// NodeGetLabels get Rancher node labels
+func (client *Rancher2Client) NodeGetLabels(nodeID string) (nodeLabels map[string]string, err error) {
+	var node *managementClient.Node
+	if node, err = client.Management.Node.ByID(nodeID); err != nil {
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
+	} else {
+	        nodeLabels = node.Labels
+	}
+	return
+}
+
 // NodeUpdateLabels updates Rancher node labels
 func (client *Rancher2Client) NodeUpdateLabels(nodeID string, oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
 	var node *managementClient.Node
@@ -487,6 +498,17 @@ func (client *Rancher2Client) NodeUpdateLabels(nodeID string, oldLabels map[stri
 	}
 	if _, err = client.Management.Node.Update(node, node); err != nil {
 		err = fmt.Errorf("rancher2-client.NodeSetLabels() error: %s", err)
+	}
+	return
+}
+
+// NodeGetTaints get Rancher node taints
+func (client *Rancher2Client) NodeGetTaints(nodeID string) (taints []managementClient.Taint, err error) {
+	var node *managementClient.Node
+	if node, err = client.Management.Node.ByID(nodeID); err != nil {
+		err = fmt.Errorf("rancher2-client.Node.ByID() error: %s", err)
+	} else {
+	        taints = node.Taints
 	}
 	return
 }

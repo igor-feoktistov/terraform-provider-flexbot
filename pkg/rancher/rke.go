@@ -164,9 +164,34 @@ func (node *RkeNode) RancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 	return
 }
 
+func (node *RkeNode) RancherAPINodeGetLabels() (labels map[string]string, err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+	        labels, err = node.RancherClient.NodeGetLabels(node.NodeID)
+	}
+        return
+}
+
 func (node *RkeNode) RancherAPINodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 	        err = node.RancherClient.NodeUpdateLabels(node.NodeID, oldLabels, newLabels)
+	}
+        return
+}
+
+func (node *RkeNode) RancherAPINodeGetTaints() (taints []rancherManagementClient.Taint, err error) {
+        var nodeTaints []v1.Taint
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+	        if nodeTaints, err = node.RancherClient.NodeGetTaints(node.NodeID); err == nil {
+	                for _, taint := range nodeTaints {
+		                taints = append(
+                                        taints,
+                                        rancherManagementClient.Taint{
+                                                Key: taint.Key,
+                                                Value: taint.Value,
+                                                Effect: string(taint.Effect),
+                                        })
+	                }
+	        }
 	}
         return
 }

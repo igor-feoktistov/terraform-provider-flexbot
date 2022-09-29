@@ -1,12 +1,13 @@
-## 1.8.0 (September 19, 2022)
+## 1.8.0 (September 28, 2022)
 
 ENHANCEMENTS:
 * GoLang v1.19
-* Support Kubernetes API in ***rancher_api*** provider configuration:
+* Support for Kubernetes API (RKE) in ***rancher_api*** provider configuration:
   * Node operations `cordon`, `uncordon`, `drain`.
-  * Maintain nodes `labels`, `annotations`, and `taints`.
+  * Maintain nodes `labels` and `taints`.
   * See resource documentation for more details.
-
+* Drift detection for node labels and taints if ***rancher_api*** is configured
+  * ***apply*** action would remediate the drift
 
 ## 1.7.19 (September 6, 2022)
 

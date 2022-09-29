@@ -42,13 +42,10 @@ func (client *RkeClient) GetNode(nodeIpAddr string) (nodeName string, err error)
 		        return
                 }
                 if hostIpAddr.String() == nodeIpAddr {
-	                if nodeName, err = node.GetHostname(""); err != nil {
-		                err = fmt.Errorf("rke-client.GetNode().node.GetHostName() error: %s", err)
-		        }
-		        return
+                        nodeName = item.Name
+		        break
                 }
         }
-        err = fmt.Errorf("rke-client.GetNode().node.GetHostName() error: no node found with IP address %s", nodeIpAddr)
 	return
 }
 
@@ -56,7 +53,7 @@ func (client *RkeClient) GetNode(nodeIpAddr string) (nodeName string, err error)
 func (client *RkeClient) GetNodeRole(nodeName string) (controlplane bool, etcd bool, worker bool, err error) {
         var node *v1.Node
 	if node, err = client.Management.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
-		err = fmt.Errorf("rke-client.GetNodeRole() error: %s", err)
+		err = fmt.Errorf("rke-client.GetNodeRole(%s) error: %s", nodeName, err)
 		return
 	}
         if strings.ToLower(node.Labels[NodeRoleLabelWorker]) == "true" {
@@ -158,6 +155,17 @@ func (client *RkeClient) NodeSetAnnotationsLabelsTaints(nodeName string, annotat
 	return
 }
 
+// NodeGetLabels get RKE node labels
+func (client *RkeClient) NodeGetLabels(nodeName string) (nodeLabels map[string]string, err error) {
+        var node *v1.Node
+	if node, err = client.Management.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
+		err = fmt.Errorf("rke-client.NodeGetLabels() error: %s", err)
+	} else {
+	        nodeLabels = node.Labels
+	}
+	return
+}
+
 // NodeUpdateLabels updates RKE node labels
 func (client *RkeClient) NodeUpdateLabels(nodeName string, oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
         var node *v1.Node
@@ -180,6 +188,17 @@ func (client *RkeClient) NodeUpdateLabels(nodeName string, oldLabels map[string]
 		err = fmt.Errorf("rke-client.NodeUpdateLabels() error: %s", err)
 	}
 	return
+}
+
+// NodeGetTaints get RKE node taints
+func (client *RkeClient) NodeGetTaints(nodeName string) (nodeTaints []v1.Taint, err error) {
+        var node *v1.Node
+	if node, err = client.Management.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
+		err = fmt.Errorf("rke-client.NodeGetTaints() error: %s", err)
+	} else {
+	        nodeTaints = node.Spec.Taints
+        }
+	return 
 }
 
 // NodeUpdateTaints updates RKE node taints

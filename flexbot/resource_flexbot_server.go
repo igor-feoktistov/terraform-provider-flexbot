@@ -221,6 +221,10 @@ func resourceReadServer(ctx context.Context, d *schema.ResourceData, meta interf
 			diags = diag.FromErr(err)
 			return
 		}
+		if err = rancher.DiscoverNode(d, meta, nodeConfig); err != nil {
+			diags = diag.FromErr(err)
+			return
+		}
 		setFlexbotOutput(d, meta, nodeConfig)
 	} else {
                 meta.(*config.FlexbotConfig).Sync.Lock()
@@ -1155,6 +1159,7 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	for labelKey, labelValue := range d.Get("labels").(map[string]interface{}) {
 		nodeConfig.Labels[labelKey] = labelValue.(string)
 	}
+	nodeConfig.Taints = make([]rancherManagementClient.Taint, 0)
 	for _, taint := range d.Get("taints").([]interface{}) {
 		nodeConfig.Taints = append(
                         nodeConfig.Taints,
@@ -1259,9 +1264,19 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 		}
 		network["iscsi_initiator"].([]interface{})[i] = initiator
 	}
+	labels := make(map[string]interface{})
+	for labelKey, labelValue := range nodeConfig.Labels {
+	        labels[labelKey] = labelValue
+	}
+	taints := make([]interface{}, 0)
+	for _, taint := range nodeConfig.Taints {
+	        taints = append(taints, taint)
+	}
 	d.Set("compute", []interface{}{compute})
 	d.Set("network", []interface{}{network})
 	d.Set("storage", []interface{}{storage})
+	d.Set("labels", labels)
+	d.Set("taints", taints)
 }
 
 func decryptAttribute(meta interface{}, encrypted string) (decrypted string, err error) {
