@@ -212,7 +212,7 @@ The following arguments are supported:
 
 * `enabled` - (Optional) Quickly enable/disable rancher API support (bool, default is `false`)
 * `provider` - (Optional) Rancher API provider. Currently supported `rancher2` and `rke` when in mix with respective terraform providers (string, defailt is `rancher2`).
-* `api_url` - (Required) Rancher AP endpoint is either Rancher Server endpoint or Kubernetes API endpoint for RKE/Kubernetes use case (string).
+* `api_url` - (Required) Rancher API endpoint is either Rancher Server endpoint or Kubernetes API endpoint for RKE/Kubernetes use case (string).
 * `cluster_id` - (Required) Downstream cluster ID in case of `rancher2`, or Kubernetes cluster name (string).
 * `token_key` - (Optional) API token for Rancher API, required for `rancher2` provider. Can be encrypted by `flexbot-crypt` (string).
 * `server_ca_data` - (Optional) Server CA, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)

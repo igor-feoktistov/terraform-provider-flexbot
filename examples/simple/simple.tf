@@ -28,6 +28,10 @@ provider "flexbot" {
     # Required - Compute node FQDN is <hostname>.<dns_zone>
     dns_zone = "example.com"
   }
+  # Example with "Internal" IPAM provider
+  #ipam {
+    #provider = "Internal"
+  #}
 
   # Required - UCS compute
   compute {
