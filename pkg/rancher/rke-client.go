@@ -198,7 +198,7 @@ func (client *RkeClient) NodeGetTaints(nodeName string) (nodeTaints []v1.Taint, 
 	} else {
 	        nodeTaints = node.Spec.Taints
         }
-	return 
+	return
 }
 
 // NodeUpdateTaints updates RKE node taints
