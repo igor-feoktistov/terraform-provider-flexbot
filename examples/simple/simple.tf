@@ -52,14 +52,18 @@ provider "flexbot" {
     }
   }
 
+  # This example is for rancher2 API provider
   # Optional - Rancher API
-  # Rancher API helps with node management in Rancher cluster:
+  # Rancher API helps with node management in Kubernetes cluster:
   #  - graceful node removal (cordon/drain);
   #  - graceful node blade specs updates (cordon/drain/uncordon);
   #  - graceful node image/cloud-init updates (cordon/drain/uncordon).
+  #  - maintain labels and taints
   rancher_api {
     # Optional (default is false)
     enabled = true
+    # Optional (default is "rancher2")
+    provider = "rancher2"
     api_url = "https://rancher.example.com"
     token_key = "token-xxx"
     insecure = true
@@ -79,6 +83,25 @@ provider "flexbot" {
       timeout = 1800
     }
   }
+  #
+  # This example is for RKE or any other Kubernetes API provider
+  #
+  #rancher_api {
+    #enabled = true
+    #provider = "rke"
+    #api_url = "https://rke.example.com:6443"
+    #cluster_id = "onprem-us-east-1-01"
+    #server_ca_data = "LS0tLS1CEUdJUiBDRVJUSKZJQ0F<...reducted...>tLSItYQo="
+    #client_cert_data = "LS0dLS1TRUdJTi<...reducted...>BFEUaLS0sLQo="
+    #client_key_data = "base64:giZIN7H04oQw5<...reducted...>8k4uoWEIg/woi2n3+4kQ="
+    #drain_input {
+    #  force = true
+    #  delete_local_data = true
+    #  grace_period = 60
+    #  ignore_daemon_sets = true
+    #  timeout = 1800
+    #}
+  #}
 
   # Optional - Synchronized nodes updates.
   # It is highly suggested to enable it when Rancher API is enabled.

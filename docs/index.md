@@ -145,7 +145,7 @@ provider "flexbot" {
     enabled = true
     provider = "rke"
     api_url = "https://rke.example.com:6443"
-    cluster_id = "sample-cluster-name"
+    cluster_id = "onprem-us-east-1-01"
     server_ca_data = "LS0tLS1CEUdJUiBDRVJUSKZJQ0F<...skip...>tLSItYQo="
     client_cert_data = "LS0dLS1TRUdJTi<...skip...>BFEUaLS0sLQo="
     client_key_data = "base64:giZIN7H04oQw5<...skip...>8k4uoWEIg/woi2n3+4kQ="
