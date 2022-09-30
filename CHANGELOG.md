@@ -1,4 +1,4 @@
-## 1.8.0 (September 29, 2022)
+## 1.8.0 (September 30, 2022)
 
 ENHANCEMENTS:
 * GoLang v1.19
@@ -8,7 +8,7 @@ ENHANCEMENTS:
   * See resource documentation and example HCL's for more details.
 * Drift detection for node labels and taints if ***rancher_api*** is configured
   * ***apply*** action would remediate the drift
-* Updates in HCL examples
+* Updates in example HCL's
 * Fixes in diskimage-builder elements for ubuntu-20.04
 
 
