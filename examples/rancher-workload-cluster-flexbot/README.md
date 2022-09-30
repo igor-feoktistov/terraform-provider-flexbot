@@ -1,7 +1,7 @@
-# Flexbot to build and manage Rancher Custom Cluster
+# Flexbot to build and manage Rancher Downstream Custom Cluster
 
 This example demonstrates how to use `flexbot` and `rancher/rancher2` Terraform providers
-to build and manage Rancher Custom Cluster with bare-metal nodes on FlexPOD
+to build and manage Rancher Downstream Custom Cluster with bare-metal nodes on FlexPOD
 
 See [crypt](../crypt) example on how to generate encrypted strings for passwords and tokens.
 

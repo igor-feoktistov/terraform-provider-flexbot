@@ -3,6 +3,7 @@
 if [ ${DIB_DEBUG_TRACE:-1} -gt 0 ]; then
     set -x
 fi
+
 set -eu
 set -o pipefail
 
@@ -10,7 +11,7 @@ cat <<EOF > /etc/sysctl.d/99-tuning.conf
 # Settings for Kubernetes
 vm.overcommit_memory=1
 vm.panic_on_oom=0
-vm.max_map_count=262144
+vm.max_map_count=1048575
 kernel.panic=10
 kernel.panic_on_oops=1
 kernel.keys.root_maxbytes=25000000
@@ -30,4 +31,9 @@ net.core.optmem_max = 40960
 net.ipv4.tcp_rmem=20480 12582912 25165824
 net.ipv4.tcp_wmem=20480 12582912 25165824
 net.core.netdev_max_backlog=250000
+
+# security updates
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv6.conf.all.accept_source_route = 0
+fs.suid_dumpable = 0
 EOF

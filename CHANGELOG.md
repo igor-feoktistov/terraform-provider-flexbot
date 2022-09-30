@@ -8,6 +8,9 @@ ENHANCEMENTS:
   * See resource documentation and example HCL's for more details.
 * Drift detection for node labels and taints if ***rancher_api*** is configured
   * ***apply*** action would remediate the drift
+* Updates in HCL examples
+* Fixes in diskimage-builder elements for ubuntu-20.04
+
 
 ## 1.7.19 (September 6, 2022)
 

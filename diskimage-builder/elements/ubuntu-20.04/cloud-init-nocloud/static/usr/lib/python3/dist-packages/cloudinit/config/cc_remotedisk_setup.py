@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 ############################################################################
-"""
+MODULE_DESCRIPTION = """\
 The module remotedisk_setup provides a simple and uniform way
 to handle remote disks such as:
 	- iSCSI LUN's:
@@ -113,6 +113,10 @@ import subprocess
 import re
 from string import whitespace
 
+from cloudinit.config.schema import MetaSchema
+from cloudinit.distros import ALL_DISTROS
+from cloudinit.settings import PER_ALWAYS
+
 from cloudinit.settings import PER_INSTANCE
 from cloudinit import type_utils
 from cloudinit import util
@@ -132,6 +136,19 @@ MULTIPATH_CMD = subp.which("multipath")
 SYSTEMCTL_CMD = subp.which("systemctl")
 FSTAB_PATH = "/etc/fstab"
 ISCSI_INITIATOR_PATH = "/etc/iscsi/initiatorname.iscsi"
+
+meta: MetaSchema = {
+    "id": "cc_remotedisk_setup",
+    "name": "Remote Disk Setup",
+    "title": "remotedisk_setup provides a simple and uniform way to handle remote disks",
+    "description": MODULE_DESCRIPTION,
+    "distros": [ALL_DISTROS],
+    "frequency": PER_ALWAYS,
+    "examples": [],
+}
+
+# This module is undocumented in our schema docs
+__doc__ = ""
 
 
 def handle(_name, cfg, cloud, log, _args):
