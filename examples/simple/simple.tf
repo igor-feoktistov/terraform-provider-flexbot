@@ -71,6 +71,7 @@ provider "flexbot" {
     api_url = "https://rancher.example.com"
     token_key = "token-xxx"
     insecure = true
+    retries = 6
     cluster_id = rancher2_cluster.cluster.id
     # Optional - Grace timeout in seconds after each node update in changing
     #            blade_spec or os_image/seed_template. Checks for node status

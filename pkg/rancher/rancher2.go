@@ -46,7 +46,7 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 	network := d.Get("network").([]interface{})[0].(map[string]interface{})
 	node.ClusterID = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_id"].(string)
         meta.(*config.FlexbotConfig).Sync.Unlock()
-	if node.NodeID, err = node.RancherClient.GetNode(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
+	if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
 		if len(node.NodeID) > 0 {
 			node.NodeControlPlane, node.NodeEtcd, node.NodeWorker, err = node.RancherClient.GetNodeRole(node.NodeID)
 		}
@@ -57,7 +57,7 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 			return
 		}
 		for time.Now().Before(giveupTime) {
-			if node.NodeID, err = node.RancherClient.GetNode(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+			if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
 			        if !IsNotFound(err) {
 				        return
 				}
@@ -79,7 +79,7 @@ func (node *Rancher2Node) RancherAPINodeGetID(d *schema.ResourceData, meta inter
                 meta.(*config.FlexbotConfig).Sync.Lock()
 	        network := d.Get("network").([]interface{})[0].(map[string]interface{})
                 meta.(*config.FlexbotConfig).Sync.Unlock()
-	        if node.NodeID, err = node.RancherClient.GetNode(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+	        if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
 			err = fmt.Errorf("rancherAPINodeGetID(): node %s not found", node.NodeConfig.Compute.HostName)
 		}
 	}

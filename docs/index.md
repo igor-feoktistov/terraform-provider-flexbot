@@ -219,6 +219,7 @@ The following arguments are supported:
 * `client_cert_data` - (Optional) Client certificate for x509 authentication, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)
 * `client_key_data` - (Optional) Client private key for x509 authentication, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)
 * `insecure` - (Optional) Disable certificate verification (bool, default is `false`).
+* `retries` - (Optional) Number of API calls retries in case of transient errors (int, default is 3)
 * `node_grace_timeout` - (Optional) Wait after node update is completed (int, seconds, default is 0).
 * `wait_for_node_timeout` - (Optional) MAX wait time until node is available (int, seconds, default is 0).
 * `drain_input` - (Optional) Drain operation parameters (map).

@@ -235,6 +235,11 @@ func Provider() *schema.Provider {
 							Optional: true,
 							Default:  false,
 						},
+						"retries": {
+							Optional: true,
+							Type:     schema.TypeInt,
+							Default:  3,
+						},
 						"cluster_id": {
 							Type:     schema.TypeString,
 							Required: true,
@@ -410,7 +415,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			ClientKeyData:  clientKeyData,
 			Insecure:       rancherAPI["insecure"].(bool),
 			NodeDrainInput: nodeDrainInput,
-			Retries:        3,
+			Retries:        rancherAPI["retries"].(int),
 		}
 		flexbotConfig = &config.FlexbotConfig{
 			Sync:               &sync.Mutex{},
