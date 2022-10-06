@@ -36,7 +36,7 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 	rancher2Config := &Rancher2Config{
 	        RancherConfig: *(meta.(*config.FlexbotConfig).RancherConfig),
 	}
-	if err = rancher2Config.ManagementClient(); err != nil {
+	if err = rancher2Config.InitializeClient(); err != nil {
 	        return
 	}
 	node.RancherClient = &rancher2Config.Client

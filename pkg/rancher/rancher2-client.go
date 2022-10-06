@@ -11,10 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-version"
 	"github.com/rancher/norman/clientbase"
 	"github.com/rancher/norman/types"
-	clusterClient "github.com/rancher/rancher/pkg/client/generated/cluster/v3"
 	managementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
@@ -23,28 +21,21 @@ const (
 	rancher2ClientAPIVersion = "/v3"
 	rancher2ReadyAnswer = "pong"
 	rancher2RetriesWait = 5
-	rancher2RKEK8sSystemImageVersion = "2.3.0"
+	rancher2StabilizeWait = 1
+	rancher2StabilizeMax = 5
 	maxHTTPRedirect = 5
 )
 
 // Rancher2Client is rancher2 client
 type Rancher2Client struct {
 	Management *managementClient.Client
-	CatalogV2  map[string]*clientbase.APIBaseClient
-	Cluster    map[string]*clusterClient.Client
-	Retries    int
+	Retries int
 }
 
 // Rancher2Config is rancher2 client configuration
 type Rancher2Config struct {
         config.RancherConfig
-	Bootstrap            bool
-	ClusterID            string
-	ProjectID            string
-	RancherVersion       string
-	K8SDefaultVersion    string
-	K8SSupportedVersions []string
-	Client               Rancher2Client
+	Client Rancher2Client
 }
 
 // NormalizeURL normalizes URL
@@ -127,19 +118,6 @@ func DoGet(url, username, password, token, cacert string, insecure bool) ([]byte
 	return ioutil.ReadAll(resp.Body)
 }
 
-// IsVersionLessThan verifies version
-func IsVersionLessThan(ver1, ver2 string) (bool, error) {
-	v1, err := version.NewVersion(ver1)
-	if err != nil {
-		return false, err
-	}
-	v2, err := version.NewVersion(ver2)
-	if err != nil {
-		return false, err
-	}
-	return v1.LessThan(v2), nil
-}
-
 // IsNotFound checks NotFound in return
 func IsNotFound(err error) bool {
 	return clientbase.IsNotFound(err)
@@ -154,99 +132,56 @@ func IsForbidden(err error) bool {
 	return apiError.StatusCode == http.StatusForbidden
 }
 
-// GetRancherVersion gets Rancher version
-func (c *Rancher2Config) GetRancherVersion() (string, error) {
-	if len(c.RancherVersion) > 0 {
-		return c.RancherVersion, nil
-	}
-	if c.Client.Management == nil {
-		err := c.ManagementClient()
-		if err != nil {
-			return "", err
-		}
-	}
-	version, err := c.Client.Management.Setting.ByID("server-version")
-	if err != nil {
-		return "", fmt.Errorf("[ERROR] Getting Rancher version: %s", err)
-	}
-	c.RancherVersion = version.Value
-	return c.RancherVersion, nil
-}
-
-func (c *Rancher2Config) isRancherReady() (err error) {
-	var resp []byte
-	url := RootURL(c.URL) + "/ping"
-	for i := 0; i <= c.Retries; i++ {
-		resp, err = DoGet(url, "", "", "", string(c.ServerCAData), c.Insecure)
-		if err == nil && rancher2ReadyAnswer == string(resp) {
-			return nil
-		}
-		time.Sleep(rancher2RetriesWait * time.Second)
-	}
-	err = fmt.Errorf("isRancherReady(): rancher is not ready after %d attempts in %d seconds, last error: %s", c.Retries, rancher2RetriesWait * c.Retries, err)
-	return 
-}
-
-// IsRancherVersionLessThan compares Rancher version
-func (c *Rancher2Config) IsRancherVersionLessThan(ver string) (bool, error) {
-	if len(ver) == 0 {
-		return false, fmt.Errorf("[ERROR] version is nil")
-	}
-	_, err := c.GetRancherVersion()
-	if err != nil {
-		return false, fmt.Errorf("[ERROR] getting rancher server version")
-	}
-	return IsVersionLessThan(c.RancherVersion, ver)
-}
-
-// ManagementClient initializes Rancher Management Client
-func (c *Rancher2Config) ManagementClient() error {
+// InitializeClient initializes Rancher Management Client
+func (c *Rancher2Config) InitializeClient() (err error) {
 	c.Sync.Lock()
 	defer c.Sync.Unlock()
 	if c.Client.Management != nil {
-		return nil
+		return
 	}
-	err := c.isRancherReady()
+	for i := 0; i <= c.Retries; i++ {
+	        var resp []byte
+		resp, err = DoGet(RootURL(c.URL) + "/ping", "", "", "", string(c.ServerCAData), c.Insecure)
+		if err == nil && rancher2ReadyAnswer == string(resp) {
+			break
+		}
+		time.Sleep(rancher2RetriesWait * time.Second)
+	}
 	if err != nil {
-		return err
+	        err = fmt.Errorf("Rancher is not ready after %d attempts in %d seconds, last error: %s", c.Retries, rancher2RetriesWait * c.Retries, err)
+		return
 	}
-	options := c.CreateClientOpts()
-	options.URL = options.URL + rancher2ClientAPIVersion
-	mClient, err := managementClient.NewClient(options)
-	if err != nil {
-		return err
-	}
-	c.Client.Management = mClient
-	c.Client.Retries = c.Retries
-	return err
-}
-
-// CreateClientOpts creates client options
-func (c *Rancher2Config) CreateClientOpts() *clientbase.ClientOpts {
-	c.NormalizeURL()
+	c.URL = NormalizeURL(c.URL)
 	options := &clientbase.ClientOpts{
 		URL:      c.URL,
 		TokenKey: c.TokenKey,
 		CACerts:  string(c.ServerCAData),
 		Insecure: c.Insecure,
 	}
-	return options
-}
-
-// NormalizeURL normalizes URL
-func (c *Rancher2Config) NormalizeURL() {
-	c.URL = NormalizeURL(c.URL)
+	options.URL = options.URL + rancher2ClientAPIVersion
+	if c.Client.Management, err = managementClient.NewClient(options); err != nil {
+		return
+	}
+	c.Client.Retries = c.Retries
+	return
 }
 
 // Retry Rancher API probe number of "Retries" attempts or until ready
 func (client *Rancher2Client) isRancherReady() (err error) {
 	var resp []byte
 	url := RootURL(client.Management.Opts.URL) + "/ping"
-	for i := 0; i <= client.Retries; i++ {
-		resp, err = DoGet(url, "", "", "", client.Management.Opts.CACerts, client.Management.Opts.Insecure)
-		if err == nil && rancher2ReadyAnswer == string(resp) {
-			return
+	for retry := 0; retry < client.Retries; retry++ {
+	        for stabilize := 0; stabilize < rancher2StabilizeMax; stabilize++ {
+		        resp, err = DoGet(url, "", "", "", client.Management.Opts.CACerts, client.Management.Opts.Insecure)
+		        if err == nil && rancher2ReadyAnswer == string(resp) {
+		                time.Sleep(rancher2StabilizeWait * time.Second)
+		        } else {
+		                break
+		        }
 		}
+		if err == nil && rancher2ReadyAnswer == string(resp) {
+		        return
+                }
 		time.Sleep(rancher2RetriesWait * time.Second)
 	}
 	return fmt.Errorf("rancher2-client.isRancherReady(): rancher is not ready after %d attempts in %d seconds, last error: %s", client.Retries, rancher2RetriesWait * client.Retries, err)
@@ -320,7 +255,7 @@ func (client *Rancher2Client) GetNodeByAddr(clusterID string, nodeIPAddr string)
 func (client *Rancher2Client) GetNodeRole(nodeID string) (controlplane bool, etcd bool, worker bool, err error) {
 	var node *managementClient.Node
 	if node, err = client.GetNodeByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher2-client.GetNodeRole().GetNodeByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.GetNodeRole() error: %s", err)
 		return
 	}
 	return node.ControlPlane, node.Etcd, node.Worker, nil
@@ -334,8 +269,11 @@ func (client *Rancher2Client) ClusterWaitForState(clusterID string, states strin
 	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 	for time.Now().Before(giveupTime) {
 		if cluster, err = client.GetClusterByID(clusterID); err != nil {
-			if IsNotFound(err) || IsForbidden(err) {
+			if IsNotFound(err) {
 				err = fmt.Errorf("rancher2-client.ClusterWaitForState().GetClusterByID(): cluster not found")
+			}
+			if IsForbidden(err) {
+				err = fmt.Errorf("rancher2-client.ClusterWaitForState().GetClusterByID(): access denied")
 			}
 			return
 		}
@@ -370,8 +308,11 @@ func (client *Rancher2Client) ClusterWaitForTransitioning(clusterID string, time
 	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 	for time.Now().Before(giveupTime) {
 		if cluster, err = client.GetClusterByID(clusterID); err != nil {
-			if IsNotFound(err) || IsForbidden(err) {
+			if IsNotFound(err) {
 				err = fmt.Errorf("rancher2-client.ClusterWaitForTransitioning().GetClusterByID(): cluster not found")
+			}
+			if IsForbidden(err) {
+				err = fmt.Errorf("rancher2-client.ClusterWaitForTransitioning().GetClusterByID(): access denied")
 			}
 			return
 		}
@@ -388,7 +329,7 @@ func (client *Rancher2Client) ClusterWaitForTransitioning(clusterID string, time
 func (client *Rancher2Client) NodeGetState(nodeID string) (state string, err error) {
 	var node *managementClient.Node
 	if node, err = client.GetNodeByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher2-client.GetNodeGetState().GetNodeByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeGetState() error: %s", err)
 	} else {
 		state = node.State
 	}
@@ -428,6 +369,9 @@ func (client *Rancher2Client) NodeCordon(nodeID string) (err error) {
 	_, ok = node.Actions["cordon"]
 	if ok {
                 err = client.Management.Node.ActionCordon(node)
+	}
+	if err != nil {
+		err = fmt.Errorf("rancher2-client.NodeCordon() error: %s", err)
 	}
 	return
 }
@@ -491,8 +435,7 @@ func (client *Rancher2Client) DeleteNode(nodeID string) (err error) {
 		err = fmt.Errorf("rancher2-client.DeleteNode().GetNodeByID() error: %s", err)
 		return
 	}
-	err = client.Management.Node.Delete(node)
-	if err != nil {
+	if err = client.Management.Node.Delete(node); err != nil {
 		err = fmt.Errorf("rancher2-client.DeleteNode() error: %s", err)
 	}
 	return
@@ -532,7 +475,7 @@ func (client *Rancher2Client) NodeSetAnnotationsLabelsTaints(nodeID string, anno
 func (client *Rancher2Client) NodeGetLabels(nodeID string) (nodeLabels map[string]string, err error) {
 	var node *managementClient.Node
 	if node, err = client.GetNodeByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher2-client.NodeGetLabels().GetNodeByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeGetLabels() error: %s", err)
 	} else {
 	        nodeLabels = node.Labels
 	}
@@ -553,7 +496,7 @@ func (client *Rancher2Client) NodeUpdateLabels(nodeID string, oldLabels map[stri
 		node.Labels[key] = elem.(string)
 	}
 	if _, err = client.Management.Node.Update(node, node); err != nil {
-		err = fmt.Errorf("rancher2-client.NodeSetLabels() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeUpdateLabels() error: %s", err)
 	}
 	return
 }
@@ -562,7 +505,7 @@ func (client *Rancher2Client) NodeUpdateLabels(nodeID string, oldLabels map[stri
 func (client *Rancher2Client) NodeGetTaints(nodeID string) (taints []managementClient.Taint, err error) {
 	var node *managementClient.Node
 	if node, err = client.GetNodeByID(nodeID); err != nil {
-		err = fmt.Errorf("rancher2-client.NodeGetTaints().GetNodeByID() error: %s", err)
+		err = fmt.Errorf("rancher2-client.NodeGetTaints() error: %s", err)
 	} else {
 	        taints = node.Taints
 	}
