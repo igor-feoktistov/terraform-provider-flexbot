@@ -21,7 +21,7 @@ const (
 	rancher2ClientAPIVersion = "/v3"
 	rancher2ReadyAnswer = "pong"
 	rancher2RetriesWait = 5
-	rancher2StabilizeWait = 1
+	rancher2StabilizeWait = 3
 	rancher2StabilizeMax = 5
 	maxHTTPRedirect = 5
 )

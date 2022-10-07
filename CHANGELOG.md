@@ -1,4 +1,4 @@
-## 1.8.0 (October 6, 2022)
+## 1.8.0 (October 7, 2022)
 
 ENHANCEMENTS:
 * GoLang v1.19
