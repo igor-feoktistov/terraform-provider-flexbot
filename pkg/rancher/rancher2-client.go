@@ -22,7 +22,7 @@ const (
 	rancher2ReadyAnswer = "pong"
 	rancher2RetriesWait = 5
 	rancher2StabilizeWait = 3
-	rancher2StabilizeMax = 5
+	rancher2StabilizeMax = 10
 	maxHTTPRedirect = 5
 )
 
