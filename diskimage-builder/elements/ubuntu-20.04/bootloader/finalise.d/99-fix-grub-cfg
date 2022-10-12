@@ -15,3 +15,5 @@ elif [ -d /boot/grub ]; then
 fi
 
 sed -i 's%\(linux[[:blank:]]*/boot/vmlinuz-[0-9\.-]*-generic root=LABEL=rootfs ro\)[[:blank:]]*console.*%\1 console=tty1 console=ttyS0 fsck.mode=force fsck.repair=yes%g' $GRUB_CFG
+
+chmod 600 /boot/grub/grub.cfg

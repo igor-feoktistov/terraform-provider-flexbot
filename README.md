@@ -14,8 +14,8 @@ The provider is integrated with Rancher API for Rancher downstream clusters node
 Requirements
 ------------
 
-- [Terraform](https://www.terraform.io/downloads.html) 0.13.x or later
-- [Go](https://golang.org/doc/install) 1.14 or later
+- [Terraform](https://www.terraform.io/downloads.html) 0.15.x or later
+- [Go](https://golang.org/doc/install) 1.19 or later
 
 Building the provider
 ---------------------

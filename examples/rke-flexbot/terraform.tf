@@ -2,12 +2,12 @@ terraform {
   required_providers {
     flexbot = {
       source  = "igor-feoktistov/flexbot"
-      version = ">=1.6.6"
+      version = ">=1.8.0"
     }
     rke = {
       source = "rancher/rke"
-      version = ">= 1.1.5"
+      version = "= 1.3.2"
     }
   }
-  required_version = ">= 0.13"
+  required_version = ">= 0.15"
 }

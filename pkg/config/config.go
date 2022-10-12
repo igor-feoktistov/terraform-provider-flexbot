@@ -1,7 +1,7 @@
 package config
 
 import (
-	"bytes"
+        "bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 
+	"gopkg.in/yaml.v3"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	"github.com/igor-feoktistov/go-ucsm-sdk/util"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -33,6 +35,33 @@ const (
 	seedLunNameTemplate string = "{{.Compute.HostName}}_seed"
 	igroupNameTemplate  string = "{{.Compute.HostName}}_iboot"
 )
+
+// Default annotation names
+const (
+	NodeAnnotationCompute = "flexpod-compute"
+	NodeAnnotationStorage = "flexpod-storage"
+)
+
+// ComputeAnnotations is node annotations for compute
+type ComputeAnnotations struct {
+	UcsmHost string         `yaml:"ucsmHost" json:"ucsmHost"`
+	SpDn     string         `yaml:"spDn" json:"spDn"`
+	Blade    util.BladeSpec `yaml:"blade" json:"blade"`
+}
+
+// StorageAnnotations is node annotations for storage
+type StorageAnnotations struct {
+	BootImage struct {
+		OsImage      string `yaml:"osImage" json:"osImage"`
+		SeedTemplate string `yaml:"seedTemplate" json:"seedTemplate"`
+	} `yaml:"bootImage" json:"bootImage"`
+	Svm     string `yaml:"svm" json:"svm"`
+	Volume  string `yaml:"volume" json:"volume"`
+	Igroup  string `yaml:"igroup" json:"igroup"`
+	BootLun string `yaml:"bootLun" json:"bootLun"`
+	DataLun string `yaml:"dataLun" json:"dataLun"`
+	SeedLun string `yaml:"seedLun" json:"seedLun"`
+}
 
 // Credentials is generic credentials resources
 type Credentials struct {
@@ -379,4 +408,60 @@ func GetNodeConfigYAML(nodeConfig *NodeConfig) (b []byte, err error) {
 func GetNodeConfigJSON(nodeConfig *NodeConfig) (b []byte, err error) {
 	b, err = json.MarshalIndent(nodeConfig, "", "  ")
 	return
+}
+
+// UpdateManager ensures serialization while node maintenance
+type UpdateManager struct {
+	Sync      sync.Mutex
+	LastError error
+}
+
+// RancherConfig is Rancher generic client config
+type RancherConfig struct {
+        Provider       string
+	URL            string
+	TokenKey       string
+	ServerCAData   []byte
+	ClientCertData []byte
+	ClientKeyData  []byte
+	Insecure       bool
+	Retries        int
+	Sync           sync.Mutex
+	NodeDrainInput *rancherManagementClient.NodeDrainInput
+}
+
+// FlexbotConfig is main provider configration
+type FlexbotConfig struct {
+	Sync                  *sync.Mutex
+	FlexbotProvider       *schema.ResourceData
+	RancherApiEnabled     bool
+	RancherConfig         *RancherConfig
+	RancherNodeDrainInput *rancherManagementClient.NodeDrainInput
+	NodeGraceTimeout      int
+	WaitForNodeTimeout    int
+	UpdateManager         UpdateManager
+	NodeConfig            map[string]*NodeConfig
+}
+
+// UpdateManagerAcquire acquires UpdateManager
+func (c *FlexbotConfig) UpdateManagerAcquire() error {
+	if c.FlexbotProvider.Get("synchronized_updates").(bool) {
+		c.UpdateManager.Sync.Lock()
+		return c.UpdateManager.LastError
+	}
+	return nil
+}
+
+// UpdateManagerSetError sets error in UpdateManager
+func (c *FlexbotConfig) UpdateManagerSetError(err error) {
+	if c.FlexbotProvider.Get("synchronized_updates").(bool) {
+		c.UpdateManager.LastError = err
+	}
+}
+
+// UpdateManagerRelease releases UpdateManager
+func (c *FlexbotConfig) UpdateManagerRelease() {
+	if c.FlexbotProvider.Get("synchronized_updates").(bool) {
+		c.UpdateManager.Sync.Unlock()
+	}
 }

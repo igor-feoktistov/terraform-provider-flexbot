@@ -1,7 +1,25 @@
+## 1.8.0 (October 12, 2022)
+
+ENHANCEMENTS:
+* GoLang v1.19
+* Support for standard Kubernetes API (RKE) in ***rancher_api*** provider configuration:
+  * Node operations `cordon`, `uncordon`, `drain`.
+  * Maintain nodes `labels` and `taints`.
+  * See resource documentation and example HCL's for more details.
+* Drift detection for node labels and taints if ***rancher_api*** is configured
+  * ***apply*** action would remediate the drift
+* Transient error resiliency in ***rancher_api***
+  * make sure to set `retries` parameter accordingly
+  * See resource documentation for more details.
+* Updates in example HCL's
+* Fixes in diskimage-builder elements for ubuntu-20.04
+
+
 ## 1.7.19 (September 6, 2022)
 
 ENHANCEMENTS:
 * Increase default timeouts for Create and Update routines.
+
 
 ## 1.7.18 (June 7, 2022)
 

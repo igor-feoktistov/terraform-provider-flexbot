@@ -1,4 +1,4 @@
-package flexbot
+package rancher
 
 import (
 	"encoding/json"
@@ -7,27 +7,13 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/igor-feoktistov/go-ucsm-sdk/util"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
 	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
-// Default timeouts
-const (
-	Wait4ClusterStateTimeout = 1800
-	Wait4NodeStateTimeout    = 600
-)
-
-// Default annotation names
-const (
-	NodeAnnotationCompute = "flexpod-compute"
-	NodeAnnotationStorage = "flexpod-storage"
-)
-
-// RancherNode is node definition
-type RancherNode struct {
-	RancherClient    *rancher.Client
+// RancherNode is rancher2 node definition
+type Rancher2Node struct {
+        RancherClient    *Rancher2Client
 	NodeConfig       *config.NodeConfig
 	NodeDrainInput   *rancherManagementClient.NodeDrainInput
 	ClusterID        string
@@ -37,57 +23,42 @@ type RancherNode struct {
 	NodeWorker       bool
 }
 
-// ComputeAnnotations is node annotations for compute
-type ComputeAnnotations struct {
-	UcsmHost string         `yaml:"ucsmHost" json:"ucsmHost"`
-	SpDn     string         `yaml:"spDn" json:"spDn"`
-	Blade    util.BladeSpec `yaml:"blade" json:"blade"`
-}
-
-// StorageAnnotations is node annotations for storage
-type StorageAnnotations struct {
-	BootImage struct {
-		OsImage      string `yaml:"osImage" json:"osImage"`
-		SeedTemplate string `yaml:"seedTemplate" json:"seedTemplate"`
-	} `yaml:"bootImage" json:"bootImage"`
-	Svm     string `yaml:"svm" json:"svm"`
-	Volume  string `yaml:"volume" json:"volume"`
-	Igroup  string `yaml:"igroup" json:"igroup"`
-	BootLun string `yaml:"bootLun" json:"bootLun"`
-	DataLun string `yaml:"dataLun" json:"dataLun"`
-	SeedLun string `yaml:"seedLun" json:"seedLun"`
-}
-
-func rancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node *RancherNode, err error) {
-	node = &RancherNode{
-		NodeConfig:       nodeConfig,
+func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node *Rancher2Node, err error) {
+        node = &Rancher2Node{
+	        NodeConfig:       nodeConfig,
 		NodeControlPlane: false,
 		NodeEtcd:         false,
 		NodeWorker:       false,
 	}
-	if meta.(*FlexbotConfig).RancherConfig == nil || !meta.(*FlexbotConfig).RancherApiEnabled {
+	if meta.(*config.FlexbotConfig).RancherConfig == nil || !meta.(*config.FlexbotConfig).RancherApiEnabled {
 		return
 	}
-	node.RancherClient = &(meta.(*FlexbotConfig).RancherConfig.Client)
-	node.NodeDrainInput = meta.(*FlexbotConfig).RancherConfig.NodeDrainInput
-        meta.(*FlexbotConfig).Sync.Lock()
-	p := meta.(*FlexbotConfig).FlexbotProvider
+	rancher2Config := &Rancher2Config{
+	        RancherConfig: *(meta.(*config.FlexbotConfig).RancherConfig),
+	}
+	if err = rancher2Config.InitializeClient(); err != nil {
+	        return
+	}
+	node.RancherClient = &rancher2Config.Client
+	node.NodeDrainInput = rancher2Config.NodeDrainInput
+        meta.(*config.FlexbotConfig).Sync.Lock()
+	p := meta.(*config.FlexbotConfig).FlexbotProvider
 	network := d.Get("network").([]interface{})[0].(map[string]interface{})
 	node.ClusterID = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_id"].(string)
-        meta.(*FlexbotConfig).Sync.Unlock()
-	if node.NodeID, err = node.RancherClient.GetNode(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
+        meta.(*config.FlexbotConfig).Sync.Unlock()
+	if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
 		if len(node.NodeID) > 0 {
 			node.NodeControlPlane, node.NodeEtcd, node.NodeWorker, err = node.RancherClient.GetNodeRole(node.NodeID)
 		}
 	}
-	if waitForNode && meta.(*FlexbotConfig).WaitForNodeTimeout > 0 {
-		giveupTime := time.Now().Add(time.Second * time.Duration(meta.(*FlexbotConfig).WaitForNodeTimeout))
-		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", meta.(*FlexbotConfig).WaitForNodeTimeout); err != nil {
+	if waitForNode && meta.(*config.FlexbotConfig).WaitForNodeTimeout > 0 {
+		giveupTime := time.Now().Add(time.Second * time.Duration(meta.(*config.FlexbotConfig).WaitForNodeTimeout))
+		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", meta.(*config.FlexbotConfig).WaitForNodeTimeout); err != nil {
 			return
 		}
 		for time.Now().Before(giveupTime) {
-			if node.NodeID, err = node.RancherClient.GetNode(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
-			        if !rancher.IsNotFound(err) {
+			if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+			        if !IsNotFound(err) {
 				        return
 				}
 			}
@@ -103,40 +74,40 @@ func rancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 	return
 }
 
-func (node *RancherNode) rancherAPINodeGetID(d *schema.ResourceData, meta interface{}) (err error) {
+func (node *Rancher2Node) RancherAPINodeGetID(d *schema.ResourceData, meta interface{}) (err error) {
 	if node.RancherClient != nil {
-                meta.(*FlexbotConfig).Sync.Lock()
+                meta.(*config.FlexbotConfig).Sync.Lock()
 	        network := d.Get("network").([]interface{})[0].(map[string]interface{})
-                meta.(*FlexbotConfig).Sync.Unlock()
-	        if node.NodeID, err = node.RancherClient.GetNode(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+                meta.(*config.FlexbotConfig).Sync.Unlock()
+	        if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
 			err = fmt.Errorf("rancherAPINodeGetID(): node %s not found", node.NodeConfig.Compute.HostName)
 		}
 	}
 	return
 }
 
-func (node *RancherNode) rancherAPIClusterWaitForState(state string, timeout int) (err error) {
+func (node *Rancher2Node) RancherAPIClusterWaitForState(state string, timeout int) (err error) {
 	if node.RancherClient != nil {
 		err = node.RancherClient.ClusterWaitForState(node.ClusterID, state, timeout)
 	}
 	return
 }
 
-func (node *RancherNode) rancherAPIClusterWaitForTransitioning(timeout int) (err error) {
+func (node *Rancher2Node) RancherAPIClusterWaitForTransitioning(timeout int) (err error) {
 	if node.RancherClient != nil {
 		err = node.RancherClient.ClusterWaitForTransitioning(node.ClusterID, timeout)
 	}
 	return
 }
 
-func (node *RancherNode) rancherAPINodeWaitForState(state string, timeout int) (err error) {
+func (node *Rancher2Node) RancherAPINodeWaitForState(state string, timeout int) (err error) {
 	if node.RancherClient != nil {
 	        err = node.RancherClient.NodeWaitForState(node.NodeID, state, timeout)
 	}
 	return
 }
 
-func (node *RancherNode) rancherAPINodeWaitForGracePeriod(timeout int) (err error) {
+func (node *Rancher2Node) RancherAPINodeWaitForGracePeriod(timeout int) (err error) {
 	if node.RancherClient != nil {
                 giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 		for time.Now().Before(giveupTime) {
@@ -151,7 +122,7 @@ func (node *RancherNode) rancherAPINodeWaitForGracePeriod(timeout int) (err erro
         return
 }
 
-func (node *RancherNode) rancherAPINodeCordon() (err error) {
+func (node *Rancher2Node) RancherAPINodeCordon() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", Wait4ClusterStateTimeout); err == nil {
 			err = node.RancherClient.NodeCordon(node.NodeID)
@@ -160,7 +131,7 @@ func (node *RancherNode) rancherAPINodeCordon() (err error) {
 	return
 }
 
-func (node *RancherNode) rancherAPINodeCordonDrain() (err error) {
+func (node *Rancher2Node) RancherAPINodeCordonDrain() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", Wait4ClusterStateTimeout); err == nil {
 			err = node.RancherClient.NodeCordonDrain(node.NodeID, node.NodeDrainInput)
@@ -169,7 +140,7 @@ func (node *RancherNode) rancherAPINodeCordonDrain() (err error) {
 	return
 }
 
-func (node *RancherNode) rancherAPINodeUncordon() (err error) {
+func (node *Rancher2Node) RancherAPINodeUncordon() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", Wait4ClusterStateTimeout); err == nil {
 			if err = node.RancherClient.NodeWaitForState(node.NodeID, "active,drained,cordoned", Wait4NodeStateTimeout); err == nil {
@@ -182,19 +153,19 @@ func (node *RancherNode) rancherAPINodeUncordon() (err error) {
 	return
 }
 
-func (node *RancherNode) rancherAPINodeDelete() (err error) {
+func (node *Rancher2Node) RancherAPINodeDelete() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		err = node.RancherClient.DeleteNode(node.NodeID)
 	}
 	return
 }
 
-func (node *RancherNode) rancherAPINodeSetAnnotationsLabelsTaints() (err error) {
+func (node *Rancher2Node) RancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 	var computeB, storageB []byte
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		annotations := make(map[string]string)
 		if len(node.NodeConfig.Compute.SpDn) > 0 && len(node.NodeConfig.Compute.BladeAssigned.Dn) > 0 {
-			computeAnnotations := ComputeAnnotations{
+			computeAnnotations := config.ComputeAnnotations{
 				UcsmHost: node.NodeConfig.Compute.UcsmCredentials.Host,
 				SpDn:     node.NodeConfig.Compute.SpDn,
 				Blade:    node.NodeConfig.Compute.BladeAssigned,
@@ -203,10 +174,10 @@ func (node *RancherNode) rancherAPINodeSetAnnotationsLabelsTaints() (err error) 
 				err = fmt.Errorf("json.Marshal(computeAnnotations): %s", err)
 				return
 			}
-			annotations[NodeAnnotationCompute] = string(computeB)
+			annotations[config.NodeAnnotationCompute] = string(computeB)
 		}
 		if len(node.NodeConfig.Storage.SvmName) > 0 {
-			storageAnnotations := StorageAnnotations{
+			storageAnnotations := config.StorageAnnotations{
 				Svm:     node.NodeConfig.Storage.SvmName,
 				Volume:  node.NodeConfig.Storage.VolumeName,
 				Igroup:  node.NodeConfig.Storage.IgroupName,
@@ -220,23 +191,49 @@ func (node *RancherNode) rancherAPINodeSetAnnotationsLabelsTaints() (err error) 
 				err = fmt.Errorf("json.Marshal(storageAnnotations): %s", err)
 				return
 			}
-			annotations[NodeAnnotationStorage] = string(storageB)
+			annotations[config.NodeAnnotationStorage] = string(storageB)
 		}
 		err = node.RancherClient.NodeSetAnnotationsLabelsTaints(node.NodeID, annotations, node.NodeConfig.Labels, node.NodeConfig.Taints)
 	}
 	return
 }
 
-func (node *RancherNode) rancherAPINodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
+func (node *Rancher2Node) RancherAPINodeGetLabels() (labels map[string]string, err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+		labels, err = node.RancherClient.NodeGetLabels(node.NodeID)
+	}
+	return
+}
+
+func (node *Rancher2Node) RancherAPINodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		err = node.RancherClient.NodeUpdateLabels(node.NodeID, oldLabels, newLabels)
 	}
 	return
 }
 
-func (node *RancherNode) rancherAPINodeUpdateTaints(oldTaints []interface{}, newTaints []interface{}) (err error) {
+func (node *Rancher2Node) RancherAPINodeGetTaints() (taints []rancherManagementClient.Taint, err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+		taints, err = node.RancherClient.NodeGetTaints(node.NodeID)
+	}
+	return
+}
+
+func (node *Rancher2Node) RancherAPINodeUpdateTaints(oldTaints []interface{}, newTaints []interface{}) (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		err = node.RancherClient.NodeUpdateTaints(node.NodeID, oldTaints, newTaints)
 	}
 	return
+}
+
+func (node *Rancher2Node) IsNodeEtcd() (bool) {
+        return node.NodeEtcd
+}
+
+func (node *Rancher2Node) IsNodeWorker() (bool) {
+        return node.NodeWorker
+}
+
+func (node *Rancher2Node) IsNodeControlPlane() (bool) {
+        return node.NodeControlPlane
 }

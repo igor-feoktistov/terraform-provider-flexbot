@@ -46,7 +46,7 @@ See below screenshots with configuration details.
 
 There is no requirements on which tool to use to create images.
 Though I highly recommend [diskimage-builder](https://docs.openstack.org/diskimage-builder/latest/) from OpenStack project.
-See [ubuntu-18.04-iboot.sh](https://github.com/igor-feoktistov/terraform-provider-flexbot/blob/master/diskimage-builder/create-ubuntu-18.04-iboot.sh) on how to build iSCSI booted ubuntu-18.04.
+See [ubuntu-20.04-iboot.sh](https://github.com/igor-feoktistov/terraform-provider-flexbot/blob/master/diskimage-builder/create-ubuntu-20.04.sh) on how to build iSCSI booted ubuntu-20.04.
 To manage images and cloud-init templates, use repo resource. Make sure to run provider in local to your FlexPod network.
 The provider is using NFS protocol to upload images. There is no requirements for NFS client.
 NFS client support in the provider is built-in.
