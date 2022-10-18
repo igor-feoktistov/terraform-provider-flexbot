@@ -45,8 +45,9 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 	p := meta.(*config.FlexbotConfig).FlexbotProvider
 	network := d.Get("network").([]interface{})[0].(map[string]interface{})
 	node.ClusterID = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_id"].(string)
+	nodeIP := network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)
         meta.(*config.FlexbotConfig).Sync.Unlock()
-	if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
+	if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, nodeIP); err == nil {
 		if len(node.NodeID) > 0 {
 			node.NodeControlPlane, node.NodeEtcd, node.NodeWorker, err = node.RancherClient.GetNodeRole(node.NodeID)
 		}
@@ -57,7 +58,7 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 			return
 		}
 		for time.Now().Before(giveupTime) {
-			if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+			if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, nodeIP); err != nil {
 			        if !IsNotFound(err) {
 				        return
 				}
@@ -70,6 +71,9 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 			}
 			time.Sleep(1 * time.Second)
 		}
+	        if err == nil && len(node.NodeID) == 0 {
+	                err = fmt.Errorf("Rancher2APIInitialize(): node with IP address %s is not found in the cluster", nodeIP)
+	        }
 	}
 	return
 }

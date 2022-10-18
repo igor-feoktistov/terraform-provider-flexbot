@@ -1,3 +1,9 @@
+## 1.8.1 (October 18, 2022)
+
+BUG FIXES:
+* Minor issue in `Read` routine for scenario when rancher_api is enabled and node failed to join the cluster
+
+
 ## 1.8.0 (October 12, 2022)
 
 ENHANCEMENTS:

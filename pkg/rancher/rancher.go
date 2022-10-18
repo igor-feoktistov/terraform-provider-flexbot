@@ -60,7 +60,7 @@ func DiscoverNode(d *schema.ResourceData, meta interface{}, nodeConfig *config.N
         var node RancherNode
         var labels map[string]string
         var nodeTaints, declaredTaints []rancherManagementClient.Taint
-        if node, err = RancherAPIInitialize(d, meta, nodeConfig, true); err == nil {
+        if node, err = RancherAPIInitialize(d, meta, nodeConfig, false); err == nil {
                 if labels, err = node.RancherAPINodeGetLabels(); err == nil {
                         nodeTaints, err = node.RancherAPINodeGetTaints()
                 }
