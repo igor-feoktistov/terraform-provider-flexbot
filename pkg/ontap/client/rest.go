@@ -12,6 +12,12 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
 
+const (
+        MAX_WAIT_FOR_LUN = 300
+        LUN_SIZE_BASE = 1024 * 1024
+        LUN_SIZE_OVERHEAD = 1024 * 1024
+)
+
 // OntapRestAPI is ontap REST API client
 type OntapRestAPI struct {
 	Client *ontap.Client
@@ -47,11 +53,11 @@ func NewOntapRestAPI(nodeConfig *config.NodeConfig) (c *OntapRestAPI, err error)
 
 // GetAggregateMax finds aggregate with maximum size available
 func (c *OntapRestAPI) GetAggregateMax(nodeConfig *config.NodeConfig) (aggregateName string, err error) {
-	var spaceAvailable int
-	if aggregateName, spaceAvailable, err = util.GetAggregateMax(c.Client); err != nil {
+	var spaceAvailable int64
+	if aggregateName, spaceAvailable, err = util.GetAggregateMax(c.Client, c.Svm); err != nil {
 		err = fmt.Errorf("GetAggregateMax() failure: %s", err)
 	} else {
-		if (nodeConfig.Storage.BootLun.Size*1024*1024*1024+nodeConfig.Storage.DataLun.Size*1024*1024*1024)*2 > spaceAvailable {
+		if (int64(nodeConfig.Storage.BootLun.Size)*1024*1024*1024+int64(nodeConfig.Storage.DataLun.Size)*1024*1024*1024)*2 > spaceAvailable {
 			err = fmt.Errorf("GetAggregateMax(): no aggregates found for requested storage size %dGB", (nodeConfig.Storage.BootLun.Size+nodeConfig.Storage.DataLun.Size)*2)
 		}
 	}
@@ -334,9 +340,46 @@ func (c *OntapRestAPI) IsLunMapped(lunPath string, igroupName string) (mapped bo
 }
 
 // LunCopy copies LUN from src to dst
-func (c *OntapRestAPI) LunCopy(imagePath string, lunPath string) (err error) {
-	if err = util.LunCopy(c.Client, imagePath, lunPath); err != nil {
-		err = fmt.Errorf("LunCopy() failure: %s", err)
+func (c *OntapRestAPI) LunCopy(lunSrcPath string, lunDstPath string) (err error) {
+	volumeDstName := filepath.Base(filepath.Dir(lunDstPath))
+	lunDstName := filepath.Base(lunDstPath)
+	req := ontap.Lun{
+		Resource: ontap.Resource{
+			Name: lunDstPath,
+		},
+		Location: &ontap.LunLocation{
+			LogicalUnit: lunDstName,
+			Volume: &ontap.Resource{
+				Name: volumeDstName,
+			},
+		},
+		Copy: &ontap.LunCopy{
+		        Source: ontap.NameReference{
+		                Name: lunSrcPath,
+		        },
+		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
+	}
+	if _, _, err = c.Client.LunCreate(&req, []string{}); err != nil {
+		err = fmt.Errorf("LunCopy() failure, src LUN %s, dst LUN %s: %s", lunSrcPath, lunDstPath, err)
+	        return
+	}
+	giveupTime := time.Now().Add(time.Second * MAX_WAIT_FOR_LUN)
+	for time.Now().Before(giveupTime) {
+		var lun *ontap.Lun
+		if lun, _, err = c.Client.LunGetByPath(lunDstPath, []string{"fields=status"}); err != nil {
+		        err = fmt.Errorf("LunCopy() failure to get status for LUN %s: %s", lunDstPath, err)
+			break
+		}
+		if lun.Status.State == "online" {
+			return
+		}
+		time.Sleep(time.Second)
+	}
+	if err == nil {
+		err = fmt.Errorf("LunCopy(): destination LUN is not available, maximum wait time exceeded")
 	}
 	return
 }
@@ -347,7 +390,7 @@ func (c *OntapRestAPI) LunResize(lunPath string, lunSize int) (err error) {
 	if lun, _, err = c.LunGet(lunPath); err != nil {
 		return
 	}
-	sizeBytes := lunSize * 1024 * 1024 * 1024
+	sizeBytes := int64(lunSize) * 1024 * 1024 * 1024
 	lunResized := ontap.Lun{
 		Space: &ontap.LunSpace{
 			Size: &sizeBytes,
@@ -399,7 +442,7 @@ func (c *OntapRestAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 func (c *OntapRestAPI) LunCreate(lunPath string, lunSize int) (err error) {
 	volumeName := filepath.Base(filepath.Dir(lunPath))
 	lunName := filepath.Base(lunPath)
-	sizeBytes := lunSize * 1024 * 1024 * 1024
+	sizeBytes := int64(lunSize) * 1024 * 1024 * 1024
 	lun := ontap.Lun{
 		Resource: ontap.Resource{
 			Name: lunPath,
@@ -418,7 +461,7 @@ func (c *OntapRestAPI) LunCreate(lunPath string, lunSize int) (err error) {
 			Size: &sizeBytes,
 		},
 	}
-	if _, err = c.Client.LunCreate(&lun, []string{}); err != nil {
+	if _, _, err = c.Client.LunCreate(&lun, []string{}); err != nil {
 		err = fmt.Errorf("LunCreate() failure: %s", err)
 	}
 	return
@@ -676,6 +719,45 @@ func (c *OntapRestAPI) SnapshotRestore(volumeName string, snapshotName string) (
 	}
 	if _, err = c.Client.VolumeModify(volume.GetRef(), &ontap.Volume{}, []string{"restore_to.snapshot.uuid=" + snapshot.Uuid}); err != nil {
 		err = fmt.Errorf("VolumeModify(): failure: %s", err)
+	}
+	return
+}
+
+// Create LUN and upload data
+func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string) (err error) {
+        var bytesWritten int64
+	lunName := filepath.Base(lunPath)
+	sizeBytes := fileSize + int64(LUN_SIZE_BASE + LUN_SIZE_OVERHEAD)
+	lun := ontap.Lun{
+	        Comment: lunComment,
+		Resource: ontap.Resource{
+			Name: lunPath,
+		},
+		Location: &ontap.LunLocation{
+			LogicalUnit: lunName,
+			Volume: &ontap.Resource{
+				Name: volumeName,
+			},
+		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
+		OsType: "linux",
+		Space: &ontap.LunSpace{
+			Size: &sizeBytes,
+		},
+	}
+	var luns []ontap.Lun
+	if luns, _, err = c.Client.LunCreate(&lun, []string{"return_records=true"}); err != nil {
+		err = fmt.Errorf("LunCreateAndUpload(): LunCreate() failure: %s", err)
+		return
+        }
+	if bytesWritten, _, err = c.Client.LunWrite(luns[0].GetRef(), 0, fileReader); err != nil {
+		err = fmt.Errorf("LunCreateAndUpload(): LunWrite() failure: %s", err)
+		return
+	}
+	if bytesWritten < fileSize {
+		err = fmt.Errorf("LunCreateAndUpload(): LunWrite() short write: expected to write \"%d\", written \"%d\"", fileSize, bytesWritten)
 	}
 	return
 }
