@@ -204,7 +204,7 @@ def handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi):
                     "<iSCSI target name>\": %s" % e)
         return
     if dev_entry_iscsi == 0:
-        (hostname, fqdn) = util.get_hostname_fqdn(cfg, cloud)
+        (hostname, fqdn, is_default) = util.get_hostname_fqdn(cfg, cloud)
         if "initiator_name" in definition:
             initiator_name = definition.get("initiator_name")
         else:

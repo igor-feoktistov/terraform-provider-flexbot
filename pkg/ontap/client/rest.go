@@ -725,9 +725,9 @@ func (c *OntapRestAPI) SnapshotRestore(volumeName string, snapshotName string) (
 
 // Create LUN and upload data
 func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string) (err error) {
-        var bytesWritten int64
+        var sizeBytes, bytesWritten int64
+	sizeBytes = fileSize + int64(LUN_SIZE_BASE + LUN_SIZE_OVERHEAD)
 	lunName := filepath.Base(lunPath)
-	sizeBytes := fileSize + int64(LUN_SIZE_BASE + LUN_SIZE_OVERHEAD)
 	lun := ontap.Lun{
 	        Comment: lunComment,
 		Resource: ontap.Resource{
@@ -757,7 +757,7 @@ func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fi
 		return
 	}
 	if bytesWritten < fileSize {
-		err = fmt.Errorf("LunCreateAndUpload(): LunWrite() short write: expected to write \"%d\", written \"%d\"", fileSize, bytesWritten)
+		err = fmt.Errorf("LunCreateAndUpload(): LunWrite() short write: expected to write \"%d\" bytes, written \"%d\" bytes", fileSize, bytesWritten)
 	}
 	return
 }

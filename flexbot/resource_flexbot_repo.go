@@ -235,6 +235,7 @@ func setRepoInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.
 	nodeConfig.Storage.CdotCredentials.Host = cdotCredentials["host"].(string)
 	nodeConfig.Storage.CdotCredentials.User = cdotCredentials["user"].(string)
 	nodeConfig.Storage.CdotCredentials.Password = cdotCredentials["password"].(string)
+	nodeConfig.Storage.CdotCredentials.ApiMethod = cdotCredentials["api_method"].(string)
 	nodeConfig.Storage.CdotCredentials.ZapiVersion = cdotCredentials["zapi_version"].(string)
 	if err = config.SetDefaults(nodeConfig, "", "", "", p.Get("pass_phrase").(string)); err != nil {
 		err = fmt.Errorf("SetDefaults(): failure: %s", err)
