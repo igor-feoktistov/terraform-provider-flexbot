@@ -1,4 +1,4 @@
-## 1.8.2 (November 29, 2022)
+## 1.8.2 (November 30, 2022)
 
 ENHANCEMENTS:
 * Multiple improvements in ONTAP REST API client
