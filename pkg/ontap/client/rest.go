@@ -120,6 +120,9 @@ func (c *OntapRestAPI) VolumeCreateSAN(volumeName string, aggregateName string, 
 				ReservePercent: &snapReservePct,
 			},
 		},
+		SnapshotPolicy: &ontap.Resource{
+		        Name: "none",
+		},
 	}
 	if _, err = c.Client.VolumeCreate(&volume, []string{}); err != nil {
 		err = fmt.Errorf("VolumeCreate() failure: %s", err)
