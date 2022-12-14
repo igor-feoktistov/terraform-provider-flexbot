@@ -68,10 +68,12 @@ func CreateRepoImage(nodeConfig *config.NodeConfig, imageName string, imagePath 
 			return
 		}
 	}
+	var imageSize int64
 	if strings.HasPrefix(imagePath, "http://") || strings.HasPrefix(imagePath, "https://") {
 		var httpResponse *http.Response
 		if httpResponse, err = http.Get(imagePath); err == nil {
 			fileReader = httpResponse.Body
+			imageSize = 0
 			defer httpResponse.Body.Close()
 		} else {
 			err = fmt.Errorf("CreateRepoImage(): failure to open file %s: %s", imagePath, err)
@@ -79,6 +81,7 @@ func CreateRepoImage(nodeConfig *config.NodeConfig, imageName string, imagePath 
 		}
 	} else {
 		var file *os.File
+		var fileInfo os.FileInfo
 		if strings.HasPrefix(imagePath, "file://") {
 			file, err = os.Open(imagePath[7:])
 		} else {
@@ -89,15 +92,17 @@ func CreateRepoImage(nodeConfig *config.NodeConfig, imageName string, imagePath 
 			return
 		}
 		fileReader = file
+		if fileInfo, err = file.Stat(); err != nil {
+			err = fmt.Errorf("CreateRepoImage(): failure in Stat() for file %s: %s", imagePath, err)
+			return
+		}
+		imageSize = int64(fileInfo.Size())
 		defer file.Close()
 	}
-	if err = c.FileUploadNFS(nodeConfig.Storage.ImageRepoName, "/_"+imageName, fileReader); err != nil {
+	if err = c.LunCreateAndUpload(nodeConfig.Storage.ImageRepoName, "/_"+imageName, imageSize, fileReader, "/vol/"+nodeConfig.Storage.ImageRepoName+"/"+imageName, imageName); err != nil {
 		err = fmt.Errorf("CreateRepoImage(): %s", err)
 		return
-	}
-	if err = c.LunCreateFromFile(nodeConfig.Storage.ImageRepoName, "/_"+imageName, "/vol/"+nodeConfig.Storage.ImageRepoName+"/"+imageName, imageName); err != nil {
-		err = fmt.Errorf("CreateRepoImage(): %s", err)
-	}
+        }
 	return
 }
 

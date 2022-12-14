@@ -204,8 +204,8 @@ The following arguments are supported:
   * `host` - (Required) SVM host name or IP address
   * `user` - (Required) Username, can be encrypted by `flexbot-crypt` (string).
   * `password` - (Required) Password, can be encrypted by `flexbot-crypt` (string).
-  * `api_method` - (Optional) ONTAP API method is either `zapi` or `rest`. Method `rest` is experimental and still under development (string, default is `zapi`).
-  * `zapi_version` - (Optional) Typically not required except some older ONTAP releases (string).
+  * `api_method` - (Optional) ONTAP API method is either `zapi` or `rest`. Method `rest` requires ONTAP v9.12 or higher (string, default is `zapi`).
+  * `zapi_version` - (Optional) Typically not required except some old ONTAP releases. Will be deprecated in the future (string).
 
 #### `rancher_api`
 

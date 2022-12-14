@@ -524,3 +524,19 @@ func (c *OntapZAPI) SnapshotRestore(volumeName string, snapshotName string) (err
 	}
 	return
 }
+
+// Create LUN and upload data
+func (c *OntapZAPI) LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string) (err error) {
+        if filePath == "/seed" {
+	        err = c.FileUploadAPI(volumeName, filePath, fileReader)
+	} else {
+	        err = c.FileUploadNFS(volumeName, filePath, fileReader)
+	}
+	if err == nil {
+	        err = c.LunCreateFromFile(volumeName, filePath, lunPath, lunComment)
+	}
+	if err != nil {
+	        err = fmt.Errorf("LunCreateAndUpload(): %s", err)
+        }
+        return
+}

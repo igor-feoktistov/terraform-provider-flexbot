@@ -30,6 +30,7 @@ type OntapClient interface {
 	LunUnmap(lunPath string, igroupName string) error
 	LunCreate(lunPath string, lunSize int) error
 	LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string) error
+	LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string) error
 	LunDestroy(lunPath string) error
 	IscsiTargetGetName() (string, error)
 	DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) ([]string, error)

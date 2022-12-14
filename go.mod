@@ -4,9 +4,8 @@ go 1.19
 
 require (
 	github.com/denisbrodbeck/machineid v1.0.1
-	github.com/hashicorp/go-version v1.2.1
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.0.0
-	github.com/igor-feoktistov/go-ontap-rest v1.0.3
+	github.com/igor-feoktistov/go-ontap-rest v1.0.9
 	github.com/igor-feoktistov/go-ontap-sdk v1.0.5
 	github.com/igor-feoktistov/go-ucsm-sdk v1.0.6
 	github.com/infobloxopen/infoblox-go-client v1.1.0
@@ -56,6 +55,7 @@ require (
 	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/hashicorp/go-plugin v1.3.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
+	github.com/hashicorp/go-version v1.2.0 // indirect
 	github.com/hashicorp/hcl/v2 v2.3.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/imdario/mergo v0.3.7 // indirect

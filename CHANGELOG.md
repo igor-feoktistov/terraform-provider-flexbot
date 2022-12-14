@@ -1,3 +1,9 @@
+## 1.8.2 (December 14, 2022)
+
+ENHANCEMENTS:
+* Multiple improvements in ONTAP REST API client
+  * api_method=`rest` is stable now, requires OnTap v9.12 or higher
+
 ## 1.8.1 (October 18, 2022)
 
 BUG FIXES:

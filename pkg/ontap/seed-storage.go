@@ -96,32 +96,28 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 		return
 	}
-	if fileExists {
-		var lunExists bool
-		if lunExists, err = c.LunExists(seedLunPath); err != nil {
-			err = fmt.Errorf("CreateSeedStorage(): %s", err)
+	var lunExists bool
+	if lunExists, err = c.LunExists(seedLunPath); err != nil {
+	        err = fmt.Errorf("CreateSeedStorage(): %s", err)
+		return
+	}
+	if lunExists {
+	        _ = c.LunUnmap(seedLunPath, nodeConfig.Storage.IgroupName)
+		if err = c.LunDestroy(seedLunPath); err != nil {
+		        err = fmt.Errorf("CreateSeedStorage(): %s", err)
 			return
 		}
-		if lunExists {
-			_ = c.LunUnmap(seedLunPath, nodeConfig.Storage.IgroupName)
-			if err = c.LunDestroy(seedLunPath); err != nil {
-				err = fmt.Errorf("CreateSeedStorage(): %s", err)
-				return
-			}
-		}
+	}
+	if fileExists {
 		if err = c.FileDelete(nodeConfig.Storage.VolumeName, "/seed"); err != nil {
 			err = fmt.Errorf("CreateSeedStorage(): %s", err)
 			return
 		}
 	}
-	if err = c.FileUploadAPI(nodeConfig.Storage.VolumeName, "/seed", isoReader); err != nil {
+	if err = c.LunCreateAndUpload(nodeConfig.Storage.VolumeName, "/seed", int64(isoBuffer.Len()), isoReader, seedLunPath, nodeConfig.Storage.SeedLun.SeedTemplate.Location); err != nil {
 		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 		return
-	}
-	if err = c.LunCreateFromFile(nodeConfig.Storage.VolumeName, "/seed", seedLunPath, nodeConfig.Storage.SeedLun.SeedTemplate.Location); err != nil {
-		err = fmt.Errorf("CreateSeedStorage(): %s", err)
-		return
-	}
+        }
 	if err = c.LunMap(seedLunPath, nodeConfig.Storage.SeedLun.Id, nodeConfig.Storage.IgroupName); err != nil {
 		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 	}
