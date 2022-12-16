@@ -1,3 +1,9 @@
+## 1.8.3 (December 16, 2022)
+
+BUG FIXES:
+* Minor issue in `ranche2-client.NodeCordonDrain` routine for scenario when drain timeout exceeded.
+
+
 ## 1.8.2 (December 14, 2022)
 
 ENHANCEMENTS:
