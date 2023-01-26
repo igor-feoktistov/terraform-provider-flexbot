@@ -1,0 +1,8 @@
+if [[ $DISTRO_NAME =~ "centos" ]]; then
+
+    DIB_DRACUT_ENABLED_MODULES+="
+- name: network
+- name: iscsi
+    "
+    export DIB_DRACUT_ENABLED_MODULES
+fi

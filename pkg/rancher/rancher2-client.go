@@ -228,7 +228,7 @@ func (client *Rancher2Client) GetNodeByID(nodeID string) (node *managementClient
 }
 
 // GetNode gets Rancher node by cluster ID and node IP address
-func (client *Rancher2Client) GetNodeByAddr(clusterID string, nodeIPAddr string) (nodeID string, err error) {
+func (client *Rancher2Client) GetNodeByAddr(clusterID string, nodeIPAddr string) (cluster *managementClient.Cluster, node *managementClient.Node, nodeID string, err error) {
 	var clusters *managementClient.ClusterCollection
 	var nodes *managementClient.NodeCollection
 	filters := map[string]interface{}{
@@ -236,6 +236,7 @@ func (client *Rancher2Client) GetNodeByAddr(clusterID string, nodeIPAddr string)
 	}
 	clusters, err = client.GetClusterList(NewListOpts(filters))
 	if err == nil && len(clusters.Data) > 0 {
+	        cluster = &clusters.Data[0]
 		filters := map[string]interface{}{
 			"clusterId": clusterID,
 			"ipAddress": nodeIPAddr,
@@ -243,6 +244,7 @@ func (client *Rancher2Client) GetNodeByAddr(clusterID string, nodeIPAddr string)
 		nodes, err = client.GetNodeList(NewListOpts(filters))
 		if err == nil && len(nodes.Data) > 0 {
 			nodeID = nodes.Data[0].ID
+			node = &nodes.Data[0]
 		}
 	}
 	if err != nil {

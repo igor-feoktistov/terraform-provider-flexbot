@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+cd /usr/local/cloud-init/scripts
+for SCRIPT in `ls | sort`; do
+  echo "Running ${SCRIPT}:"
+  . ./${SCRIPT}
+done

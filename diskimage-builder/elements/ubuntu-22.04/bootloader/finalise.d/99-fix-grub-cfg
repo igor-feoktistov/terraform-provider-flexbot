@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Fix for console and disable IPv6.
+
+if [ ${DIB_DEBUG_TRACE:-1} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+if [ -d /boot/grub2 ]; then
+    GRUB_CFG=/boot/grub2/grub.cfg
+elif [ -d /boot/grub ]; then
+    GRUB_CFG=/boot/grub/grub.cfg
+fi
+
+sed -i 's%\(linux[[:blank:]]*/boot/vmlinuz-[0-9\.-]*-generic root=LABEL=rootfs ro\)[[:blank:]]*console.*%\1 console=tty1 console=ttyS0 fsck.mode=force fsck.repair=yes%g' $GRUB_CFG
+
+chmod 600 /boot/grub/grub.cfg

@@ -32,6 +32,8 @@ type RancherNode interface {
         IsNodeControlPlane() (bool)
         IsNodeWorker() (bool)
         IsNodeEtcd() (bool)
+        IsProviderRKE1() (bool)
+        IsProviderRKE2() (bool)
 }
 
 func RancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node RancherNode, err error) {
