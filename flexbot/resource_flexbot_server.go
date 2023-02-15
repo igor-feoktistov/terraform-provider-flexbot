@@ -536,8 +536,8 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 				return
 			}
                 }
-		// Delete etcd/controlplane node
-		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() {
+		// Delete etcd/controlplane node or RKE2 worker node
+		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() || rancherNode.IsProviderRKE2() {
 			if err = rancherNode.RancherAPINodeDelete(); err == nil {
 			        rancherNode.RancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
 				err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout)
@@ -599,7 +599,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 				}
 			}
 		}
-		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() {
+		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() || rancherNode.IsProviderRKE2() {
 			rancherNode.RancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
 		        if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err == nil {
 		                err = rancherNode.RancherAPINodeGetID(d, meta);
@@ -611,7 +611,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		        }
 		}
 		// Uncordon worker nodes
-		if rancherNode.IsNodeWorker() {
+		if rancherNode.IsNodeWorker() && rancherNode.IsProviderRKE1() {
 		        if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err == nil {
 			        err = rancherNode.RancherAPINodeUncordon()
 			}

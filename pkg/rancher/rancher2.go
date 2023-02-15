@@ -17,6 +17,7 @@ type Rancher2Node struct {
 	NodeConfig       *config.NodeConfig
 	NodeDrainInput   *rancherManagementClient.NodeDrainInput
 	ClusterID        string
+	ClusterProvider  string
 	NodeID           string
 	NodeControlPlane bool
 	NodeEtcd         bool
@@ -24,6 +25,8 @@ type Rancher2Node struct {
 }
 
 func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node *Rancher2Node, err error) {
+        var clientCluster *rancherManagementClient.Cluster
+        var clientNode *rancherManagementClient.Node
         node = &Rancher2Node{
 	        NodeConfig:       nodeConfig,
 		NodeControlPlane: false,
@@ -47,9 +50,12 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 	node.ClusterID = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_id"].(string)
 	nodeIP := network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)
         meta.(*config.FlexbotConfig).Sync.Unlock()
-	if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, nodeIP); err == nil {
+	if clientCluster, clientNode, node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, nodeIP); err == nil {
 		if len(node.NodeID) > 0 {
-			node.NodeControlPlane, node.NodeEtcd, node.NodeWorker, err = node.RancherClient.GetNodeRole(node.NodeID)
+			node.NodeControlPlane = clientNode.ControlPlane
+			node.NodeEtcd = clientNode.Etcd
+			node.NodeWorker = clientNode.Worker
+			node.ClusterProvider = clientCluster.Provider
 		}
 	}
 	if waitForNode && meta.(*config.FlexbotConfig).WaitForNodeTimeout > 0 {
@@ -58,14 +64,17 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 			return
 		}
 		for time.Now().Before(giveupTime) {
-			if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, nodeIP); err != nil {
+			if clientCluster, clientNode, node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, nodeIP); err != nil {
 			        if !IsNotFound(err) {
 				        return
 				}
 			}
 			if len(node.NodeID) > 0 {
 				if err = node.RancherClient.NodeWaitForState(node.NodeID, "active", int(math.Round(time.Until(giveupTime).Seconds()))); err == nil {
-					node.NodeControlPlane, node.NodeEtcd, node.NodeWorker, err = node.RancherClient.GetNodeRole(node.NodeID)
+			                node.NodeControlPlane = clientNode.ControlPlane
+			                node.NodeEtcd = clientNode.Etcd
+			                node.NodeWorker = clientNode.Worker
+			                node.ClusterProvider = clientCluster.Provider
 				}
 				return
 			}
@@ -83,7 +92,7 @@ func (node *Rancher2Node) RancherAPINodeGetID(d *schema.ResourceData, meta inter
                 meta.(*config.FlexbotConfig).Sync.Lock()
 	        network := d.Get("network").([]interface{})[0].(map[string]interface{})
                 meta.(*config.FlexbotConfig).Sync.Unlock()
-	        if node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+	        if _, _, node.NodeID, err = node.RancherClient.GetNodeByAddr(node.ClusterID, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
 			err = fmt.Errorf("rancherAPINodeGetID(): node %s not found", node.NodeConfig.Compute.HostName)
 		}
 	}
@@ -240,4 +249,12 @@ func (node *Rancher2Node) IsNodeWorker() (bool) {
 
 func (node *Rancher2Node) IsNodeControlPlane() (bool) {
         return node.NodeControlPlane
+}
+
+func (node *Rancher2Node) IsProviderRKE1() (bool) {
+        return node.ClusterProvider == "rke"
+}
+
+func (node *Rancher2Node) IsProviderRKE2() (bool) {
+        return node.ClusterProvider == "rke2"
 }

@@ -214,3 +214,11 @@ func (node *RkeNode) IsNodeWorker() (bool) {
 func (node *RkeNode) IsNodeEtcd() (bool) {
         return node.NodeEtcd
 }
+
+func (node *RkeNode) IsProviderRKE1() (bool) {
+        return true
+}
+
+func (node *RkeNode) IsProviderRKE2() (bool) {
+        return false
+}

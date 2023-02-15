@@ -1,3 +1,10 @@
+## 1.8.4 (February 14, 2023)
+
+ENHANCEMENTS:
+* Minor enhancements in `rancher_api` code to support nodes upgrades for RKE2
+* Added diskimage-builder elements and build script for ubuntu-22.04
+
+
 ## 1.8.3 (December 16, 2022)
 
 BUG FIXES:
