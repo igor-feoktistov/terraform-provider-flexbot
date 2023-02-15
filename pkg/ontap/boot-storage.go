@@ -220,7 +220,7 @@ func DeleteBootStorage(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
-// DeleteBootLUNs deletes LUN's preserving hosting volumes
+// DeleteBootLUNs deletes LUN's and NVME namespaces preserving hosting volumes
 func DeleteBootLUNs(nodeConfig *config.NodeConfig) (err error) {
 	var c client.OntapClient
 	errorFormat := "DeleteBootLUNs(): %s"
@@ -261,8 +261,10 @@ func DeleteBootLUNs(nodeConfig *config.NodeConfig) (err error) {
 	if fileExists {
 		if err = c.FileDelete(nodeConfig.Storage.VolumeName, "/seed"); err != nil {
 			err = fmt.Errorf(errorFormat, err)
+			return
 		}
 	}
+        err = DeleteNvmeStorage(nodeConfig)
 	return
 }
 

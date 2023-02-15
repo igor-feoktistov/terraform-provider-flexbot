@@ -2,6 +2,7 @@
 
 ENHANCEMENTS:
 * Added NVME over TCP support for data disk.
+  * Requires api_method=`rest` and OnTap v9.12 or higher.
   * See resource documentation for more details.
 
 

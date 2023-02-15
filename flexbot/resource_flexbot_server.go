@@ -574,6 +574,10 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
+		if err = ontap.CreateNvmeStorage(nodeConfig); err != nil {
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
 		if err = ontap.CreateSeedStorage(nodeConfig); err != nil {
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 			return
@@ -1164,6 +1168,9 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 		nvmeHost := network["nvme_host"].([]interface{})[i].(map[string]interface{})
 		nodeConfig.Network.NvmeHost = append(nodeConfig.Network.NvmeHost, config.NvmeHost{})
 		nodeConfig.Network.NvmeHost[i].HostInterface = nvmeHost["host_interface"].(string)
+		nodeConfig.Network.NvmeHost[i].Ip = nvmeHost["ip"].(string)
+		nodeConfig.Network.NvmeHost[i].Subnet = nvmeHost["subnet"].(string)
+		nodeConfig.Network.NvmeHost[i].HostNqn = nvmeHost["host_nqn"].(string)
 		nodeConfig.Network.NvmeHost[i].NvmeTarget = &config.NvmeTarget{}
 		if len(nvmeHost["nvme_target"].([]interface{})) > 0 {
 			nodeConfig.Network.NvmeHost[i].NvmeTarget.TargetNqn = nvmeHost["nvme_target"].([]interface{})[0].(map[string]interface{})["target_nqn"].(string)
@@ -1297,6 +1304,8 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	for i := range network["nvme_host"].([]interface{}) {
 		nvmeHost := network["nvme_host"].([]interface{})[i].(map[string]interface{})
 		nvmeHost["host_interface"] = nodeConfig.Network.NvmeHost[i].HostInterface
+		nvmeHost["ip"] = nodeConfig.Network.NvmeHost[i].Ip
+		nvmeHost["subnet"] = nodeConfig.Network.NvmeHost[i].Subnet
 		nvmeHost["host_nqn"] = nodeConfig.Network.NvmeHost[i].HostNqn
 		if len(nvmeHost["nvme_target"].([]interface{})) == 0 {
 			if nodeConfig.Network.NvmeHost[i].NvmeTarget != nil {
