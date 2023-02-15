@@ -44,10 +44,31 @@ type OntapClient interface {
 	SnapshotCreate(volumeName string, snapshotName string, snapshotComment string) error
 	SnapshotDelete(volumeName string, snapshotName string) (err error)
 	SnapshotRestore(volumeName string, snapshotName string) error
+	NvmeTargetGetNqn(subsystemName string) (string, error)
+        NvmeSubsystemExists(subsystemName string) (bool, error)
+        NvmeSubsystemCreate(subsystemName string) error
+        NvmeSubsystemDestroy(subsystemName string) error
+        NvmeSubsystemAddHost(subsystemName string, hostNqn string) error
+	NvmeNamespaceExists(namespacePath string) (bool, error)
+	NvmeNamespaceGetInfo(namespacePath string) (*NvmeNamespaceInfo, error)
+	IsNvmeNamespaceMapped(namespacePath string) (bool, error)
+	NvmeNamespaceResize(namespacePath string, namespaceSize int) error
+	NvmeNamespaceMap(namespacePath string, subsystemName string) error
+	NvmeNamespaceUnmap(namespacePath string) error
+	NvmeNamespaceCreate(namespacePath string, namespaceSize int) error
+	NvmeNamespaceDestroy(namespacePath string) error
+        GetNvmeLIFs() ([]string, error)
+	DiscoverNvmeLIFs(namespacePath string, hostSubnet string) ([]string, error)
 }
 
 // LunInfo is generic LUN info
 type LunInfo struct {
+	Comment string
+	Size    int
+}
+
+// NvmeNamespaceInfo is generic NVME Namespace info
+type NvmeNamespaceInfo struct {
 	Comment string
 	Size    int
 }

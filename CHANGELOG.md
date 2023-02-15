@@ -1,3 +1,10 @@
+## 1.9.0 (February 15, 2023)
+
+ENHANCEMENTS:
+* Added NVME over TCP support for data disk.
+  * See resource documentation for more details.
+
+
 ## 1.8.4 (February 14, 2023)
 
 ENHANCEMENTS:

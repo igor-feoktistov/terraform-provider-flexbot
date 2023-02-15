@@ -540,3 +540,78 @@ func (c *OntapZAPI) LunCreateAndUpload(volumeName string, filePath string, fileS
         }
         return
 }
+
+// Check if NVME Subsystem exists
+func (c *OntapZAPI) NvmeSubsystemExists(subsystemName string) (exists bool, err error) {
+        return
+}
+
+// Create NVME Subsystem
+func (c *OntapZAPI) NvmeSubsystemCreate(subsystemName string) (err error) {
+        return
+}
+
+// Destroy NVME Subsystem
+func (c *OntapZAPI) NvmeSubsystemDestroy(subsystemName string) (err error) {
+        return
+}
+
+// Add Host to NVME Subsystem
+func (c *OntapZAPI) NvmeSubsystemAddHost(subsystemName string, hostNqn string) (err error) {
+        return
+}
+
+// Check if NVME Namespace exists
+func (c *OntapZAPI) NvmeNamespaceExists(namespacePath string) (exists bool, err error) {
+        return
+}
+
+// NvmeNamespaceGetInfo gets generic NVME namespace attributes
+func (c *OntapZAPI) NvmeNamespaceGetInfo(namespacePath string) (namespaceInfo *NvmeNamespaceInfo, err error) {
+        return
+}
+
+// Check if NVME Namespace is mapped to NVME Subsystem
+func (c *OntapZAPI) IsNvmeNamespaceMapped(namespacePath string) (mapped bool, err error) {
+        return
+}
+
+// Resize NVME Namespace
+func (c *OntapZAPI) NvmeNamespaceResize(namespacePath string, namespaceSize int) (err error) {
+        return
+}
+
+// Map NVME Namespace to NVME Subsystem
+func (c *OntapZAPI) NvmeNamespaceMap(namespacePath string, subsystemName string) (err error) {
+        return
+}
+
+// Remove NVME Namespace mapping to NVME Subsystem
+func (c *OntapZAPI) NvmeNamespaceUnmap(namespacePath string) (err error) {
+        return
+}
+
+// Create NVME Namespace
+func (c *OntapZAPI) NvmeNamespaceCreate(namespacePath string, namespaceSize int) (err error) {
+        return
+}
+
+// Destroy NVME Namespace
+func (c *OntapZAPI) NvmeNamespaceDestroy(namespacePath string) (err error) {
+        return
+}
+
+// Retrieve NVME Subsystem target NQN
+func (c *OntapZAPI) NvmeTargetGetNqn(subsystemName string) (targetNqn string, err error) {
+        return
+}
+
+// GetNvmeLIFs get list of NVME interfaces
+func (c *OntapZAPI) GetNvmeLIFs() (lifs []string, err error) {
+        return
+}
+
+// DiscoverNvmeLIFs get list of NVME interfaces for NVME Namespace
+func (c *OntapZAPI) DiscoverNvmeLIFs(namespacePath string, hostSubnet string) (lifs []string, err error) {
+        return
+}

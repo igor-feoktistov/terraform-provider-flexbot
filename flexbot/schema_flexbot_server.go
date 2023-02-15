@@ -330,6 +330,36 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 							},
 						},
 					},
+					"data_nvme": {
+						Type:     schema.TypeList,
+						Optional: true,
+						MaxItems: 1,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"namespace": {
+									Type:     schema.TypeString,
+									Optional: true,
+									Computed: true,
+								},
+								"subsystem": {
+									Type:     schema.TypeString,
+									Optional: true,
+									Computed: true,
+								},
+								"size": {
+									Type:     schema.TypeInt,
+									Required: true,
+									ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+										v := val.(int)
+										if v < 0 || v > 4096 {
+											errs = append(errs, fmt.Errorf("%q must be between 0 and 4096 inclusive, got: %d", key, v))
+										}
+										return
+									},
+								},
+							},
+						},
+					},
 					"auto_snapshot_on_update": {
 						Type:     schema.TypeBool,
 						Optional: true,
@@ -612,6 +642,45 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 							},
 						},
 					},
+					"nvme_host": {
+						Type:     schema.TypeList,
+						Required: true,
+						MaxItems: 2,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"host_interface": {
+									Type:     schema.TypeString,
+									Required: true,
+								},
+								"host_nqn": {
+									Type:     schema.TypeString,
+									Optional: true,
+									Computed: true,
+								},
+								"nvme_target": {
+									Type:     schema.TypeList,
+									Optional: true,
+									Computed: true,
+									MaxItems: 1,
+									Elem: &schema.Resource{
+										Schema: map[string]*schema.Schema{
+											"target_nqn": {
+												Type:     schema.TypeString,
+												Optional: true,
+												Computed: true,
+											},
+											"interfaces": {
+												Type:     schema.TypeList,
+												Optional: true,
+												Computed: true,
+												Elem:     &schema.Schema{Type: schema.TypeString},
+											},
+										},
+									},
+								},
+							},
+                                                },
+                                        },
 				},
 			},
 		},

@@ -143,6 +143,9 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 		_, err = ucsm.CreateServer(nodeConfig)
 	}
 	if err == nil {
+		err = ontap.CreateNvmeStorage(nodeConfig)
+	}
+	if err == nil {
 		err = ontap.CreateSeedStorage(nodeConfig)
 	}
 	if err == nil {
@@ -1107,6 +1110,12 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 		nodeConfig.Storage.DataLun.Name = dataLun["name"].(string)
 		nodeConfig.Storage.DataLun.Size = dataLun["size"].(int)
 	}
+	if len(storage["data_nvme"].([]interface{})) > 0 {
+		dataNvme := storage["data_nvme"].([]interface{})[0].(map[string]interface{})
+		nodeConfig.Storage.DataNvme.Namespace = dataNvme["namespace"].(string)
+		nodeConfig.Storage.DataNvme.Subsystem = dataNvme["subsystem"].(string)
+		nodeConfig.Storage.DataNvme.Size = dataNvme["size"].(int)
+	}
 	network := d.Get("network").([]interface{})[0].(map[string]interface{})
 	for i := range network["node"].([]interface{}) {
 		node := network["node"].([]interface{})[i].(map[string]interface{})
@@ -1148,6 +1157,18 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 			nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = initiator["iscsi_target"].([]interface{})[0].(map[string]interface{})["node_name"].(string)
 			for _, targetAddr := range initiator["iscsi_target"].([]interface{})[0].(map[string]interface{})["interfaces"].([]interface{}) {
 				nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, targetAddr.(string))
+			}
+		}
+	}
+	for i := range network["nvme_host"].([]interface{}) {
+		nvmeHost := network["nvme_host"].([]interface{})[i].(map[string]interface{})
+		nodeConfig.Network.NvmeHost = append(nodeConfig.Network.NvmeHost, config.NvmeHost{})
+		nodeConfig.Network.NvmeHost[i].HostInterface = nvmeHost["host_interface"].(string)
+		nodeConfig.Network.NvmeHost[i].NvmeTarget = &config.NvmeTarget{}
+		if len(nvmeHost["nvme_target"].([]interface{})) > 0 {
+			nodeConfig.Network.NvmeHost[i].NvmeTarget.TargetNqn = nvmeHost["nvme_target"].([]interface{})[0].(map[string]interface{})["target_nqn"].(string)
+			for _, targetAddr := range nvmeHost["nvme_target"].([]interface{})[0].(map[string]interface{})["interfaces"].([]interface{}) {
+				nodeConfig.Network.NvmeHost[i].NvmeTarget.Interfaces = append(nodeConfig.Network.NvmeHost[i].NvmeTarget.Interfaces, targetAddr.(string))
 			}
 		}
 	}
@@ -1230,6 +1251,15 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 		}
 		storage["data_lun"].([]interface{})[0] = dataLun
 	}
+	if len(storage["data_nvme"].([]interface{})) > 0 {
+		dataNvme := storage["data_nvme"].([]interface{})[0].(map[string]interface{})
+		dataNvme["namespace"] = nodeConfig.Storage.DataNvme.Namespace
+		dataNvme["subsystem"] = nodeConfig.Storage.DataNvme.Subsystem
+		if nodeConfig.Storage.DataNvme.Size > 0 {
+			dataNvme["size"] = nodeConfig.Storage.DataNvme.Size
+		}
+		storage["data_nvme"].([]interface{})[0] = dataNvme
+	}
 	storage["snapshots"] = []string{}
 	for _, snapshot := range nodeConfig.Storage.Snapshots {
 		storage["snapshots"] = append(storage["snapshots"].([]string), snapshot)
@@ -1263,6 +1293,23 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 			}
 		}
 		network["iscsi_initiator"].([]interface{})[i] = initiator
+	}
+	for i := range network["nvme_host"].([]interface{}) {
+		nvmeHost := network["nvme_host"].([]interface{})[i].(map[string]interface{})
+		nvmeHost["host_interface"] = nodeConfig.Network.NvmeHost[i].HostInterface
+		nvmeHost["host_nqn"] = nodeConfig.Network.NvmeHost[i].HostNqn
+		if len(nvmeHost["nvme_target"].([]interface{})) == 0 {
+			if nodeConfig.Network.NvmeHost[i].NvmeTarget != nil {
+				nvmeTarget := make(map[string]interface{})
+				nvmeTarget["target_nqn"] = nodeConfig.Network.NvmeHost[i].NvmeTarget.TargetNqn
+				nvmeTarget["interfaces"] = []string{}
+				for _, iface := range nodeConfig.Network.NvmeHost[i].NvmeTarget.Interfaces {
+					nvmeTarget["interfaces"] = append(nvmeTarget["interfaces"].([]string), iface)
+				}
+				nvmeHost["nvme_target"] = append(nvmeHost["nvme_target"].([]interface{}), nvmeTarget)
+			}
+		}
+		network["nvme_host"].([]interface{})[i] = nvmeHost
 	}
 	labels := make(map[string]interface{})
 	for labelKey, labelValue := range nodeConfig.Labels {

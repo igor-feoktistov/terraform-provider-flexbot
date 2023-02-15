@@ -764,3 +764,287 @@ func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fi
 	}
 	return
 }
+
+// NvmeSubsystemGet gets NVME Subsystem attributes
+func (c *OntapRestAPI) NvmeSubsystemGet(subsystemName string) (subsystem *ontap.NvmeSubsystem, res *ontap.RestResponse, err error) {
+	var subsystems []ontap.NvmeSubsystem
+	if subsystems, res, err = c.Client.NvmeSubsystemGetIter([]string{"name=" + subsystemName}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemGetIter() failure: %s", err)
+		return
+	}
+	if len(subsystems) > 0 {
+		subsystem = &subsystems[0]
+	} else {
+		res.ErrorResponse.Error.Code = ontap.ERROR_ENTRY_DOES_NOT_EXIST
+		err = fmt.Errorf("NvmeSubsystemGet() failure: NVME Subsystem \"%s\" not found", subsystemName)
+	}
+	return
+}
+
+// Check if NVME Subsystem exists
+func (c *OntapRestAPI) NvmeSubsystemExists(subsystemName string) (exists bool, err error) {
+	var subsystems []ontap.NvmeSubsystem
+	if subsystems, _, err = c.Client.NvmeSubsystemGetIter([]string{"name=" + subsystemName}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemGetIter() failure: %s", err)
+	} else {
+		if len(subsystems) > 0 {
+			exists = true
+		} else {
+			exists = false
+		}
+	}
+	return
+}
+
+// Create NVME Subsystem
+func (c *OntapRestAPI) NvmeSubsystemCreate(subsystemName string) (err error) {
+	deleteOnUnmap := false
+	subsystem := ontap.NvmeSubsystem{
+	        DeleteOnUnmap: &deleteOnUnmap,
+		Name: subsystemName,
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
+		OsType: "linux",
+	}
+	if _, _, err := c.Client.NvmeSubsystemCreate(&subsystem, []string{}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemCreate() failure: %s", err)
+        }
+        return
+}
+
+// Destroy NVME Subsystem
+func (c *OntapRestAPI) NvmeSubsystemDestroy(subsystemName string) (err error) {
+	var subsystem *ontap.NvmeSubsystem
+	var res *ontap.RestResponse
+	if subsystem, res, err = c.NvmeSubsystemGet(subsystemName); err != nil {
+		if res.ErrorResponse.Error.Code == ontap.ERROR_ENTRY_DOES_NOT_EXIST {
+			err = nil
+		} else {
+			err = fmt.Errorf("NvmeSubsystemGet(): failure: %s", err)
+		}
+		return
+	}
+	if _, err = c.Client.NvmeSubsystemDelete(subsystem.GetRef(), []string{"allow_delete_with_hosts=true"}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemDestroy() failure: %s", err)
+	}
+	return
+}
+
+// Add Host to NVME Subsystem
+func (c *OntapRestAPI) NvmeSubsystemAddHost(subsystemName string, hostNqn string) (err error) {
+	var subsystem *ontap.NvmeSubsystem
+	if subsystem, _, err = c.NvmeSubsystemGet(subsystemName); err != nil {
+		return
+	}
+	host := ontap.NvmeHost{
+	        Nqn: hostNqn,
+	}
+	if _, _, err := c.Client.NvmeHostCreate(subsystem.GetRef(), &host, []string{}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemAddHost() failure: %s", err)
+	}
+        return
+}
+
+// NvmeNamespaceGet gets NVME Namespace  attributes
+func (c *OntapRestAPI) NvmeNamespaceGet(namespacePath string) (namespace *ontap.NvmeNamespace, res *ontap.RestResponse, err error) {
+	var namespaces []ontap.NvmeNamespace
+	if namespaces, res, err = c.Client.NvmeNamespaceGetIter([]string{"name=" + namespacePath, "fields=comment,space"}); err != nil {
+		err = fmt.Errorf("NvmeNamespaceGetIter() failure: %s", err)
+		return
+	}
+	if len(namespaces) > 0 {
+		namespace = &namespaces[0]
+	} else {
+		res.ErrorResponse.Error.Code = ontap.ERROR_ENTRY_DOES_NOT_EXIST
+		err = fmt.Errorf("NvmeNamespaceGet() failure: NVME Namespace \"%s\" not found", namespacePath)
+	}
+	return
+}
+
+// NvmeNamespaceGetInfo gets generic NVME namespace attributes
+func (c *OntapRestAPI) NvmeNamespaceGetInfo(namespacePath string) (namespaceInfo *NvmeNamespaceInfo, err error) {
+	var namespace *ontap.NvmeNamespace
+	if namespace, _, err = c.NvmeNamespaceGet(namespacePath); err != nil {
+		return
+	}
+	namespaceInfo = &NvmeNamespaceInfo{
+		Comment: namespace.Comment,
+		Size:    int(math.Round(float64(*namespace.Space.Size) / 1024 / 1024 / 1024)),
+	}
+	return
+}
+
+// Check if NVME Namespace exists
+func (c *OntapRestAPI) NvmeNamespaceExists(namespacePath string) (exists bool, err error) {
+	var namespaces []ontap.NvmeNamespace
+	if namespaces, _, err = c.Client.NvmeNamespaceGetIter([]string{"name=" + namespacePath}); err != nil {
+		err = fmt.Errorf("NvmeNamespaceGetIter() failure: %s", err)
+	} else {
+		if len(namespaces) > 0 {
+			exists = true
+		} else {
+			exists = false
+		}
+	}
+        return
+}
+
+// Check if NVME Namespace is mapped to NVME Subsystem
+func (c *OntapRestAPI) IsNvmeNamespaceMapped(namespacePath string) (mapped bool, err error) {
+        var subsystemMapHref string
+        mapped = false
+	if subsystemMapHref, _, err = c.Client.NvmeSubsystemMapGetByPath(namespacePath); err != nil {
+		err = fmt.Errorf("NvmeSubsystemMapGetByPath() failure: %s", err)
+	} else {
+	        if len(subsystemMapHref) > 0 {
+	                mapped = true
+	        }
+	}
+        return
+}
+
+// Resize NVME Namespace
+func (c *OntapRestAPI) NvmeNamespaceResize(namespacePath string, namespaceSize int) (err error) {
+	var namespace *ontap.NvmeNamespace
+	if namespace, _, err = c.NvmeNamespaceGet(namespacePath); err != nil {
+		return
+	}
+	sizeBytes := int64(namespaceSize) * 1024 * 1024 * 1024
+	namespaceResized := ontap.NvmeNamespace{
+		Space: &ontap.NvmeNamespaceSpace{
+			Size: &sizeBytes,
+		},
+	}
+	if _, err = c.Client.NvmeNamespaceModify(namespace.GetRef(), &namespaceResized); err != nil {
+		err = fmt.Errorf("NvmeNamespaceModify() failure: %s", err)
+	}
+        return
+}
+
+// Map NVME Namespace to NVME Subsystem
+func (c *OntapRestAPI) NvmeNamespaceMap(namespacePath string, subsystemName string) (err error) {
+	subsystemMap := ontap.NvmeSubsystemMap{
+	        Namespace: &ontap.Resource{
+	                Name: namespacePath,
+	        },
+	        Subsystem: &ontap.Resource{
+		        Name: subsystemName,
+		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
+	}
+	if _, _, err := c.Client.NvmeSubsystemMapCreate(&subsystemMap, []string{}); err != nil {
+		err = fmt.Errorf("NvmeNamespaceMap() failure: %s", err)
+	}
+        return
+}
+
+// Remove NVME Namespace mapping to NVME Subsystem
+func (c *OntapRestAPI) NvmeNamespaceUnmap(namespacePath string) (err error) {
+	if subsystemMapHref, _, err := c.Client.NvmeSubsystemMapGetByPath(namespacePath); err != nil {
+		err = fmt.Errorf("NvmeSubsystemMapGetByPath() failure: %s", err)
+	} else {
+	        if len(subsystemMapHref) > 0 {
+	                if _, err := c.Client.NvmeSubsystemMapDelete(subsystemMapHref); err != nil {
+		                err = fmt.Errorf("NvmeSubsystemMapDelete() failure: %s", err)
+	                }
+                }
+        }
+        return
+}
+
+// Create NVME Namespace
+func (c *OntapRestAPI) NvmeNamespaceCreate(namespacePath string, namespaceSize int) (err error) {
+	volumeName := filepath.Base(filepath.Dir(namespacePath))
+	namespaceName := filepath.Base(namespacePath)
+	sizeBytes := int64(namespaceSize) * 1024 * 1024 * 1024
+	namespace := ontap.NvmeNamespace{
+		Location: &ontap.NvmeNamespaceLocation{
+		        Namespace: namespaceName,
+			Volume: &ontap.Resource{
+				Name: volumeName,
+			},
+		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
+		OsType: "linux",
+		Space: &ontap.NvmeNamespaceSpace{
+			Size: &sizeBytes,
+		},
+	}
+	if _, _, err = c.Client.NvmeNamespaceCreate(&namespace, []string{}); err != nil {
+		err = fmt.Errorf("NvmeNamespaceCreate() failure: %s", err)
+	}
+        return
+}
+
+// Destroy NVME Namespace
+func (c *OntapRestAPI) NvmeNamespaceDestroy(namespacePath string) (err error) {
+	var namespace *ontap.NvmeNamespace
+	var res *ontap.RestResponse
+	if namespace, res, err = c.NvmeNamespaceGet(namespacePath); err != nil {
+		if res.ErrorResponse.Error.Code == ontap.ERROR_ENTRY_DOES_NOT_EXIST {
+			err = nil
+		} else {
+			err = fmt.Errorf("NvmeNamespaceGet(): failure: %s", err)
+		}
+		return
+	}
+	if _, err = c.Client.NvmeNamespaceDelete(namespace.GetRef()); err != nil {
+		err = fmt.Errorf("NvmeNamespaceDestroy() failure: %s", err)
+	}
+        return
+}
+
+// Retrieve NVME Subsystem target NQN
+func (c *OntapRestAPI) NvmeTargetGetNqn(subsystemName string) (targetNqn string, err error) {
+	var subsystem *ontap.NvmeSubsystem
+	if subsystem, _, err = c.NvmeSubsystemGet(subsystemName); err == nil {
+	        targetNqn = subsystem.TargetNqn
+	}
+        return
+}
+
+// GetNvmeLIFs get list of NVME interfaces
+func (c *OntapRestAPI) GetNvmeLIFs() (lifs []string, err error) {
+	lifs = []string{}
+	var ipInterfaces []ontap.IpInterface
+        if ipInterfaces, _, err = c.Client.IpInterfaceGetIter([]string{"fields=ip","enabled=true","state=up","services=data_nvme_tcp"}); err != nil {
+                err = fmt.Errorf("GetNvmeLIFs() failure: %s", err)
+    		return
+    	}
+    	if len(ipInterfaces) == 0 {
+		err = fmt.Errorf("GetNvmeLIFs(): no IP interfaces found")
+		return
+    	}
+	for _, ipInterface := range ipInterfaces {
+		lifs = append(lifs, ipInterface.Ip.Address)
+	}
+	return
+}
+
+// DiscoverNvmeLIFs get list of NVME interfaces for NVME Namespace
+func (c *OntapRestAPI) DiscoverNvmeLIFs(namespacePath string, hostSubnet string) (lifs []string, err error) {
+	lifs = []string{}
+	var ipInterfaces []ontap.IpInterface
+	if ipInterfaces, err = util.DiscoverNvmeLIFs(c.Client, namespacePath, hostSubnet); err != nil {
+		err = fmt.Errorf("DiscoverNvmeLIFs() failure: %s", err)
+		return
+	}
+	if len(ipInterfaces) > 0 {
+	        for _, ipInterface := range ipInterfaces {
+		        lifs = append(lifs, ipInterface.Ip.Address)
+	        }
+	} else {
+	        if lifs, err = c.GetNvmeLIFs(); err != nil {
+	                return
+	        }
+	        if len(lifs) == 0 {
+		        err = fmt.Errorf("DiscoverNvmeLIFs() no NVME LIFs found")
+		}
+	}
+	return
+}

@@ -137,6 +137,9 @@ func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 			return
 		}
 	}
+	for i := range nodeConfig.Network.NvmeHost {
+	        nodeConfig.Network.NvmeHost[i].HostNqn = "nqn.2014-08.org.nvmexpress:uuid:" + sp.Uuid
+	}
 	err = AssignBlade(client, nodeConfig)
 	return
 }
@@ -304,6 +307,9 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 			err = fmt.Errorf("DiscoverServer: no iSCSI vNICs found in iscsiInitiator configuration that match iSCSI vNIC \"%s\"", nodeConfig.Network.IscsiInitiator[i].Name)
 			return
 		}
+	}
+	for i := range nodeConfig.Network.NvmeHost {
+	        nodeConfig.Network.NvmeHost[i].HostNqn = "nqn.2014-08.org.nvmexpress:uuid:" + lsServers[0].Uuid
 	}
 	nodeConfig.Compute.Description = lsServers[0].Descr
 	nodeConfig.Compute.Label = lsServers[0].UsrLbl
