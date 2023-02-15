@@ -1,4 +1,4 @@
-## 1.8.4 (February 2, 2023)
+## 1.8.4 (February 14, 2023)
 
 ENHANCEMENTS:
 * Minor enhancements in `rancher_api` code to support nodes upgrades for RKE2
