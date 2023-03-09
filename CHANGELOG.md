@@ -1,8 +1,8 @@
-## 1.9.0 (March 8, 2023)
+## 1.9.0 (March 9, 2023)
 
 ENHANCEMENTS:
 * NVME over TCP support for data disk.
-  * Requires api_method=`rest` and OnTap v9.12 or higher.
+  * Requires `api_method=rest` and OnTap v9.12 or higher.
   * See resource documentation for more details.
 * Cluster scope for api_method=`rest`
   * Requires resource setting `storage`->`svm_name`
