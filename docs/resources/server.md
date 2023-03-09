@@ -166,7 +166,7 @@ resource "flexbot_server" "k8s-node1" {
       # For Infoblox plugin it should match "Start-End" IP's of IPv4 Reserved Range
       #ip_range = "192.168.3.32-192.168.3.64"
     }
-    # Optional (required if "data_nvme" is defined), suport for NVME over TCP
+    # Optional (required if "data_nvme" is defined), support for NVME over TCP
     nvme_host {
       # required, should be either node or iscsi_initiator name.
       # nvme host will use specified interface for discovery/connection
