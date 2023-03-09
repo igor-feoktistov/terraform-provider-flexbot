@@ -644,13 +644,23 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 					},
 					"nvme_host": {
 						Type:     schema.TypeList,
-						Required: true,
+						Optional: true,
 						MaxItems: 2,
 						Elem: &schema.Resource{
 							Schema: map[string]*schema.Schema{
 								"host_interface": {
 									Type:     schema.TypeString,
 									Required: true,
+								},
+								"ip": {
+									Type:     schema.TypeString,
+									Optional: true,
+									Computed: true,
+								},
+								"subnet": {
+									Type:     schema.TypeString,
+									Optional: true,
+									Computed: true,
 								},
 								"host_nqn": {
 									Type:     schema.TypeString,

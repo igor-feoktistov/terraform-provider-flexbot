@@ -198,7 +198,7 @@ func CreateRepoTemplate(nodeConfig *config.NodeConfig, templateName string, temp
 	var fileReader io.Reader
 	var fileExists bool
 	if fileExists, err = c.FileExists(nodeConfig.Storage.TemplateRepoName, "/cloud-init/"+templateName); err != nil {
-		err = fmt.Errorf("CreateRepoImage(): %s", err)
+		err = fmt.Errorf("CreateRepoTemplate(): %s", err)
 		return
 	}
 	if fileExists {

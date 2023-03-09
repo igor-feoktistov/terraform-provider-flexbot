@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.0.0
-	github.com/igor-feoktistov/go-ontap-rest v1.0.11
+	github.com/igor-feoktistov/go-ontap-rest v1.0.18
 	github.com/igor-feoktistov/go-ontap-sdk v1.0.5
 	github.com/igor-feoktistov/go-ucsm-sdk v1.0.6
 	github.com/infobloxopen/infoblox-go-client v1.1.0

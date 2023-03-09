@@ -85,6 +85,7 @@ func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) 
 // CreateServer creates SP from SPT
 func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 	var client *api.Client
+	var lsServers []*mo.LsServer
 	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
 	if err != nil {
 		err = fmt.Errorf("CreateServer: AaaLogin() failure: %s", err)
@@ -137,8 +138,14 @@ func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 			return
 		}
 	}
-	for i := range nodeConfig.Network.NvmeHost {
-	        nodeConfig.Network.NvmeHost[i].HostNqn = "nqn.2014-08.org.nvmexpress:uuid:" + sp.Uuid
+	if len(nodeConfig.Network.NvmeHost) > 0 {
+	        if lsServers, err = util.ServerGet(client, nodeConfig.Compute.SpDn, "instance"); err != nil {
+		        err = fmt.Errorf("CreateServer: ServerGet() failure: %s", err)
+		        return
+	        }
+	        for i := range nodeConfig.Network.NvmeHost {
+	                nodeConfig.Network.NvmeHost[i].HostNqn = "nqn.2014-08.org.nvmexpress:uuid:" + lsServers[0].Uuid
+	        }
 	}
 	err = AssignBlade(client, nodeConfig)
 	return

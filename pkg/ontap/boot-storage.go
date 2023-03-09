@@ -30,7 +30,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 			err = fmt.Errorf(errorFormat, err)
 			return
 		}
-		if err = c.VolumeCreateSAN(nodeConfig.Storage.VolumeName, aggregateName, (nodeConfig.Storage.BootLun.Size+nodeConfig.Storage.DataLun.Size)*2); err != nil {
+		if err = c.VolumeCreateSAN(nodeConfig.Storage.VolumeName, aggregateName, (nodeConfig.Storage.BootLun.Size+nodeConfig.Storage.DataLun.Size+nodeConfig.Storage.DataNvme.Size)*2); err != nil {
 			err = fmt.Errorf(errorFormat, err)
 			return
 		}

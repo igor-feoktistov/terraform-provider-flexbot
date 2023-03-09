@@ -232,8 +232,8 @@ github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d h1:kJCB4vdITiW1eC1
 github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
-github.com/igor-feoktistov/go-ontap-rest v1.0.11 h1:4vQCLKvT25D1/zttO9fby/+H3awZfoC50rgxCsq3+mA=
-github.com/igor-feoktistov/go-ontap-rest v1.0.11/go.mod h1:6cK7wgTvIdjCswCQc4+M1fQAUcsyFmsuYl4rVhE77RI=
+github.com/igor-feoktistov/go-ontap-rest v1.0.18 h1:vf5fWFfibMZXI7igh5DqfxnCrElLVZcv+QraQzVXHKw=
+github.com/igor-feoktistov/go-ontap-rest v1.0.18/go.mod h1:6cK7wgTvIdjCswCQc4+M1fQAUcsyFmsuYl4rVhE77RI=
 github.com/igor-feoktistov/go-ontap-sdk v1.0.5 h1:hnvRjPT4DvZHjqMBANJZhwJBuv4CcppyCvNdqN6L9EE=
 github.com/igor-feoktistov/go-ontap-sdk v1.0.5/go.mod h1:oOr8HpXRFz2R8XSZ5vRoNCoScHqGbe2ze1BrxcCohcE=
 github.com/igor-feoktistov/go-ucsm-sdk v1.0.6 h1:9tBsMI9WdHAlf0EYYidYq9CXS39MqKmeRJ7IHwE8968=

@@ -26,6 +26,7 @@ import (
 const (
 	NodeRestartTimeout = 600
 	NodeGraceShutdownTimeout = 60
+	NodeGracePowerOffTimeout = 10
 	Wait4ClusterTransitioningTimeout = 120
 )
 
@@ -653,6 +654,14 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeDataDiskSize
 		}
 	}
+	if len((oldStorage.([]interface{})[0].(map[string]interface{}))["data_nvme"].([]interface{})) > 0 && len((newStorage.([]interface{})[0].(map[string]interface{}))["data_nvme"].([]interface{})) > 0 {
+		oldDataNvme := (oldStorage.([]interface{})[0].(map[string]interface{}))["data_nvme"].([]interface{})[0].(map[string]interface{})
+		newDataNvme := (newStorage.([]interface{})[0].(map[string]interface{}))["data_nvme"].([]interface{})[0].(map[string]interface{})
+		if oldDataNvme["size"].(int) != newDataNvme["size"].(int) {
+			log.Infof("Re-sizing Server NVME Storage data for node %s", nodeConfig.Compute.HostName)
+			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeDataDiskSize
+		}
+	}
 	if (nodeConfig.ChangeStatus & (ChangeBootDiskSize | ChangeDataDiskSize)) > 0 {
 		if err = ontap.ResizeBootStorage(nodeConfig); err != nil {
 			err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
@@ -917,6 +926,7 @@ func resourceUpdateServerRestore(d *schema.ResourceData, meta interface{}, nodeC
 		if err = ucsm.StopServer(nodeConfig); err != nil {
 			return
 		}
+		time.Sleep(NodeGracePowerOffTimeout * time.Second)
 	}
 	if err = ontap.RestoreSnapshot(nodeConfig, restore["snapshot_name"].(string)); err != nil {
 		err = fmt.Errorf("resourceUpdateServer(restore): error: %s", err)

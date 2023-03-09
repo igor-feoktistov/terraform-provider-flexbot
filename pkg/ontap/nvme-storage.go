@@ -60,6 +60,10 @@ func CreateNvmeStorage(nodeConfig *config.NodeConfig) (err error) {
 	                err = fmt.Errorf(errorFormat, err)
 		        return
                 }
+	        if err = c.NvmeNamespaceMap(dataNvmeNamespacePath, nodeConfig.Storage.DataNvme.Subsystem); err != nil {
+	                err = fmt.Errorf(errorFormat, err)
+		        return
+	        }
 	        var targetNqn string
 	        if targetNqn, err = c.NvmeTargetGetNqn(nodeConfig.Storage.DataNvme.Subsystem); err != nil {
 	                err = fmt.Errorf(errorFormat, err)
