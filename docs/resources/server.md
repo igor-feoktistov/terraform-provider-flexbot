@@ -91,6 +91,13 @@ resource "flexbot_server" "k8s-node1" {
       # Data LUN size, GB
       size = 50
     }
+    # Optional - Data NVME over TCP disk
+    data_nvme {
+      # Data disk size, GB
+      size = 50
+    }
+    # Optional - SVM name, required for cluster scope provider credentials (rest only)
+    svm_name = "vserver"
     # Optional - automatically take a snapshot before any image update
     auto_snapshot_on_update = true
     # Optional - force node re-imaging.
@@ -158,6 +165,17 @@ resource "flexbot_server" "k8s-node1" {
       # IPAM allocates IP from subnet if "ip_range" is not specified
       # For Infoblox plugin it should match "Start-End" IP's of IPv4 Reserved Range
       #ip_range = "192.168.3.32-192.168.3.64"
+    }
+    # Optional (required if "data_nvme" is defined), support for NVME over TCP
+    nvme_host {
+      # required, should be either node or iscsi_initiator name.
+      # nvme host will use specified interface for discovery/connection
+      # in this example NVME host will share interface with iSCSI initiator
+      host_interface = "iscsi0"
+    }
+    # Optional, but two hosts are highly suggested for multipath
+    nvme_host {
+      host_interface = "iscsi1"
     }
   }
 

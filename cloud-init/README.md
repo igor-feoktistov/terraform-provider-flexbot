@@ -12,7 +12,7 @@ Compute = { //schema - compute
 }
 
 Network = { //schema - network
-  Node = [  //schema - node
+  Node = [  //schema - node (list)
     {
       Name       = "eth2"                  //schema - name
       Macaddr    = "00:25:b5:99:02:df"     //schema - macaddr, computed
@@ -30,7 +30,7 @@ Network = { //schema - network
       }
     }
   ]
-  IscsiInitiator = [ //schema - iscsi_initiator
+  IscsiInitiator = [ //schema - iscsi_initiator (list)
     {
       Name          = "iscsi0"                                      //schema - name
       Ip            = "192.168.2.25"                                //schema - ip, computed
@@ -54,8 +54,36 @@ Network = { //schema - network
       IscsiTarget   = {                                             //schema - iscsi_target, computed
         NodeName = "iqn.1992-08.com.netapp:sn.cfe29...<skip>:vs.32" //schema - node_name, computed
         Interfaces = [                                              //schema - interfaces, computed
-          "iscsi-lif3"
-          "iscsi-lif4"
+          "iscsi-lif3"                                              //schema - interface ip, computed
+          "iscsi-lif4"                                              //schema - interface ip, computed
+        ]
+      }
+    }
+  ]
+  NvmeHost = [ //schema - nvme_host (list)
+    {
+      HostInterface = "iscsi0"                                       //schema - host_interface
+      Ip            = "192.168.2.25"                                 //schema - ip, computed
+      Subnet        = "192.168.2.0/24"                               //schema - subnet, computed
+      HostNqn       = "nqn.2014-08.org.nvmexpress:uuid:45c8<skip>"   //schema - host_nqn, computed
+      NvmeTarget    = {                                              //schema - nvme_target, computed
+        TargetNqn = "nqn.1992-08.com.netapp:sn.<skip>"               //schema - target_nqn, computed
+        Interfaces = [                                               //schema - interfaces, computed
+          "nvme-lif1"                                                //schema - interface ip, computed
+          "nvme-lif2"                                                //schema - interface ip, computed
+        ]
+      }
+    }
+    {
+      HostInterface = "iscsi1"                                       //schema - host_interface
+      Ip            = "192.168.3.25"                                 //schema - ip, computed
+      Subnet        = "192.168.3.0/24"                               //schema - subnet, computed
+      HostNqn       = "nqn.2014-08.org.nvmexpress:uuid:45c8<skip>"   //schema - host_nqn, computed
+      NvmeTarget    = {                                              //schema - nvme_target, computed
+        TargetNqn = "nqn.1992-08.com.netapp:sn.<skip>"               //schema - target_nqn, computed
+        Interfaces = [                                               //schema - interfaces, computed
+          "nvme-lif1"                                                //schema - interface ip, computed
+          "nvme-lif2"                                                //schema - interface ip, computed
         ]
       }
     }
@@ -72,6 +100,11 @@ Storage = { //schema - storage
     Name = "k8s_node1_data" //schema - name, computed
     Id = 1                  //schema - id, computed
     Size = 128              //schema - size
+  }
+  DataNvme = { //schema - data_nvme
+    Namespace = "k8s_node1_data" //schema - namespace name, computed
+    Subsystem = "k8s_node1_data" //schema - subsystem name, computed
+    Size = 128                   //schema - size
   }
 }
 

@@ -200,8 +200,8 @@ The following arguments are supported:
 
 ##### Arguments
 
-* `credentials` - (Required) ONTAP SVM specific credentials parameters:
-  * `host` - (Required) SVM host name or IP address
+* `credentials` - (Required) ONTAP SVM or cluster specific credentials parameters:
+  * `host` - (Required) SVM host name (IP address) for SVM scope or cDOT cluster name (IP address) for cluster scope (cluster scope is supported for `rest` only)
   * `user` - (Required) Username, can be encrypted by `flexbot-crypt` (string).
   * `password` - (Required) Password, can be encrypted by `flexbot-crypt` (string).
   * `api_method` - (Optional) ONTAP API method is either `zapi` or `rest`. Method `rest` requires ONTAP v9.12 or higher (string, default is `zapi`).

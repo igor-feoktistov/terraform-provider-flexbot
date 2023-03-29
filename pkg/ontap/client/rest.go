@@ -43,8 +43,21 @@ func NewOntapRestAPI(nodeConfig *config.NodeConfig) (c *OntapRestAPI, err error)
 		return
 	}
 	if len(svms) > 0 {
-		nodeConfig.Storage.SvmName = svms[0].Name
-		c.Svm = svms[0].Name
+	        if len(nodeConfig.Storage.SvmName) > 0 {
+	                foundSvm := false
+		        for _, svm := range svms {
+		                if svm.Name == nodeConfig.Storage.SvmName {
+		                        foundSvm = true
+		                        break
+		                }
+		        }
+		        if !foundSvm {
+		                err = fmt.Errorf("NewOntapRestAPI(): failure: svm \"%s\" not found in the cluster", nodeConfig.Storage.SvmName)
+		        }
+	        } else {
+		        nodeConfig.Storage.SvmName = svms[0].Name
+		}
+		c.Svm = nodeConfig.Storage.SvmName
 	} else {
 		err = fmt.Errorf("SvmGetIter(): failure: unexpected result, no SVMs returned")
 	}
@@ -67,7 +80,7 @@ func (c *OntapRestAPI) GetAggregateMax(nodeConfig *config.NodeConfig) (aggregate
 // VolumeExists checks if volume exists
 func (c *OntapRestAPI) VolumeExists(volumeName string) (exists bool, err error) {
 	var volumes []ontap.Volume
-	if volumes, _, err = c.Client.VolumeGetIter([]string{"name=" + volumeName}); err != nil {
+	if volumes, _, err = c.Client.VolumeGetIter([]string{"svm.name=" + c.Svm,"name=" + volumeName}); err != nil {
 		err = fmt.Errorf("VolumeGetIter() failure: %s", err)
 	} else {
 		if len(volumes) > 0 {
@@ -82,7 +95,7 @@ func (c *OntapRestAPI) VolumeExists(volumeName string) (exists bool, err error) 
 // VolumeGet gets volume attributes
 func (c *OntapRestAPI) VolumeGet(volumeName string) (volume *ontap.Volume, res *ontap.RestResponse, err error) {
 	var volumes []ontap.Volume
-	if volumes, res, err = c.Client.VolumeGetIter([]string{"name=" + volumeName}); err != nil {
+	if volumes, res, err = c.Client.VolumeGetIter([]string{"svm.name=" + c.Svm,"name=" + volumeName}); err != nil {
 		err = fmt.Errorf("VolumeGetIter() failure: %s", err)
 		return
 	}
@@ -206,6 +219,9 @@ func (c *OntapRestAPI) ExportPolicyCreate(exportPolicyName string) (err error) {
 				Name: exportPolicyName,
 			},
 		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
 	}
 	if _, err = c.Client.ExportPolicyCreate(&exportPolicy, []string{}); err != nil {
 		err = fmt.Errorf("ExportPolicyCreate() failure: %s", err)
@@ -216,7 +232,7 @@ func (c *OntapRestAPI) ExportPolicyCreate(exportPolicyName string) (err error) {
 // IgroupExists checks if iGroup exists
 func (c *OntapRestAPI) IgroupExists(igroupName string) (exists bool, err error) {
 	var igroups []ontap.Igroup
-	if igroups, _, err = c.Client.IgroupGetIter([]string{"name=" + igroupName}); err != nil {
+	if igroups, _, err = c.Client.IgroupGetIter([]string{"svm.name=" + c.Svm,"name=" + igroupName}); err != nil {
 		err = fmt.Errorf("IgroupGetIter() failure: %s", err)
 	} else {
 		if len(igroups) > 0 {
@@ -231,7 +247,7 @@ func (c *OntapRestAPI) IgroupExists(igroupName string) (exists bool, err error) 
 // IgroupGet gets iGroup attributes
 func (c *OntapRestAPI) IgroupGet(igroupName string) (igroup *ontap.Igroup, res *ontap.RestResponse, err error) {
 	var igroups []ontap.Igroup
-	if igroups, res, err = c.Client.IgroupGetIter([]string{"name=" + igroupName}); err != nil {
+	if igroups, res, err = c.Client.IgroupGetIter([]string{"svm.name=" + c.Svm,"name=" + igroupName}); err != nil {
 		err = fmt.Errorf("IgroupGetIter() failure: %s", err)
 		return
 	}
@@ -249,6 +265,9 @@ func (c *OntapRestAPI) IgroupCreate(igroupName string) (err error) {
 	igroup := ontap.Igroup{
 		Resource: ontap.Resource{
 			Name: igroupName,
+		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
 		},
 		OsType:   "linux",
 		Protocol: "iscsi",
@@ -299,7 +318,7 @@ func (c *OntapRestAPI) IgroupDestroy(igroupName string) (err error) {
 // LunExists checks if LUN exists
 func (c *OntapRestAPI) LunExists(lunPath string) (exists bool, err error) {
 	var luns []ontap.Lun
-	if luns, _, err = c.Client.LunGetIter([]string{"name=" + lunPath}); err != nil {
+	if luns, _, err = c.Client.LunGetIter([]string{"svm.name=" + c.Svm,"name=" + lunPath}); err != nil {
 		err = fmt.Errorf("LunGetIter() failure: %s", err)
 	} else {
 		if len(luns) > 0 {
@@ -314,7 +333,7 @@ func (c *OntapRestAPI) LunExists(lunPath string) (exists bool, err error) {
 // LunGet gets LUN attributes
 func (c *OntapRestAPI) LunGet(lunPath string) (lun *ontap.Lun, res *ontap.RestResponse, err error) {
 	var luns []ontap.Lun
-	if luns, res, err = c.Client.LunGetIter([]string{"name=" + lunPath, "fields=comment,space"}); err != nil {
+	if luns, res, err = c.Client.LunGetIter([]string{"svm.name=" + c.Svm,"name=" + lunPath, "fields=comment,space"}); err != nil {
 		err = fmt.Errorf("LunGetIter() failure: %s", err)
 		return
 	}
@@ -330,7 +349,7 @@ func (c *OntapRestAPI) LunGet(lunPath string) (lun *ontap.Lun, res *ontap.RestRe
 // IsLunMapped checks if LUN is mapped
 func (c *OntapRestAPI) IsLunMapped(lunPath string, igroupName string) (mapped bool, err error) {
 	var lunMaps []ontap.LunMap
-	if lunMaps, _, err = c.Client.LunMapGetIter([]string{"lun.name=" + lunPath, "igroup.name=" + igroupName}); err != nil {
+	if lunMaps, _, err = c.Client.LunMapGetIter([]string{"svm.name=" + c.Svm,"lun.name=" + lunPath,"igroup.name=" + igroupName}); err != nil {
 		err = fmt.Errorf("LunMapGetIter() failure: %s", err)
 	} else {
 		if len(lunMaps) > 0 {
@@ -372,7 +391,7 @@ func (c *OntapRestAPI) LunCopy(lunSrcPath string, lunDstPath string) (err error)
 	giveupTime := time.Now().Add(time.Second * MAX_WAIT_FOR_LUN)
 	for time.Now().Before(giveupTime) {
 		var lun *ontap.Lun
-		if lun, _, err = c.Client.LunGetByPath(lunDstPath, []string{"fields=status"}); err != nil {
+		if lun, _, err = c.Client.LunGetByPath(lunDstPath, []string{"svm.name=" + c.Svm,"fields=status"}); err != nil {
 		        err = fmt.Errorf("LunCopy() failure to get status for LUN %s: %s", lunDstPath, err)
 			break
 		}
@@ -418,6 +437,9 @@ func (c *OntapRestAPI) LunMap(lunPath string, lunID int, igroupName string) (err
 				Name: lunPath,
 			},
 		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
 		LogicalUnitNumber: &lunID,
 	}
 	if _, err = c.Client.LunMapCreate(&lunMap, []string{}); err != nil {
@@ -429,7 +451,7 @@ func (c *OntapRestAPI) LunMap(lunPath string, lunID int, igroupName string) (err
 // LunUnmap unmaps LUN from iGroup
 func (c *OntapRestAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 	var lunMaps []ontap.LunMap
-	if lunMaps, _, err = c.Client.LunMapGetIter([]string{"lun.name=" + lunPath, "igroup.name=" + igroupName}); err != nil {
+	if lunMaps, _, err = c.Client.LunMapGetIter([]string{"svm.name=" + c.Svm,"lun.name=" + lunPath,"igroup.name=" + igroupName}); err != nil {
 		err = fmt.Errorf("LunMapGetIter() failure: %s", err)
 	} else {
 		if len(lunMaps) > 0 {
@@ -513,7 +535,7 @@ func (c *OntapRestAPI) LunGetInfo(lunPath string) (lunInfo *LunInfo, err error) 
 func (c *OntapRestAPI) LunGetList(volumeName string) (lunList []string, err error) {
 	lunList = []string{}
 	var luns []ontap.Lun
-	if luns, _, err = c.Client.LunGetIter([]string{"location.volume.name=" + volumeName, "fields=location"}); err != nil {
+	if luns, _, err = c.Client.LunGetIter([]string{"svm.name=" + c.Svm,"location.volume.name=" + volumeName,"fields=location"}); err != nil {
 		err = fmt.Errorf("LunGetIter() failure: %s", err)
 	} else {
 		for _, lun := range luns {
@@ -526,7 +548,7 @@ func (c *OntapRestAPI) LunGetList(volumeName string) (lunList []string, err erro
 // IscsiTargetGetName gets target name
 func (c *OntapRestAPI) IscsiTargetGetName() (targetName string, err error) {
 	var iscsiServices []ontap.IscsiService
-	if iscsiServices, _, err = c.Client.IscsiServiceGetIter([]string{"enabled=true", "fields=target"}); err != nil {
+	if iscsiServices, _, err = c.Client.IscsiServiceGetIter([]string{"enabled=true","svm.name=" + c.Svm,"fields=target"}); err != nil {
 		err = fmt.Errorf("IscsiServiceGetIter() failure: %s", err)
 	} else {
 		if len(iscsiServices) > 0 {
@@ -542,7 +564,7 @@ func (c *OntapRestAPI) IscsiTargetGetName() (targetName string, err error) {
 func (c *OntapRestAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) (lifs []string, err error) {
 	lifs = []string{}
 	var ipInterfaces []ontap.IpInterface
-	if ipInterfaces, err = util.DiscoverIscsiLIFs(c.Client, lunPath, initiatorSubnet); err != nil {
+	if ipInterfaces, err = util.DiscoverIscsiLIFs(c.Client, c.Svm, lunPath, initiatorSubnet); err != nil {
 		err = fmt.Errorf("DiscoverIscsiLIFs() failure: %s", err)
 		return
 	}
@@ -559,15 +581,20 @@ func (c *OntapRestAPI) DiscoverIscsiLIFs(lunPath string, initiatorSubnet string)
 // FileExists checks if file exists
 func (c *OntapRestAPI) FileExists(volumeName string, filePath string) (exists bool, err error) {
 	var volume *ontap.Volume
+	var res *ontap.RestResponse
 	if volume, _, err = c.VolumeGet(volumeName); err != nil {
 		return
 	}
 	var files []ontap.FileInfo
 	dirPath := filepath.Dir(filePath)
 	fileName := filepath.Base(filePath)
-	if files, _, err = c.Client.FileGetIter(volume.Uuid, dirPath, []string{"type=file", "name=" + fileName}); err != nil {
-		err = fmt.Errorf("FileGetIter(): failure: %s", err)
-		return
+	if files, res, err = c.Client.FileGetIter(volume.Uuid, dirPath, []string{"type=file","name=" + fileName}); err != nil {
+		if res.ErrorResponse.Error.Code == ontap.ERROR_NO_SUCH_FILE_OR_DIR {
+		        err = nil
+		} else {
+		        err = fmt.Errorf("FileGetIter(): failure: %s", err)
+		        return
+		}
 	}
 	if len(files) > 0 {
 		exists = true
@@ -614,7 +641,7 @@ func (c *OntapRestAPI) FileDelete(volumeName string, filePath string) (err error
 
 // FileDownload gets file content
 func (c *OntapRestAPI) FileDownload(volumeName string, filePath string) (fileContent []byte, err error) {
-	if fileContent, err = util.DownloadFileAPI(c.Client, volumeName, filePath); err != nil {
+	if fileContent, err = util.DownloadFileAPI(c.Client, c.Svm, volumeName, filePath); err != nil {
 		err = fmt.Errorf("DownloadFileAPI(): failure: %s", err)
 	}
 	return
@@ -622,7 +649,7 @@ func (c *OntapRestAPI) FileDownload(volumeName string, filePath string) (fileCon
 
 // FileUploadAPI uploads file content via REST API
 func (c *OntapRestAPI) FileUploadAPI(volumeName string, filePath string, reader io.Reader) (err error) {
-	if _, err = util.UploadFileAPI(c.Client, volumeName, filePath, reader); err != nil {
+	if _, err = util.UploadFileAPI(c.Client, c.Svm, volumeName, filePath, reader); err != nil {
 		err = fmt.Errorf("UploadFileAPI(): failure: %s", err)
 	}
 	return
@@ -630,7 +657,7 @@ func (c *OntapRestAPI) FileUploadAPI(volumeName string, filePath string, reader 
 
 // FileUploadNFS uploads file content via NFS
 func (c *OntapRestAPI) FileUploadNFS(volumeName string, filePath string, reader io.Reader) (err error) {
-	if _, err = util.UploadFileNFS(c.Client, volumeName, filePath, reader); err != nil {
+	if _, err = util.UploadFileNFS(c.Client, c.Svm, volumeName, filePath, reader); err != nil {
 		err = fmt.Errorf("UploadFileNFS(): failure: %s", err)
 	}
 	return
@@ -643,7 +670,7 @@ func (c *OntapRestAPI) SnapshotGet(volumeName string, snapshotName string) (snap
 		return
 	}
 	var snapshots []ontap.Snapshot
-	if snapshots, res, err = c.Client.SnapshotGetIter(volume.Uuid, []string{"name=" + snapshotName}); err != nil {
+	if snapshots, res, err = c.Client.SnapshotGetIter(volume.Uuid, []string{"svm.name=" + c.Svm,"name=" + snapshotName}); err != nil {
 		err = fmt.Errorf("SnapshotGetIter(): failure: %s", err)
 		return
 	}
@@ -664,7 +691,7 @@ func (c *OntapRestAPI) SnapshotGetList(volumeName string) (snapshots []string, e
 		return
 	}
 	var volumeSnapshots []ontap.Snapshot
-	if volumeSnapshots, _, err = c.Client.SnapshotGetIter(volume.Uuid, []string{}); err != nil {
+	if volumeSnapshots, _, err = c.Client.SnapshotGetIter(volume.Uuid, []string{"svm.name=" + c.Svm}); err != nil {
 		err = fmt.Errorf("SnapshotGetIter(): failure: %s", err)
 		return
 	}
@@ -683,6 +710,9 @@ func (c *OntapRestAPI) SnapshotCreate(volumeName string, snapshotName string, sn
 	snapshot := ontap.Snapshot{
 		Resource: ontap.Resource{
 			Name: snapshotName,
+		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
 		},
 		Comment: snapshotComment,
 	}
@@ -761,6 +791,292 @@ func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fi
 	}
 	if bytesWritten < fileSize {
 		err = fmt.Errorf("LunCreateAndUpload(): LunWrite() short write: expected to write \"%d\" bytes, written \"%d\" bytes", fileSize, bytesWritten)
+	}
+	return
+}
+
+// NvmeSubsystemGet gets NVME Subsystem attributes
+func (c *OntapRestAPI) NvmeSubsystemGet(subsystemName string) (subsystem *ontap.NvmeSubsystem, res *ontap.RestResponse, err error) {
+	var subsystems []ontap.NvmeSubsystem
+	parameters := []string{"svm.name=" + c.Svm,"name=" + subsystemName,"fields=name,hosts,os_type,target_nqn,subsystem_maps"}
+	if subsystems, res, err = c.Client.NvmeSubsystemGetIter(parameters); err != nil {
+		err = fmt.Errorf("NvmeSubsystemGetIter() failure: %s", err)
+		return
+	}
+	if len(subsystems) > 0 {
+		subsystem = &subsystems[0]
+	} else {
+		res.ErrorResponse.Error.Code = ontap.ERROR_ENTRY_DOES_NOT_EXIST
+		err = fmt.Errorf("NvmeSubsystemGet() failure: NVME Subsystem \"%s\" not found", subsystemName)
+	}
+	return
+}
+
+// Check if NVME Subsystem exists
+func (c *OntapRestAPI) NvmeSubsystemExists(subsystemName string) (exists bool, err error) {
+	var subsystems []ontap.NvmeSubsystem
+	if subsystems, _, err = c.Client.NvmeSubsystemGetIter([]string{"svm.name=" + c.Svm,"name=" + subsystemName}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemGetIter() failure: %s", err)
+	} else {
+		if len(subsystems) > 0 {
+			exists = true
+		} else {
+			exists = false
+		}
+	}
+	return
+}
+
+// Create NVME Subsystem
+func (c *OntapRestAPI) NvmeSubsystemCreate(subsystemName string) (err error) {
+	deleteOnUnmap := false
+	subsystem := ontap.NvmeSubsystem{
+	        DeleteOnUnmap: &deleteOnUnmap,
+		Name: subsystemName,
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
+		OsType: "linux",
+	}
+	if _, _, err := c.Client.NvmeSubsystemCreate(&subsystem, []string{}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemCreate() failure: %s", err)
+        }
+        return
+}
+
+// Destroy NVME Subsystem
+func (c *OntapRestAPI) NvmeSubsystemDestroy(subsystemName string) (err error) {
+	var subsystem *ontap.NvmeSubsystem
+	var res *ontap.RestResponse
+	if subsystem, res, err = c.NvmeSubsystemGet(subsystemName); err != nil {
+		if res.ErrorResponse.Error.Code == ontap.ERROR_ENTRY_DOES_NOT_EXIST {
+			err = nil
+		} else {
+			err = fmt.Errorf("NvmeSubsystemDestroy(): NvmeSubsystemGet(): failure: %s", err)
+		}
+		return
+	}
+	if _, err = c.Client.NvmeSubsystemDelete(subsystem.GetRef(), []string{"allow_delete_with_hosts=true"}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemDestroy() failure: %s", err)
+	}
+	return
+}
+
+// Add Host to NVME Subsystem
+func (c *OntapRestAPI) NvmeSubsystemAddHost(subsystemName string, hostNqn string) (err error) {
+	var subsystem *ontap.NvmeSubsystem
+	if subsystem, _, err = c.NvmeSubsystemGet(subsystemName); err != nil {
+		err = fmt.Errorf("NvmeSubsystemAddHost() failure: %s", err)
+		return
+	}
+	host := ontap.NvmeHost{
+	        Nqn: hostNqn,
+	}
+	if _, _, err := c.Client.NvmeHostCreate(subsystem.GetRef(), &host, []string{}); err != nil {
+		err = fmt.Errorf("NvmeSubsystemAddHost() failure: %s", err)
+	}
+        return
+}
+
+// NvmeNamespaceGet gets NVME Namespace  attributes
+func (c *OntapRestAPI) NvmeNamespaceGet(namespacePath string) (namespace *ontap.NvmeNamespace, res *ontap.RestResponse, err error) {
+	var namespaces []ontap.NvmeNamespace
+	if namespaces, res, err = c.Client.NvmeNamespaceGetIter([]string{"svm.name=" + c.Svm,"name=" + namespacePath,"fields=comment,space"}); err != nil {
+		err = fmt.Errorf("NvmeNamespaceGetIter() failure: %s", err)
+		return
+	}
+	if len(namespaces) > 0 {
+		namespace = &namespaces[0]
+	} else {
+		res.ErrorResponse.Error.Code = ontap.ERROR_ENTRY_DOES_NOT_EXIST
+		err = fmt.Errorf("NvmeNamespaceGet() failure: NVME Namespace \"%s\" not found", namespacePath)
+	}
+	return
+}
+
+// NvmeNamespaceGetInfo gets generic NVME namespace attributes
+func (c *OntapRestAPI) NvmeNamespaceGetInfo(namespacePath string) (namespaceInfo *NvmeNamespaceInfo, err error) {
+	var namespace *ontap.NvmeNamespace
+	if namespace, _, err = c.NvmeNamespaceGet(namespacePath); err != nil {
+		return
+	}
+	namespaceInfo = &NvmeNamespaceInfo{
+		Comment: namespace.Comment,
+		Size:    int(math.Round(float64(*namespace.Space.Size) / 1024 / 1024 / 1024)),
+	}
+	return
+}
+
+// Check if NVME Namespace exists
+func (c *OntapRestAPI) NvmeNamespaceExists(namespacePath string) (exists bool, err error) {
+	var namespaces []ontap.NvmeNamespace
+	if namespaces, _, err = c.Client.NvmeNamespaceGetIter([]string{"svm.name=" + c.Svm,"name=" + namespacePath}); err != nil {
+		err = fmt.Errorf("NvmeNamespaceGetIter() failure: %s", err)
+	} else {
+		if len(namespaces) > 0 {
+			exists = true
+		} else {
+			exists = false
+		}
+	}
+        return
+}
+
+// Check if NVME Namespace is mapped to NVME Subsystem
+func (c *OntapRestAPI) IsNvmeNamespaceMapped(namespacePath string) (mapped bool, err error) {
+        var subsystemMapHref string
+        mapped = false
+	if subsystemMapHref, _, err = c.Client.NvmeSubsystemMapGetByPath(c.Svm, namespacePath); err != nil {
+		err = fmt.Errorf("NvmeSubsystemMapGetByPath() failure: %s", err)
+	} else {
+	        if len(subsystemMapHref) > 0 {
+	                mapped = true
+	        }
+	}
+        return
+}
+
+// Resize NVME Namespace
+func (c *OntapRestAPI) NvmeNamespaceResize(namespacePath string, namespaceSize int) (err error) {
+	var namespace *ontap.NvmeNamespace
+	if namespace, _, err = c.NvmeNamespaceGet(namespacePath); err != nil {
+		return
+	}
+	sizeBytes := int64(namespaceSize) * 1024 * 1024 * 1024
+	namespaceResized := ontap.NvmeNamespace{
+		Space: &ontap.NvmeNamespaceSpace{
+			Size: &sizeBytes,
+		},
+	}
+	if _, err = c.Client.NvmeNamespaceModify(namespace.GetRef(), &namespaceResized); err != nil {
+		err = fmt.Errorf("NvmeNamespaceModify() failure: %s", err)
+	}
+        return
+}
+
+// Map NVME Namespace to NVME Subsystem
+func (c *OntapRestAPI) NvmeNamespaceMap(namespacePath string, subsystemName string) (err error) {
+	subsystemMap := ontap.NvmeSubsystemMap{
+	        Namespace: &ontap.Resource{
+	                Name: namespacePath,
+	        },
+	        Subsystem: &ontap.Resource{
+		        Name: subsystemName,
+		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
+	}
+	if _, _, err := c.Client.NvmeSubsystemMapCreate(&subsystemMap, []string{}); err != nil {
+		err = fmt.Errorf("NvmeNamespaceMap() failure: %s", err)
+	}
+        return
+}
+
+// Remove NVME Namespace mapping to NVME Subsystem
+func (c *OntapRestAPI) NvmeNamespaceUnmap(namespacePath string) (err error) {
+	if subsystemMapHref, _, err := c.Client.NvmeSubsystemMapGetByPath(c.Svm, namespacePath); err != nil {
+		err = fmt.Errorf("NvmeSubsystemMapGetByPath() failure: %s", err)
+	} else {
+	        if len(subsystemMapHref) > 0 {
+	                if _, err := c.Client.NvmeSubsystemMapDelete(subsystemMapHref); err != nil {
+		                err = fmt.Errorf("NvmeSubsystemMapDelete() failure: %s", err)
+	                }
+                }
+        }
+        return
+}
+
+// Create NVME Namespace
+func (c *OntapRestAPI) NvmeNamespaceCreate(namespacePath string, namespaceSize int) (err error) {
+	volumeName := filepath.Base(filepath.Dir(namespacePath))
+	namespaceName := filepath.Base(namespacePath)
+	sizeBytes := int64(namespaceSize) * 1024 * 1024 * 1024
+	namespace := ontap.NvmeNamespace{
+		Location: &ontap.NvmeNamespaceLocation{
+		        Namespace: namespaceName,
+			Volume: &ontap.Resource{
+				Name: volumeName,
+			},
+		},
+		Svm: &ontap.Resource{
+			Name: c.Svm,
+		},
+		OsType: "linux",
+		Space: &ontap.NvmeNamespaceSpace{
+			Size: &sizeBytes,
+		},
+	}
+	if _, _, err = c.Client.NvmeNamespaceCreate(&namespace, []string{}); err != nil {
+		err = fmt.Errorf("NvmeNamespaceCreate() failure: %s", err)
+	}
+        return
+}
+
+// Destroy NVME Namespace
+func (c *OntapRestAPI) NvmeNamespaceDestroy(namespacePath string) (err error) {
+	var namespace *ontap.NvmeNamespace
+	var res *ontap.RestResponse
+	if namespace, res, err = c.NvmeNamespaceGet(namespacePath); err != nil {
+		if res.ErrorResponse.Error.Code == ontap.ERROR_ENTRY_DOES_NOT_EXIST {
+			err = nil
+		} else {
+			err = fmt.Errorf("NvmeNamespaceGet(): failure: %s", err)
+		}
+		return
+	}
+	if _, err = c.Client.NvmeNamespaceDelete(namespace.GetRef()); err != nil {
+		err = fmt.Errorf("NvmeNamespaceDestroy() failure: %s", err)
+	}
+        return
+}
+
+// Retrieve NVME Subsystem target NQN
+func (c *OntapRestAPI) NvmeTargetGetNqn(subsystemName string) (targetNqn string, err error) {
+	var subsystem *ontap.NvmeSubsystem
+	if subsystem, _, err = c.NvmeSubsystemGet(subsystemName); err == nil {
+	        targetNqn = subsystem.TargetNqn
+	}
+        return
+}
+
+// GetNvmeLIFs get list of NVME interfaces
+func (c *OntapRestAPI) GetNvmeLIFs() (lifs []string, err error) {
+	lifs = []string{}
+	var ipInterfaces []ontap.IpInterface
+        if ipInterfaces, _, err = c.Client.IpInterfaceGetIter([]string{"svm.name=" + c.Svm,"fields=ip","enabled=true","state=up","services=data_nvme_tcp"}); err != nil {
+                err = fmt.Errorf("GetNvmeLIFs() failure: %s", err)
+    		return
+    	}
+    	if len(ipInterfaces) == 0 {
+		err = fmt.Errorf("GetNvmeLIFs(): no IP interfaces found")
+		return
+    	}
+	for _, ipInterface := range ipInterfaces {
+		lifs = append(lifs, ipInterface.Ip.Address)
+	}
+	return
+}
+
+// DiscoverNvmeLIFs get list of NVME interfaces for NVME Namespace
+func (c *OntapRestAPI) DiscoverNvmeLIFs(namespacePath string, hostSubnet string) (lifs []string, err error) {
+	lifs = []string{}
+	var ipInterfaces []ontap.IpInterface
+	if ipInterfaces, err = util.DiscoverNvmeLIFs(c.Client, c.Svm, namespacePath, hostSubnet); err != nil {
+		err = fmt.Errorf("DiscoverNvmeLIFs() failure: %s", err)
+		return
+	}
+	if len(ipInterfaces) > 0 {
+	        for _, ipInterface := range ipInterfaces {
+		        lifs = append(lifs, ipInterface.Ip.Address)
+	        }
+	} else {
+	        if lifs, err = c.GetNvmeLIFs(); err != nil {
+	                return
+	        }
+	        if len(lifs) == 0 {
+		        err = fmt.Errorf("DiscoverNvmeLIFs() no NVME LIFs found")
+		}
 	}
 	return
 }

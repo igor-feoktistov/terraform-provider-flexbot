@@ -52,6 +52,23 @@ func (p *InternalProvider) Allocate(nodeConfig *config.NodeConfig) (err error) {
 			return
 		}
 	}
+        // We do not allocate IP's for NVME hosts but rather assign it from nodes or iSCSI interfaces
+	for i := range nodeConfig.Network.NvmeHost {
+	        for j := range nodeConfig.Network.Node {
+		        if nodeConfig.Network.NvmeHost[i].HostInterface == nodeConfig.Network.Node[j].Name {
+		                nodeConfig.Network.NvmeHost[i].Ip = nodeConfig.Network.Node[j].Ip
+		                nodeConfig.Network.NvmeHost[i].Subnet = nodeConfig.Network.Node[j].Subnet
+		        }
+		}
+		if len(nodeConfig.Network.NvmeHost[i].Ip) == 0 {
+	                for j := range nodeConfig.Network.IscsiInitiator {
+		                if nodeConfig.Network.NvmeHost[i].HostInterface == nodeConfig.Network.IscsiInitiator[j].Name {
+		                        nodeConfig.Network.NvmeHost[i].Ip = nodeConfig.Network.IscsiInitiator[j].Ip
+		                        nodeConfig.Network.NvmeHost[i].Subnet = nodeConfig.Network.IscsiInitiator[j].Subnet
+		                }
+		        }
+		}
+	}
 	return
 }
 

@@ -27,6 +27,13 @@ to handle remote disks such as:
 	    - creates filesystem;
 	    - mounts filesystem;
 	    - configures /etc/fstab
+	- NVME over TCP disks:
+	    - configures host NQN;
+	    - configures parameters for discovery;
+	    - connects NVME device;
+	    - creates filesystem;
+	    - mounts filesystem;
+	    - configures /etc/fstab
 	- Hypervisor disks (OpenStack Cinder volumes, AWS EBS, etc):
 	    - creates logical volume;
 	    - creates filesystem;
@@ -56,10 +63,33 @@ remotedisk_setup:
 #       lvm_group: '<LVM logical group name>'
 #       lvm_volume: '<LVM logical volume name>'
 #       fs_opts: '<filesystem create options specific to mkfs.fs_type>'
+#       fs_label: '<FS label to use as device in /etc/fstab>'
 #       fs_freq: '<fstab fs freq, default is "1">'
 #       fs_passno: '<fstab fs passno, default is "2">'
 #    notes:
 #       missing lvm_group and lvm_volume will cause filesystem creation on top of multipath device
+##########################################################
+# Example configuration to handle NVME over TCP disk:
+##########################################################
+remotedisk_setup:
+   - device: 'nvme:/vol/k8s_node1_data/k8s_node1_data:192.168.10.1:192.168.10.32,192.168.11.1:192.168.11.32'
+     fs_type: 'xfs'
+     fs_label: datafs
+     mount_point: /kubernetes
+     mount_opts: defaults,noatime,nodiratime,_netdev
+##########################################################
+# Parameters:
+#    mandatory:
+#       device: 'nvme:<namespace path>:<host IP>:<target IP>,<host IP>:<target IP>,...'
+#       fs_type: '<filesystem type>'
+#       mount_point: '<mount point dir path>'
+#    optional:
+#       host_nqn: 'host NQN, default is /etc/nvme/hostnqn'
+#       mount_opts: '<filesystem mount options, default is "defaults,_netdev">'
+#       fs_opts: '<filesystem create options specific to mkfs.fs_type>'
+#       fs_label: '<FS label to use as device in /etc/fstab>'
+#       fs_freq: '<fstab fs freq, default is "1">'
+#       fs_passno: '<fstab fs passno, default is "2">'
 ##########################################################
 # Example configuration to handle OpenStack Cinder volume:
 ##########################################################
@@ -111,6 +141,8 @@ import shlex
 import fnmatch
 import subprocess
 import re
+import json
+import uuid
 from string import whitespace
 
 from cloudinit.config.schema import MetaSchema
@@ -132,10 +164,14 @@ WAIT_4_BLOCKDEV_DEVICE_SLEEP = 5
 
 LVM_CMD = subp.which("lvm")
 ISCSIADM_CMD = subp.which("iscsiadm")
+NVME_CMD = subp.which("nvme")
 MULTIPATH_CMD = subp.which("multipath")
 SYSTEMCTL_CMD = subp.which("systemctl")
 FSTAB_PATH = "/etc/fstab"
 ISCSI_INITIATOR_PATH = "/etc/iscsi/initiatorname.iscsi"
+NVME_HOSTNQN_PATH = "/etc/nvme/hostnqn"
+NVME_HOSTID_PATH = "/etc/nvme/hostid"
+NVME_DISCOVERY_CONF_PATH = "/etc/nvme/discovery.conf"
 
 meta: MetaSchema = {
     "id": "cc_remotedisk_setup",
@@ -165,6 +201,8 @@ def handle(_name, cfg, cloud, log, _args):
                 if device.startswith("iscsi"):
                     handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi)
                     dev_entry_iscsi += 1
+                elif device.startswith("nvme"):
+                    handle_nvme(cfg, cloud, log, definition)
                 elif device.startswith("nfs"):
                     handle_nfs(cfg, cloud, log, definition)
                 elif device.startswith("ebs"):
@@ -289,6 +327,71 @@ def handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi):
                             "handle_iscsi: "
                             "expexted \"mount_point\" "
                             "and \"fs_type\" parameters")
+
+
+def handle_nvme(cfg, cloud, log, definition):
+    # Handle NVME over TCP disk
+    device = definition.get("device")
+    try:
+        (proto, namespace, host_list) = device.split(":", 2)
+        nvme_hosts = host_list.split(",")
+    except Exception as e:
+        util.logexc(log,
+                    "handle_nvme: "
+                    "expected \"device\" attribute in the format: "
+                    "\"nvme:<namespace path><host IP>:<target IP>,<host IP>:<target IP>,...\": %s" % e)
+        return
+    if len(nvme_hosts) == 0:
+        util.logexc(log,
+                    "handle_nvme: "
+                    "expected \"device\" attribute in the format: "
+                    "\"nvme:<namespace path>:<host IP>:<target IP>:<host IP>:<target IP>,...\": %s" % e)
+        return
+    if "host_nqn" in definition:
+        host_nqn = "%s\n" % definition.get("host_nqn")
+        util.write_file(NVME_HOSTNQN_PATH, host_nqn)
+        host_id = "%s\n" % str(uuid.uuid4())
+        util.write_file(NVME_HOSTID_PATH, host_id)
+    discovery_lines = []
+    for nvme_host in nvme_hosts:
+        (host_ip, target_ip) = nvme_host.split(":")
+        discovery_lines.append("--transport=tcp --host-traddr=%s --traddr=%s" % (host_ip, target_ip))
+    discovery_contents = "%s\n" % ('\n'.join(discovery_lines))
+    util.write_file(NVME_DISCOVERY_CONF_PATH, discovery_contents)
+    blockdev = _nvme_discover(log, namespace)
+    if blockdev:
+        fs_type = definition.get("fs_type")
+        fs_label = definition.get("fs_label")
+        fs_opts = definition.get("fs_opts")
+        mount_point = definition.get("mount_point")
+        mount_opts = definition.get("mount_opts")
+        if not mount_opts:
+            mount_opts = 'defaults,_netdev'
+        else:
+            if mount_opts.find("_netdev") == -1:
+                mount_opts = "%s,_netdev" % (mount_opts)
+        fs_freq = definition.get("fs_freq")
+        if not fs_freq:
+            fs_freq = "1"
+        fs_passno = definition.get("fs_passno")
+        if not fs_passno:
+            fs_passno = "2"
+        if mount_point and fs_type:
+            _create_fs(log, blockdev, fs_type, fs_label, fs_opts)
+            _add_fstab_entry(log,
+                            blockdev,
+                            mount_point,
+                            fs_type,
+                            fs_label,
+                            mount_opts,
+                            fs_freq,
+                            fs_passno)
+            _mount_fs(log, mount_point)
+        else:
+            util.logexc(log,
+                        "handle_nvme: "
+                        "expexted \"mount_point\" "
+                        "and \"fs_type\" parameters")
 
 
 def handle_nfs(cfg, cloud, log, definition):
@@ -770,3 +873,41 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
             time.sleep(WAIT_4_BLOCKDEV_DEVICE_SLEEP)
     else:
         return None
+
+
+def _nvme_discover(log, namespace):
+    # Discover NVME target for given NMVE namespace path and return device path
+    try:
+        subp.subp([NVME_CMD, "connect-all"], capture=False)
+    except Exception as e:
+        util.logexc(log,
+                    "_nvme_discover: "
+                    "failure from \"%s connect-all\" command: %s" % NVME_CMD, e)
+        return None
+    p_output = None
+    try:
+        p = subprocess.Popen([NVME_CMD, "netapp", "ontapdevices", "-o" "json"],
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        err = p.wait()
+        if err:
+            util.logexc(log,
+                        "_nvme_discover: "
+                        "failure from \"%s netapp ontapdevices -o json\" command" % NVME_CMD)
+            return None
+        p_output = p.communicate()[0]
+    except Exception as e:
+        util.logexc(log, "_nvme_discover: exception: %s" % e)
+        return None
+    for i in range(WAIT_4_BLOCKDEV_DEVICE_ITER):
+        nvme_devices = None
+        try:
+            nvme_devices = json.loads(p_output)
+            for dev in nvme_devices["ONTAPdevices"]:
+                if dev["Namespace_Path"] == namespace:
+                    return dev["Device"]
+        except Exception as e:
+            pass
+        time.sleep(WAIT_4_BLOCKDEV_DEVICE_SLEEP)
+    util.logexc(log, "_nvme_discover: no devices found")
+    return None

@@ -29,11 +29,13 @@ const (
 
 // Name convention for cDOT storage objects (can be overriden via config.yaml)
 const (
-	volumeNameTemplate  string = "{{.Compute.HostName}}_iboot"
-	bootLunNameTemplate string = "{{.Compute.HostName}}_iboot"
-	dataLunNameTemplate string = "{{.Compute.HostName}}_data"
-	seedLunNameTemplate string = "{{.Compute.HostName}}_seed"
-	igroupNameTemplate  string = "{{.Compute.HostName}}_iboot"
+	volumeNameTemplate            string = "{{.Compute.HostName}}_iboot"
+	bootLunNameTemplate           string = "{{.Compute.HostName}}_iboot"
+	dataLunNameTemplate           string = "{{.Compute.HostName}}_data"
+	seedLunNameTemplate           string = "{{.Compute.HostName}}_seed"
+	igroupNameTemplate            string = "{{.Compute.HostName}}_iboot"
+	dataNvmeNamespaceNameTemplate string = "{{.Compute.HostName}}_data"
+	dataNvmeSubsystemNameTemplate string = "{{.Compute.HostName}}_data"
 )
 
 // Default annotation names
@@ -54,13 +56,13 @@ type StorageAnnotations struct {
 	BootImage struct {
 		OsImage      string `yaml:"osImage" json:"osImage"`
 		SeedTemplate string `yaml:"seedTemplate" json:"seedTemplate"`
-	} `yaml:"bootImage" json:"bootImage"`
-	Svm     string `yaml:"svm" json:"svm"`
-	Volume  string `yaml:"volume" json:"volume"`
-	Igroup  string `yaml:"igroup" json:"igroup"`
-	BootLun string `yaml:"bootLun" json:"bootLun"`
-	DataLun string `yaml:"dataLun" json:"dataLun"`
-	SeedLun string `yaml:"seedLun" json:"seedLun"`
+	}                           `yaml:"bootImage" json:"bootImage"`
+	Svm     string              `yaml:"svm" json:"svm"`
+	Volume  string              `yaml:"volume" json:"volume"`
+	Igroup  string              `yaml:"igroup" json:"igroup"`
+	BootLun string              `yaml:"bootLun" json:"bootLun"`
+	DataLun string              `yaml:"dataLun" json:"dataLun"`
+	SeedLun string              `yaml:"seedLun" json:"seedLun"`
 }
 
 // Credentials is generic credentials resources
@@ -110,9 +112,24 @@ type IscsiTarget struct {
 
 // IscsiInitiator is iSCSI initiator
 type IscsiInitiator struct {
-	NetworkInterface `yaml:",inline" json:",inline"`
+	NetworkInterface              `yaml:",inline" json:",inline"`
 	InitiatorName    string       `yaml:"initiatorName,omitempty" json:"initiatorName,omitempty"`
 	IscsiTarget      *IscsiTarget `yaml:"iscsiTarget,omitempty" json:"iscsiTarget,omitempty"`
+}
+
+// NvmeTarget is NVME Subsystem target
+type NvmeTarget struct {
+	TargetNqn  string   `yaml:"targetNqn,omitempty" json:"targetNqn,omitempty"`
+	Interfaces []string `yaml:"interfaces,omitempty" json:"interfaces,omitempty"`
+}
+
+// NvmeHost is NVME over IP host
+type NvmeHost struct {
+	HostInterface string      `yaml:"hostInterface" json:"hostInterface"`
+	HostNqn       string      `yaml:"hostNqn,omitempty" json:"hostNqn,omitempty"`
+	Ip            string      `yaml:"ip,omitempty" json:"ip,omitempty"`
+	Subnet        string      `yaml:"subnet,omitempty" json:"subnet,omitempty"`
+	NvmeTarget    *NvmeTarget `yaml:"nvmeTarget,omitempty" json:"nvmeTarget,omitempty"`
 }
 
 // Ipam is generic IPAM
@@ -161,6 +178,13 @@ type SeedLun struct {
 	SeedTemplate RemoteFile `yaml:"seedTemplate" json:"seedTemplate"`
 }
 
+// NVME Namespace is cDOT NVME Namespace
+type DataNvme struct {
+	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+	Subsystem string `yaml:"subsystem,omitempty" json:"subsystem,omitempty"`
+	Size int         `yaml:"size,omitempty" json:"size,omitempty"`
+}
+
 // Storage is cDOT storage
 type Storage struct {
 	CdotCredentials  CdotCredentials `yaml:"cdotCredentials,omitempty" json:"cdotCredentials,omitempty"`
@@ -172,6 +196,7 @@ type Storage struct {
 	BootLun          BootLun         `yaml:"bootLun,omitempty" json:"bootLun,omitempty"`
 	DataLun          Lun             `yaml:"dataLun,omitempty" json:"dataLun,omitempty"`
 	SeedLun          SeedLun         `yaml:"seedLun,omitempty" json:"seedLun,omitempty"`
+	DataNvme         DataNvme        `yaml:"dataNvme,omitempty" json:"dataNvme,omitempty"`
 	Snapshots        []string        `yaml:"snapshots,omitempty" json:"snapshots,omitempty"`
 }
 
@@ -179,6 +204,7 @@ type Storage struct {
 type Network struct {
 	Node           []NetworkInterface `yaml:"node" json:"node"`
 	IscsiInitiator []IscsiInitiator   `yaml:"iscsiInitiator" json:"iscsiInitiator"`
+	NvmeHost       []NvmeHost         `yaml:"nvmeHost" json:"nvmeHost"`
 }
 
 // NodeConfig is aggregated node configuration
@@ -249,6 +275,22 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 				nodeConfig.Network.IscsiInitiator[i].DnsServer2 = "0.0.0.0"
 			}
 		}
+		for i := range nodeConfig.Network.NvmeHost {
+	                for j := range nodeConfig.Network.Node {
+		                if nodeConfig.Network.NvmeHost[i].HostInterface == nodeConfig.Network.Node[j].Name {
+		                        nodeConfig.Network.NvmeHost[i].Ip = nodeConfig.Network.Node[j].Ip
+		                        nodeConfig.Network.NvmeHost[i].Subnet = nodeConfig.Network.Node[j].Subnet
+		                }
+		        }
+		        if len(nodeConfig.Network.NvmeHost[i].Ip) == 0 {
+	                        for j := range nodeConfig.Network.IscsiInitiator {
+		                        if nodeConfig.Network.NvmeHost[i].HostInterface == nodeConfig.Network.IscsiInitiator[j].Name {
+		                                nodeConfig.Network.NvmeHost[i].Ip = nodeConfig.Network.IscsiInitiator[j].Ip
+		                                nodeConfig.Network.NvmeHost[i].Subnet = nodeConfig.Network.IscsiInitiator[j].Subnet
+		                        }
+		                }
+		        }
+		}
 		if nodeConfig.Storage.VolumeName == "" {
 			nodeConfig.Storage.VolumeName = volumeNameTemplate
 		}
@@ -270,6 +312,14 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 			nodeConfig.Storage.SeedLun.Name = seedLunNameTemplate
 		}
 		nodeConfig.Storage.SeedLun.Id = 2
+		if len(nodeConfig.Network.NvmeHost) > 0 {
+                        if nodeConfig.Storage.DataNvme.Namespace == "" {
+			        nodeConfig.Storage.DataNvme.Namespace = dataNvmeNamespaceNameTemplate
+		        }
+                        if nodeConfig.Storage.DataNvme.Subsystem == "" {
+			        nodeConfig.Storage.DataNvme.Subsystem = dataNvmeSubsystemNameTemplate
+		        }
+		}
 		var tWriter bytes.Buffer
 		var t *template.Template
 		t = template.Must(template.New("VolumeName").Parse(nodeConfig.Storage.VolumeName))
@@ -302,6 +352,20 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 			return
 		}
 		nodeConfig.Storage.SeedLun.Name = strings.Replace(tWriter.String(), "-", "_", -1)
+		if len(nodeConfig.Network.NvmeHost) > 0 {
+		        t = template.Must(template.New("NvmeNamespaceName").Parse(nodeConfig.Storage.DataNvme.Namespace))
+		        tWriter.Reset()
+		        if err = t.Execute(&tWriter, nodeConfig); err != nil {
+			        return
+		        }
+		        nodeConfig.Storage.DataNvme.Namespace = strings.Replace(tWriter.String(), "-", "_", -1)
+		        t = template.Must(template.New("NvmeSubsystemName").Parse(nodeConfig.Storage.DataNvme.Subsystem))
+		        tWriter.Reset()
+		        if err = t.Execute(&tWriter, nodeConfig); err != nil {
+			        return
+		        }
+		        nodeConfig.Storage.DataNvme.Subsystem = strings.Replace(tWriter.String(), "-", "_", -1)
+		}
 	}
 	if passPhrase != "" {
 		err = DecryptNodeConfig(nodeConfig, passPhrase)

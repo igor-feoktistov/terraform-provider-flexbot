@@ -28,5 +28,6 @@ disk-image-create -x -a amd64 vm block-device-mbr ubuntu \
   -p cloud-utils \
   -p cloud-initramfs-growroot \
   -p nfs-common \
+  -p nvme-cli \
   -p chrony \
   -t raw -o images/ubuntu-${IMAGE}-iboot.raw
