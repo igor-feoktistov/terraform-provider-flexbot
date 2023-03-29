@@ -1,8 +1,8 @@
-## 1.9.0 (March 9, 2023)
+## 1.9.0 (March 29, 2023)
 
 ENHANCEMENTS:
 * NVME over TCP support for data disk.
-  * Requires `api_method=rest` and OnTap v9.12 or higher.
+  * Requires `api_method=rest` and OnTap v9.12.1 or higher.
   * Requires ubuntu-22.04.2 or higher.
   * See resource documentation for more details.
 * Cluster scope for `api_method=rest`

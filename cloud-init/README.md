@@ -64,7 +64,7 @@ Network = { //schema - network
     {
       HostInterface = "iscsi0"                                       //schema - host_interface
       Ip            = "192.168.2.25"                                 //schema - ip, computed
-      Subnet        = "192.168.2.0/24"                               //schema - subnet
+      Subnet        = "192.168.2.0/24"                               //schema - subnet, computed
       HostNqn       = "nqn.2014-08.org.nvmexpress:uuid:45c8<skip>"   //schema - host_nqn, computed
       NvmeTarget    = {                                              //schema - nvme_target, computed
         TargetNqn = "nqn.1992-08.com.netapp:sn.<skip>"               //schema - target_nqn, computed
@@ -77,7 +77,7 @@ Network = { //schema - network
     {
       HostInterface = "iscsi1"                                       //schema - host_interface
       Ip            = "192.168.3.25"                                 //schema - ip, computed
-      Subnet        = "192.168.3.0/24"                               //schema - subnet
+      Subnet        = "192.168.3.0/24"                               //schema - subnet, computed
       HostNqn       = "nqn.2014-08.org.nvmexpress:uuid:45c8<skip>"   //schema - host_nqn, computed
       NvmeTarget    = {                                              //schema - nvme_target, computed
         TargetNqn = "nqn.1992-08.com.netapp:sn.<skip>"               //schema - target_nqn, computed
