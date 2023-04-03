@@ -2,7 +2,7 @@
 
 ENHANCEMENTS:
 * Standardize and increase wait timeouts in waiting routines for cluster or nodes states.
-  * Reduce impact on Rancher managemnt server in case of long list of nodes waiting for state change.
+  * Reduce impact on Rancher management server in case of long list of nodes waiting for state change.
 
 
 ## 1.9.0 (March 29, 2023)
