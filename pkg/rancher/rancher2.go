@@ -11,6 +11,10 @@ import (
 	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
+const (
+	rancher2Wait4State = 5
+)
+
 // RancherNode is rancher2 node definition
 type Rancher2Node struct {
         RancherClient    *Rancher2Client
@@ -78,7 +82,7 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 				}
 				return
 			}
-			time.Sleep(1 * time.Second)
+			time.Sleep(rancher2Wait4State * time.Second)
 		}
 	        if err == nil && len(node.NodeID) == 0 {
 	                err = fmt.Errorf("Rancher2APIInitialize(): node with IP address %s is not found in the cluster", nodeIP)
@@ -127,7 +131,7 @@ func (node *Rancher2Node) RancherAPINodeWaitForGracePeriod(timeout int) (err err
                         nextTimeout := int(math.Round(time.Until(giveupTime).Seconds()))
                         if nextTimeout > 0 {
 	                        if err = node.RancherClient.NodeWaitForState(node.NodeID, "active", nextTimeout); err == nil {
-			                time.Sleep(1 * time.Second)
+			                time.Sleep(rancher2Wait4State * time.Second)
 			        }
 			}
 		}

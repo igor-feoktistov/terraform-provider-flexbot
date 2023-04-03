@@ -1,3 +1,10 @@
+## 1.9.1 (April 3, 2023)
+
+ENHANCEMENTS:
+* Standardize and increase wait timeouts in waiting routines for cluster or nodes states.
+  * Reduce impact on Rancher managemnt server in case of long list of nodes waiting for state change.
+
+
 ## 1.9.0 (March 29, 2023)
 
 ENHANCEMENTS:
@@ -8,6 +15,7 @@ ENHANCEMENTS:
 * Cluster scope for `api_method=rest`
   * Requires resource setting `storage`->`svm_name`
   * See resource documentation for more details.
+
 
 ## 1.8.4 (February 14, 2023)
 
