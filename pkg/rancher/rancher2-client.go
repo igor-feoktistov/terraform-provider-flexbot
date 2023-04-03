@@ -293,7 +293,7 @@ func (client *Rancher2Client) ClusterWaitForState(clusterID string, states strin
 			}
 		}
 		clusterLastState = cluster.State
-		time.Sleep(1 * time.Second)
+		time.Sleep(rancher2RetriesWait * time.Second)
 	}
 	for _, state := range strings.Split(states, ",") {
 	        if clusterLastState == state {
@@ -321,7 +321,7 @@ func (client *Rancher2Client) ClusterWaitForTransitioning(clusterID string, time
 		if (cluster.State == "updating" || cluster.State == "upgrading") && (cluster.Transitioning == "yes" || cluster.Transitioning == "error") {
 		        return
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(rancher2RetriesWait * time.Second)
 	}
 	err = fmt.Errorf("rancher2-client.ClusterWaitForTransitioning(): wait for cluster transitioning exceeded timeout=%d", timeout)
 	return
@@ -354,7 +354,7 @@ func (client *Rancher2Client) NodeWaitForState(nodeID string, states string, tim
 			}
 		}
 		nodeLastState = node.State
-		time.Sleep(1 * time.Second)
+		time.Sleep(rancher2RetriesWait * time.Second)
 	}
 	err = fmt.Errorf("rancher2-client.NodeWaitForState(): wait for node state exceeded timeout=%d: expected states=%s, last state=%s", timeout, states, nodeLastState)
 	return
