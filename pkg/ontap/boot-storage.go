@@ -254,11 +254,7 @@ func DeleteBootLUNs(nodeConfig *config.NodeConfig) (err error) {
 		}
 	}
 	var fileExists bool
-	if fileExists, err = c.FileExists(nodeConfig.Storage.VolumeName, "/seed"); err != nil {
-		err = fmt.Errorf(errorFormat, err)
-		return
-	}
-	if fileExists {
+	if fileExists, err = c.FileExists(nodeConfig.Storage.VolumeName, "/seed"); err == nil && fileExists {
 		if err = c.FileDelete(nodeConfig.Storage.VolumeName, "/seed"); err != nil {
 			err = fmt.Errorf(errorFormat, err)
 			return
