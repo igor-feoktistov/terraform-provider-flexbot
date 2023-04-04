@@ -391,11 +391,7 @@ func (c *OntapRestAPI) LunCopy(lunSrcPath string, lunDstPath string) (err error)
 	giveupTime := time.Now().Add(time.Second * MAX_WAIT_FOR_LUN)
 	for time.Now().Before(giveupTime) {
 		var lun *ontap.Lun
-		if lun, _, err = c.Client.LunGetByPath(lunDstPath, []string{"svm.name=" + c.Svm,"fields=status"}); err != nil {
-		        err = fmt.Errorf("LunCopy() failure to get status for LUN %s: %s", lunDstPath, err)
-			break
-		}
-		if lun.Status.State == "online" {
+		if lun, _, err = c.Client.LunGetByPath(lunDstPath, []string{"svm.name=" + c.Svm,"fields=status"}); err == nil && lun.Status.State == "online" {
 			return
 		}
 		time.Sleep(time.Second)

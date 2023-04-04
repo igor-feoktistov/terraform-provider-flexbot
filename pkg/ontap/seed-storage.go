@@ -91,11 +91,6 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 		return
 	}
 	seedLunPath := "/vol/" + nodeConfig.Storage.VolumeName + "/" + nodeConfig.Storage.SeedLun.Name
-	var fileExists bool
-	if fileExists, err = c.FileExists(nodeConfig.Storage.VolumeName, "/seed"); err != nil {
-		err = fmt.Errorf("CreateSeedStorage(): %s", err)
-		return
-	}
 	var lunExists bool
 	if lunExists, err = c.LunExists(seedLunPath); err != nil {
 	        err = fmt.Errorf("CreateSeedStorage(): %s", err)
@@ -108,7 +103,8 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 			return
 		}
 	}
-	if fileExists {
+	var fileExists bool
+	if fileExists, err = c.FileExists(nodeConfig.Storage.VolumeName, "/seed"); err == nil && fileExists {
 		if err = c.FileDelete(nodeConfig.Storage.VolumeName, "/seed"); err != nil {
 			err = fmt.Errorf("CreateSeedStorage(): %s", err)
 			return

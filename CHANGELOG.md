@@ -1,3 +1,9 @@
+## 1.9.2 (April 4, 2023)
+
+BUG FIXES:
+* Fix for the issue with REST LunCopy routine for the case of substantially delayed response from a storage.
+
+
 ## 1.9.1 (April 3, 2023)
 
 ENHANCEMENTS:
