@@ -1,0 +1,112 @@
+{{define "meta-data"}}{{/* meta-data template starts here */ -}}
+instance-id: {{.Compute.HostName}}
+{{end}}{{/* meta-data template ends here */}}
+{{define "user-data"}}{{/* user-data template starts here */ -}}
+#cloud-config
+debug: true
+disable_root: false
+ssh_deletekeys: false
+ssh_pwauth: true
+hostname: {{(index .Network.Node 0).Fqdn}}
+fqdn: {{(index .Network.Node 0).Fqdn}}
+
+write_files:
+- path: /etc/netplan/50-cloud-init.yaml
+  permissions: '0644'
+  owner: root:root
+  content: |
+    network:
+      version: 2
+      ethernets:
+      {{- range .Network.Node}}
+        {{.Name}}:
+          link-local: []
+          match:
+            macaddress: {{.Macaddr}}
+          {{- range $paramName, $paramValue := .Parameters}}
+          {{$paramName}}: {{$paramValue}}
+          {{- end}}
+          addresses:
+          - {{.Ip}}/{{.NetLen}}
+          {{- if .Gateway}}
+          routes:
+          - to: default
+            via: {{.Gateway}}
+          {{- end}}
+          {{- if .DnsServer1}}
+          nameservers:
+            {{- if .DnsDomain}}
+            search: [{{.DnsDomain}}]
+            {{- end}}
+            addresses: [{{.DnsServer1}}{{if .DnsServer2}},{{.DnsServer2}}{{end}}{{if .DnsServer3}},{{.DnsServer3}}{{end}}]
+          {{- end}}
+      {{- end}}
+- path: /etc/chrony/chrony.conf
+  permissions: '0644'
+  owner: root:root
+  content: |
+    pool ntp1.example.com iburst maxsources 1
+    pool ntp2.example.com iburst maxsources 1
+    pool ntp3.example.com iburst maxsources 1
+    keyfile /etc/chrony/chrony.keys
+    driftfile /var/lib/chrony/chrony.drift
+    logdir /var/log/chrony
+    maxupdateskew 100.0
+    rtcsync
+
+{{if or .Storage.DataLun.Size .Storage.DataNvme.Size -}}
+remotedisk_setup:
+{{- if .Storage.DataLun.Size}}
+  - device: iscsi:{{index ((index .Network.IscsiInitiator 0).IscsiTarget.Interfaces) 0}}:6:3260:{{.Storage.DataLun.Id}}:{{(index .Network.IscsiInitiator 0).IscsiTarget.NodeName}}
+    initiator_name: {{(index .Network.IscsiInitiator 0).InitiatorName}}
+    fs_type: xfs
+    fs_label: datafs
+    mount_point: /var/lib/rancher
+    mount_opts: defaults,noatime,nodiratime,_netdev
+{{- end}}{{/* iscsi device definition ends here */}}
+{{- if and .Storage.DataNvme.Size .Network.NvmeHost}}
+  - device: nvme:/vol/{{.Storage.VolumeName}}/{{.Storage.DataNvme.Namespace}}:{{(index .Network.NvmeHost 0).Ip}}:{{index ((index .Network.NvmeHost 0).NvmeTarget.Interfaces) 0}},{{ if gt (len (index .Network.NvmeHost 0).NvmeTarget.Interfaces) 1 }}{{(index .Network.NvmeHost 0).Ip}}:{{index ((index .Network.NvmeHost 0).NvmeTarget.Interfaces) 1}},{{- end }}{{(index .Network.NvmeHost 1).Ip}}:{{index ((index .Network.NvmeHost 1).NvmeTarget.Interfaces) 0}}{{ if gt (len (index .Network.NvmeHost 1).NvmeTarget.Interfaces) 1 }},{{(index .Network.NvmeHost 1).Ip}}:{{index ((index .Network.NvmeHost 1).NvmeTarget.Interfaces) 1}}{{- end }}
+    host_nqn: {{(index .Network.NvmeHost 0).HostNqn}}
+    fs_type: xfs
+    fs_label: datafs
+    mount_point: /var/lib/rancher
+    mount_opts: defaults,noatime,nodiratime,_netdev
+{{- end}}{{/* nvme device definition ends here */}}
+{{- end}}{{/* remotedisk_setup definition ends here */}}
+
+users:
+  - name: {{index .CloudArgs "cloud_user"}}
+    gecos: Default cloud user
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups:
+      - users
+      - admin
+    lock_passwd: true
+    ssh_authorized_keys:
+      - {{index .CloudArgs "ssh_pub_key"}}
+      - {{index .CloudArgs "ssh_pub_key_ecdsa"}}
+
+random_seed:
+  file: /dev/urandom
+  command: ["pollinate", "-r", "-s", "https://entropy.ubuntu.com"]
+  command_required: true
+
+runcmd:
+  - netplan apply
+  - mkdir -p /var/lib/rancher/kubernetes/kubelet
+  - mkdir -p /var/lib/rancher/kubernetes/log
+  - ln -s /var/lib/rancher/kubernetes/kubelet /var/lib/kubelet
+  - ln -s /var/lib/rancher/kubernetes/log /var/log/pods
+  - groupadd --gid 52034 etcd
+  - useradd --system --comment "etcd user" --shell /sbin/nologin --uid 52034 --gid 52034 --no-create-home etcd
+  {{- if (index .CloudArgs "rancher_api_url")}}
+  - until $(curl --output /dev/null --silent --head --fail {{index .CloudArgs "rancher_api_url"}}); do sleep 5; done
+  {{- end}}
+  - systemctl restart chronyd && sleep 5
+  - chronyc -a makestep || true
+  {{- if (index .CloudArgs "node_registration_command")}}
+  - {{index .CloudArgs "node_registration_command"}}
+  {{- end}}
+  - touch /etc/cloud/cloud-init.disabled
+  - /usr/local/cloud-init/post-install
+{{end}}{{/* user-data template ends here */}}

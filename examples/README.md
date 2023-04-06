@@ -11,6 +11,7 @@ Make sure to update respective `terraform.tfvars` files with your own infrastruc
 * [rke-flexbot](./rke-flexbot) Provisions and manages RKE cluster with bare-metal nodes on FlexPOD.
 * [rancher-server-flexbot](./rancher-server-flexbot) Provisions and manages Rancher Management Server.
 * [rancher-workload-cluster-flexbot](./rancher-workload-cluster-flexbot) Provisions and manages Rancher Custom Cluster.
+* [rancher-rke2-workload-cluster-flexbot](./rancher-rke2-workload-cluster-flexbot) Provisions and manages Rancher RKE2 Custom Cluster.
 * [crypt](./crypt) Generate encrypted string values for various use cases.
 
 ### Note

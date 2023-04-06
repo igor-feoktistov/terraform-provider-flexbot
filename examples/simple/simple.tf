@@ -292,15 +292,13 @@ resource "flexbot_server" "k8s-node1" {
 
   # Optional - cDOT storage snapshots to take while server lifecycle management
   # You may want to keep the list empty until server is built
-  snapshot: [
-    {
+  snapshot {
       # Required - Snapshot name
-      name: "terraform-2020-07-24-17:15",
+      name = "terraform-2020-07-24-17:15"
       # Optional - Ensures "fsfreeze" for every filesystem on iSCSI LUN's before taking snapshot.
       # Requires ssh_user and ssh_private_key parameters in "compute"
-      fsfreeze: true
-    }
-  ]
+      fsfreeze = true
+  }
 
   # Optional - Cloud Arguments are user defined key/value pairs to resolve in cloud-init template
   # Values can be encrypted (built-in decrypt support)
@@ -315,10 +313,16 @@ resource "flexbot_server" "k8s-node1" {
   }
 
   # Optional - Kubernetes node taints - requires Rancher API enabled
-  taints = [
-    {key = "app", value = "MyApp", effect = "NoSchedule"},
-    {key = "app", value = "MyApp", effect = "NoExecute"}
-  ]
+  taints {
+    key = "app"
+    value = "MyApp"
+    effect = "NoSchedule"
+  }
+  taints {
+    key = "app"
+    value = "MyApp"
+    effect = "NoExecute"
+  }
 
   # Restore from snapshot
   # Optional - restore server LUN's from snapshot.
