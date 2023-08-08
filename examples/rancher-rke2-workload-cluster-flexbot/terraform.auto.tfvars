@@ -39,19 +39,11 @@ node_config = {
         subnet = "192.168.1.0/24"
         gateway = "192.168.1.1"
         dns_server1 = "192.168.1.10"
-        dns_server2 = ""
-        dns_server3 = ""
         dns_domain = "example.com"
-        parameters = {}
       },
       {
         name = "eth3"
         subnet = "192.168.2.0/24"
-        gateway = ""
-        dns_server1 = ""
-        dns_server2 = ""
-        dns_server3 = ""
-        dns_domain = ""
         parameters = {
           mtu = "9000"
         }
@@ -61,25 +53,21 @@ node_config = {
       {
         name = "iscsi0"
         subnet = "192.168.3.0/24"
-        gateway = ""
-        dns_server1 = ""
-        dns_server2 = ""
-        dns_server3 = ""
-        dns_domain = ""
-        parameters = {}
       },
       {
         name = "iscsi1"
         subnet = "192.168.4.0/24"
-        gateway = ""
-        dns_server1 = ""
-        dns_server2 = ""
-        dns_server3 = ""
-        dns_domain = ""
-        parameters = {}
       }
     ]
   }
+  nvme_hosts = [
+    {
+      host_interface = "iscsi0"
+    },
+    {
+      host_interface = "iscsi1"
+    }
+  ]
   storage = {
     api_method = "rest"
   }

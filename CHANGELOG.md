@@ -1,8 +1,10 @@
-## 1.9.3 (August 4, 2023)
+## 1.9.3 (August 7, 2023)
 
 ENHANCEMENTS:
 * Further improvements in NVME over TCP support for data disk.
   * Simplified switching from iSCSI to NVME for data disk
+  * Updated example for RKE2 downstream cluster with data disk on NVME
+  * Updated elements of diskimage-builder for ubuntu-22.04
 
 BUG FIXES:
 * Fix for the issue with RKE2 nodes upgrades when labels and taints were not consistently applied.

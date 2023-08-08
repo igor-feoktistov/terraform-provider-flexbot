@@ -140,7 +140,7 @@ EOF
       control_plane_concurrency = "1"
       worker_concurrency        = "1"
       control_plane_drain_options {
-        enabled                              = false
+        enabled                              = true
         delete_empty_dir_data                = true
         force                                = true
         grace_period                         = 30
@@ -195,6 +195,7 @@ resource "flexbot_server" "master" {
   }
   # cDOT storage
   storage {
+    svm_name = var.node_config.storage.svm_name != null ? var.node_config.storage.svm_name : ""
     auto_snapshot_on_update = false
     boot_lun {
       os_image = each.value.os_image
@@ -204,7 +205,10 @@ resource "flexbot_server" "master" {
       seed_template = each.value.seed_template
     }
     data_lun {
-      size = each.value.data_lun_size
+      size = each.value.data_lun_size > 0 ? each.value.data_lun_size : 0
+    }
+    data_nvme {
+      size = each.value.data_nvme_size > 0 ? each.value.data_nvme_size : 0
     }
     force_update = each.value.force_update
   }
@@ -244,6 +248,15 @@ resource "flexbot_server" "master" {
       content {
         name = iscsi_initiator.value.name
         subnet = iscsi_initiator.value.subnet
+      }
+    }
+    # NVME hosts (list)
+    dynamic "nvme_host" {
+      for_each = [for nvme_host in var.node_config.nvme_hosts: {
+        host_interface = nvme_host.host_interface
+      }]
+      content {
+        host_interface = nvme_host.value.host_interface
       }
     }
   }
@@ -279,11 +292,11 @@ resource "flexbot_server" "master" {
   }
   # Maintenance tasks
   maintenance {
-      execute =  each.value.maintenance.execute
-      synchronized_run = each.value.maintenance.synchronized_run
-      wait_for_node_timeout = each.value.maintenance.wait_for_node_timeout
-      node_grace_timeout = each.value.maintenance.node_grace_timeout
-      tasks = each.value.maintenance.tasks
+    execute = each.value.maintenance.execute
+    synchronized_run = each.value.maintenance.synchronized_run
+    wait_for_node_timeout = each.value.maintenance.wait_for_node_timeout
+    node_grace_timeout = each.value.maintenance.node_grace_timeout
+    tasks = each.value.maintenance.tasks
   }
   # Restore from snapshot
   restore {
@@ -318,6 +331,7 @@ resource "flexbot_server" "worker" {
   }
   # cDOT storage
   storage {
+    svm_name = var.node_config.storage.svm_name != null ? var.node_config.storage.svm_name : ""
     auto_snapshot_on_update = false
     boot_lun {
       os_image = each.value.os_image
@@ -327,7 +341,10 @@ resource "flexbot_server" "worker" {
       seed_template = each.value.seed_template
     }
     data_lun {
-      size = each.value.data_lun_size
+      size = each.value.data_lun_size > 0 ? each.value.data_lun_size : 0
+    }
+    data_nvme {
+      size = each.value.data_nvme_size > 0 ? each.value.data_nvme_size : 0
     }
     force_update = each.value.force_update
   }
@@ -367,6 +384,15 @@ resource "flexbot_server" "worker" {
       content {
         name = iscsi_initiator.value.name
         subnet = iscsi_initiator.value.subnet
+      }
+    }
+    # NVME hosts (list)
+    dynamic "nvme_host" {
+      for_each = [for nvme_host in var.node_config.nvme_hosts: {
+        host_interface = nvme_host.host_interface
+      }]
+      content {
+        host_interface = nvme_host.value.host_interface
       }
     }
   }
@@ -411,11 +437,11 @@ resource "flexbot_server" "worker" {
   }
   # Maintenance tasks
   maintenance {
-      execute =  each.value.maintenance.execute
-      synchronized_run = each.value.maintenance.synchronized_run
-      wait_for_node_timeout = each.value.maintenance.wait_for_node_timeout
-      node_grace_timeout = each.value.maintenance.node_grace_timeout
-      tasks = each.value.maintenance.tasks
+    execute = each.value.maintenance.execute
+    synchronized_run = each.value.maintenance.synchronized_run
+    wait_for_node_timeout = each.value.maintenance.wait_for_node_timeout
+    node_grace_timeout = each.value.maintenance.node_grace_timeout
+    tasks = each.value.maintenance.tasks
   }
   # Restore from snapshot
   restore {
