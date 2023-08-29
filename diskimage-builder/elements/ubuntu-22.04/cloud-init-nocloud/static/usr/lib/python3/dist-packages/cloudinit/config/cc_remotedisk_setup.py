@@ -145,6 +145,8 @@ import json
 import uuid
 from string import whitespace
 
+from cloudinit.cloud import Cloud
+from cloudinit.config import Config
 from cloudinit.config.schema import MetaSchema
 from cloudinit.distros import ALL_DISTROS
 from cloudinit.settings import PER_ALWAYS
@@ -154,6 +156,9 @@ from cloudinit import type_utils
 from cloudinit import util
 from cloudinit import subp
 from cloudinit import templater
+
+LANG_C_ENV = {"LANG": "C"}
+LOG = logging.getLogger(__name__)
 
 frequency = PER_INSTANCE
 
@@ -187,45 +192,45 @@ meta: MetaSchema = {
 __doc__ = ""
 
 
-def handle(_name, cfg, cloud, log, _args):
+def handle(name: str, cfg: Config, cloud: Cloud, args: list) -> None:
     if "remotedisk_setup" not in cfg:
-        log.debug("Skipping module named %s, no configuration found" % _name)
+        LOG.debug("Skipping module named %s, no configuration found" % _name)
         return
     remotedisk_setup = cfg.get("remotedisk_setup")
-    log.debug("setting up remote disk: %s", str(remotedisk_setup))
+    LOG.debug("setting up remote disk: %s", str(remotedisk_setup))
     dev_entry_iscsi = 0
     for definition in remotedisk_setup:
         try:
             device = definition.get("device")
             if device:
                 if device.startswith("iscsi"):
-                    handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi)
+                    handle_iscsi(cfg, cloud, definition, dev_entry_iscsi)
                     dev_entry_iscsi += 1
                 elif device.startswith("nvme"):
-                    handle_nvme(cfg, cloud, log, definition)
+                    handle_nvme(cfg, cloud, definition)
                 elif device.startswith("nfs"):
-                    handle_nfs(cfg, cloud, log, definition)
+                    handle_nfs(cfg, cloud, definition)
                 elif device.startswith("ebs"):
-                    handle_ebs(cfg, cloud, log, definition)
+                    handle_ebs(cfg, cloud, definition)
                 elif device.startswith("ephemeral"):
-                    handle_ebs(cfg, cloud, log, definition)
+                    handle_ebs(cfg, cloud, definition)
                 else:
                     if "fs_type" in definition:
                         fs_type = definition.get("fs_type")
                         if fs_type == "nfs":
-                            handle_nfs(cfg, cloud, log, definition)
+                            handle_nfs(cfg, cloud, definition)
                         else:
-                            handle_ebs(cfg, cloud, log, definition)
+                            handle_ebs(cfg, cloud, definition)
                     else:
-                        util.logexc(log, "Expexted \"fs_type\" parameter")
+                        util.logexc(LOG, "Expexted \"fs_type\" parameter")
             else:
-                util.logexc(log, "Expexted \"device\" parameter")
+                util.logexc(LOG, "Expexted \"device\" parameter")
         except Exception as e:
-            util.logexc(log, "Failed during remote disk operation\n"
+            util.logexc(LOG, "Failed during remote disk operation\n"
                              "Exception: %s" % e)
 
 
-def handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi):
+def handle_iscsi(cfg, cloud, definition, dev_entry_iscsi):
     # Handle iSCSI LUN
     device = definition.get("device")
     try:
@@ -235,7 +240,7 @@ def handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi):
          iscsi_lun,
          iscsi_target) = device.split(":", 5)[1:]
     except Exception as e:
-        util.logexc(log,
+        util.logexc(LOG,
                     "handle_iscsi: "
                     "expected \"device\" attribute in the format: "
                     "\"iscsi:<iSCSI host>:<protocol>:<port>:<LUN>:"
@@ -252,7 +257,7 @@ def handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi):
         if multipath_tmpl_fn:
             templater.render_to_file(multipath_tmpl_fn, "/etc/multipath.conf", {})
         else:
-            log.warn("handle_iscsi: template multipath.conf not found")
+            LOG.warn("handle_iscsi: template multipath.conf not found")
         if cloud.distro.osfamily == "redhat":
             iscsi_services = ["iscsi", "iscsid"]
             multipath_services = ["multipathd"]
@@ -260,18 +265,17 @@ def handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi):
             iscsi_services = ["open-iscsi", "iscsid"]
             multipath_services = ["multipathd"]
         else:
-            util.logexc(log,
+            util.logexc(LOG,
                         "handle_iscsi: "
                         "unsupported osfamily \"%s\"" % cloud.distro.osfamily)
             return
         for service in iscsi_services:
-            _service_wrapper(cloud, log, service, "enable")
-            _service_wrapper(cloud, log, service, "restart")
+            _service_wrapper(cloud, service, "enable")
+            _service_wrapper(cloud, service, "restart")
         for service in multipath_services:
-            _service_wrapper(cloud, log, service, "enable")
-            _service_wrapper(cloud, log, service, "restart")
-    blockdev = _iscsi_lun_discover(log,
-                                   iscsi_host,
+            _service_wrapper(cloud, service, "enable")
+            _service_wrapper(cloud, service, "restart")
+    blockdev = _iscsi_lun_discover(iscsi_host,
                                    iscsi_port,
                                    iscsi_lun,
                                    iscsi_target)
@@ -297,52 +301,51 @@ def handle_iscsi(cfg, cloud, log, definition, dev_entry_iscsi):
         if lvm_group and lvm_volume:
             for vg_name in _list_vg_names():
                 if vg_name == lvm_group:
-                    util.logexc(log,
+                    util.logexc(LOG,
                                 "handle_iscsi: "
                                 "logical volume group '%s' exists already"
                                 % lvm_group)
                     return
             for lv_name in _list_lv_names():
                 if lv_name == lvm_volume:
-                    util.logexc(log,
+                    util.logexc(LOG,
                                 "handle_iscsi: "
                                 "logical volume '%s' exists already"
                                 % lvm_volume)
                     return
-            blockdev = _create_lv(log, blockdev, lvm_group, lvm_volume)
+            blockdev = _create_lv(blockdev, lvm_group, lvm_volume)
         if blockdev:
             if mount_point and fs_type:
-                _create_fs(log, blockdev, fs_type, fs_label, fs_opts)
-                _add_fstab_entry(log,
-                                 blockdev,
+                _create_fs(blockdev, fs_type, fs_label, fs_opts)
+                _add_fstab_entry(blockdev,
                                  mount_point,
                                  fs_type,
                                  fs_label,
                                  mount_opts,
                                  fs_freq,
                                  fs_passno)
-                _mount_fs(log, mount_point)
+                _mount_fs(mount_point)
             else:
-                util.logexc(log,
+                util.logexc(LOG,
                             "handle_iscsi: "
                             "expexted \"mount_point\" "
                             "and \"fs_type\" parameters")
 
 
-def handle_nvme(cfg, cloud, log, definition):
+def handle_nvme(cfg, cloud, definition):
     # Handle NVME over TCP disk
     device = definition.get("device")
     try:
         (proto, namespace, host_list) = device.split(":", 2)
         nvme_hosts = host_list.split(",")
     except Exception as e:
-        util.logexc(log,
+        util.logexc(LOG,
                     "handle_nvme: "
                     "expected \"device\" attribute in the format: "
                     "\"nvme:<namespace path><host IP>:<target IP>,<host IP>:<target IP>,...\": %s" % e)
         return
     if len(nvme_hosts) == 0:
-        util.logexc(log,
+        util.logexc(LOG,
                     "handle_nvme: "
                     "expected \"device\" attribute in the format: "
                     "\"nvme:<namespace path>:<host IP>:<target IP>:<host IP>:<target IP>,...\": %s" % e)
@@ -358,7 +361,7 @@ def handle_nvme(cfg, cloud, log, definition):
         discovery_lines.append("--transport=tcp --host-traddr=%s --traddr=%s" % (host_ip, target_ip))
     discovery_contents = "%s\n" % ('\n'.join(discovery_lines))
     util.write_file(NVME_DISCOVERY_CONF_PATH, discovery_contents)
-    blockdev = _nvme_discover(log, namespace)
+    blockdev = _nvme_discover(namespace)
     if blockdev:
         fs_type = definition.get("fs_type")
         fs_label = definition.get("fs_label")
@@ -377,24 +380,23 @@ def handle_nvme(cfg, cloud, log, definition):
         if not fs_passno:
             fs_passno = "2"
         if mount_point and fs_type:
-            _create_fs(log, blockdev, fs_type, fs_label, fs_opts)
-            _add_fstab_entry(log,
-                            blockdev,
+            _create_fs(blockdev, fs_type, fs_label, fs_opts)
+            _add_fstab_entry(blockdev,
                             mount_point,
                             fs_type,
                             fs_label,
                             mount_opts,
                             fs_freq,
                             fs_passno)
-            _mount_fs(log, mount_point)
+            _mount_fs(mount_point)
         else:
-            util.logexc(log,
+            util.logexc(LOG,
                         "handle_nvme: "
                         "expexted \"mount_point\" "
                         "and \"fs_type\" parameters")
 
 
-def handle_nfs(cfg, cloud, log, definition):
+def handle_nfs(cfg, cloud, definition):
     # Handle NFS share mounts
     device = definition.get("device")
     if device.startswith("nfs"):
@@ -413,26 +415,25 @@ def handle_nfs(cfg, cloud, log, definition):
     if not fs_passno:
         fs_passno = "0"
     if mount_point and fs_type:
-        _add_fstab_entry(log,
-                         share_path,
+        _add_fstab_entry(share_path,
                          mount_point,
                          fs_type,
                          None,
                          mount_opts,
                          fs_freq,
                          fs_passno)
-        _mount_fs(log, mount_point)
+        _mount_fs(mount_point)
     else:
-        util.logexc(log,
+        util.logexc(LOG,
                     "handle_nfs: "
                     "expexted \"mount_point\" and \"fs_type\" parameters")
 
 
-def handle_ebs(cfg, cloud, log, definition):
+def handle_ebs(cfg, cloud, definition):
     # Handle block device either explicitly provided via device path or
     # via device name mapping (Amazon/OpenStack)
     device = definition.get("device")
-    blockdev = _cloud_device_2_os_device(cloud, log, device)
+    blockdev = _cloud_device_2_os_device(cloud, device)
     if blockdev:
         lvm_group = definition.get("lvm_group")
         lvm_volume = definition.get("lvm_volume")
@@ -452,39 +453,38 @@ def handle_ebs(cfg, cloud, log, definition):
         if lvm_group and lvm_volume:
             for vg_name in _list_vg_names():
                 if vg_name == lvm_group:
-                    util.logexc(log,
+                    util.logexc(LOG,
                                 "handle_ebs: "
                                 "logical volume group '%s' exists already"
                                 % lvm_group)
                     return
             for lv_name in _list_lv_names():
                 if lv_name == lvm_volume:
-                    util.logexc(log,
+                    util.logexc(LOG,
                                 "handle_ebs: "
                                 "logical volume '%s' exists already"
                                 % lvm_volume)
                     return
-            blockdev = _create_lv(log, blockdev, lvm_group, lvm_volume)
+            blockdev = _create_lv(blockdev, lvm_group, lvm_volume)
         if blockdev:
             if mount_point and fs_type:
-                _create_fs(log, blockdev, fs_type, fs_label, fs_opts)
-                _add_fstab_entry(log,
-                                 blockdev,
+                _create_fs(blockdev, fs_type, fs_label, fs_opts)
+                _add_fstab_entry(blockdev,
                                  mount_point,
                                  fs_type,
                                  fs_label,
                                  mount_opts,
                                  fs_freq,
                                  fs_passno)
-                _mount_fs(log, mount_point)
+                _mount_fs(mount_point)
             else:
-                util.logexc(log,
+                util.logexc(LOG,
                             "handle_ebs: "
                             "expexted \"mount_point\" and "
                             "\"fs_type\" parameters")
 
 
-def _cloud_device_2_os_device(cloud, log, name):
+def _cloud_device_2_os_device(cloud, name):
     # Translate cloud device (ebs# and ephemaral#) to OS block device path
     blockdev = None
     for i in range(WAIT_4_BLOCKDEV_MAPPING_ITER):
@@ -496,7 +496,7 @@ def _cloud_device_2_os_device(cloud, log, name):
                     "block-device-mapping" in cloud.datasource.ec2_metadata):
                 metadata = cloud.datasource.ec2_metadata
             else:
-                util.logexc(log,
+                util.logexc(LOG,
                             "_cloud_device_2_os_device: "
                             "metadata item block-device-mapping not found")
                 return None
@@ -510,7 +510,7 @@ def _cloud_device_2_os_device(cloud, log, name):
             time.sleep(WAIT_4_BLOCKDEV_MAPPING_SLEEP)
             continue
     if blockdev is None:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_cloud_device_2_os_device: "
                     "unable to convert %s to a device" % name)
         return None
@@ -522,7 +522,7 @@ def _cloud_device_2_os_device(cloud, log, name):
         if os.path.exists(blockdev_path):
             return blockdev_path
         time.sleep(WAIT_4_BLOCKDEV_DEVICE_SLEEP)
-    util.logexc(log,
+    util.logexc(LOG,
                 "_cloud_device_2_os_device: "
                 "device %s does not exist" % blockdev_path)
     return None
@@ -572,7 +572,7 @@ def _list_lv_names():
     return names
 
 
-def _create_lv(log, device, vg_name, lv_name):
+def _create_lv(device, vg_name, lv_name):
     # Create volume group
     pvcreate_cmd = [LVM_CMD, "pvcreate", device]
     vgcreate_cmd = [LVM_CMD, "vgcreate", "-f", vg_name, device]
@@ -584,20 +584,20 @@ def _create_lv(log, device, vg_name, lv_name):
         subp.subp(lvcreate_cmd)
         return "/dev/mapper/%s-%s" % (vg_name, lv_name)
     except Exception as e:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_create_lv: "
                     "failed to create LVM volume '%s' for device '%s': %s"
                     % (lv_name, device, e))
         return None
 
 
-def _create_fs(log, device, fs_type, fs_label, fs_opts=None):
+def _create_fs(device, fs_type, fs_label, fs_opts=None):
     # Create filesystem
     mkfs_cmd = subp.which("mkfs.%s" % fs_type)
     if not mkfs_cmd:
         mkfs_cmd = subp.which("mk%s" % fs_type)
     if not mkfs_cmd:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_create_fs: "
                     "cannot create filesystem type '%s': "
                     "failed to find mkfs.%s command" % (fs_type, fs_type))
@@ -614,13 +614,12 @@ def _create_fs(log, device, fs_type, fs_label, fs_opts=None):
             else:
                 subp.subp([mkfs_cmd, device])
     except Exception as e:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_create_fs: "
                     "failed to create filesystem type '%s': %s" % (fs_type, e))
 
 
-def _add_fstab_entry(log,
-                     device,
+def _add_fstab_entry(device,
                      mount_point,
                      fs_type,
                      fs_label,
@@ -635,12 +634,12 @@ def _add_fstab_entry(log,
         except:
             pass
         if len(toks) > 0 and toks[0] == device:
-            util.logexc(log,
+            util.logexc(LOG,
                         "_add_fstab_entry: "
                         "file %s has device %s already" % (FSTAB_PATH, device))
             return
         if len(toks) > 1 and toks[1] == mount_point:
-            util.logexc(log,
+            util.logexc(LOG,
                         "_add_fstab_entry: "
                         "file %s has mount point %s already"
                         % (FSTAB_PATH, mount_point))
@@ -659,12 +658,12 @@ def _add_fstab_entry(log,
     util.write_file(FSTAB_PATH, contents)
 
 
-def _mount_fs(log, mount_point):
+def _mount_fs(mount_point):
     # Mount filesystem according to fstab entry
     try:
         util.ensure_dir(mount_point)
     except Exception as e:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_mount_fs: "
                     "failed to make '%s' mount point directory: %s"
                     % (mount_point, e))
@@ -672,32 +671,32 @@ def _mount_fs(log, mount_point):
     try:
         subp.subp(["mount", mount_point])
     except Exception as e:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_mount_fs: "
                     "activating mounts via 'mount %s' failed: %s"
                     % (mount_point, e))
 
 
-def _service_wrapper(cloud, log, service, command):
+def _service_wrapper(cloud, service, command):
     # Wrapper for service related commands
     if cloud.distro.osfamily == "redhat":
         svc_cmd = [SYSTEMCTL_CMD, command, service]
     elif cloud.distro.osfamily == "debian":
         svc_cmd = [SYSTEMCTL_CMD, command, service]
     else:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_handle_service: "
                     "unsupported osfamily \"%s\"" % cloud.distro.osfamily)
         return
     try:
         subp.subp(svc_cmd, capture=False)
     except Exception as e:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_handle_service: "
                     "failure to \"%s\" \"%s\": %s" % (command, service, e))
 
 
-def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
+def _iscsi_lun_discover(iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
     # Discover iSCSI target and map LUN ID to multipath device path
     blockdev = None
     mpathdev = None
@@ -721,14 +720,14 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
                              stderr=subprocess.PIPE)
         err = p.wait()
         if err:
-            util.logexc(log,
+            util.logexc(LOG,
                         "_iscsi_lun_discover: "
                         "failure from \"%s -m node\" command" % ISCSIADM_CMD)
             return None
         output = p.communicate()[0]
         output = output.decode().split("\n")
         if not output:
-            util.logexc(log,
+            util.logexc(LOG,
                         "_iscsi_lun_discover: "
                         "no iSCSI nodes discovered for target \"%s\""
                         % iscsi_target)
@@ -753,7 +752,7 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
                                "automatic"],
                               capture=False)
                 except Exception as e:
-                    util.logexc(log,
+                    util.logexc(LOG,
                                 "_iscsi_lun_discover: "
                                 "failure in attempt to set automatic binding "
                                 "for target portal \"%s\": %s"
@@ -764,7 +763,7 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
                              stderr=subprocess.PIPE)
         err = p.wait()
         if err:
-            util.logexc(log,
+            util.logexc(LOG,
                         "_iscsi_lun_discover: "
                         "failure from \"%s -m session -P3\" command"
                         % ISCSIADM_CMD)
@@ -772,7 +771,7 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
         output = p.communicate()[0]
         output = output.decode().split("\n")
         if not output:
-            util.logexc(log,
+            util.logexc(LOG,
                         "_iscsi_lun_discover: "
                         "no iSCSI sessions discovered for target \"%s\""
                         % iscsi_target)
@@ -823,7 +822,7 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
                                                      stderr=subprocess.PIPE)
                                 err = p.wait()
                                 if err:
-                                    util.logexc(log,
+                                    util.logexc(LOG,
                                                 "_iscsi_lun_discover: "
                                                 "failure from "
                                                 "\"/lib/udev/scsi_id\" "
@@ -832,7 +831,7 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
                                 output2 = p.communicate()[0]
                                 output2 = output2.decode().split('\n')
                                 if not output2:
-                                    util.logexc(log,
+                                    util.logexc(LOG,
                                                 "_iscsi_lun_discover: "
                                                 "no wwid returned for device "
                                                 "\"/dev/%s\""
@@ -866,7 +865,7 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
             try:
                 subp.subp([MULTIPATH_CMD, mpathdev], capture=False)
             except Exception as e:
-                util.logexc(log,
+                util.logexc(LOG,
                             "_iscsi_lun_discover: "
                             "failure to run \"%s\": %s" % (MULTIPATH_CMD, e))
                 return None
@@ -875,12 +874,12 @@ def _iscsi_lun_discover(log, iscsi_host, iscsi_port, iscsi_lun, iscsi_target):
         return None
 
 
-def _nvme_discover(log, namespace):
+def _nvme_discover(namespace):
     # Discover NVME target for given NMVE namespace path and return device path
     try:
         subp.subp([NVME_CMD, "connect-all"], capture=False)
     except Exception as e:
-        util.logexc(log,
+        util.logexc(LOG,
                     "_nvme_discover: "
                     "failure from \"%s connect-all\" command: %s" % NVME_CMD, e)
         return None
@@ -891,13 +890,13 @@ def _nvme_discover(log, namespace):
                              stderr=subprocess.PIPE)
         err = p.wait()
         if err:
-            util.logexc(log,
+            util.logexc(LOG,
                         "_nvme_discover: "
                         "failure from \"%s netapp ontapdevices -o json\" command" % NVME_CMD)
             return None
         p_output = p.communicate()[0]
     except Exception as e:
-        util.logexc(log, "_nvme_discover: exception: %s" % e)
+        util.logexc(LOG, "_nvme_discover: exception: %s" % e)
         return None
     for i in range(WAIT_4_BLOCKDEV_DEVICE_ITER):
         nvme_devices = None
@@ -909,5 +908,5 @@ def _nvme_discover(log, namespace):
         except Exception as e:
             pass
         time.sleep(WAIT_4_BLOCKDEV_DEVICE_SLEEP)
-    util.logexc(log, "_nvme_discover: no devices found")
+    util.logexc(LOG, "_nvme_discover: no devices found")
     return None

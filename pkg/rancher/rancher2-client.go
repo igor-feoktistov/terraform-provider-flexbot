@@ -442,29 +442,34 @@ func (client *Rancher2Client) DeleteNode(nodeID string) (err error) {
 
 // NodeSetAnnotationsLabelsTaints sets Rancher node annotations, labels, and taints
 func (client *Rancher2Client) NodeSetAnnotationsLabelsTaints(nodeID string, annotations map[string]string, labels map[string]string, taints []managementClient.Taint) (err error) {
-	var node *managementClient.Node
+	var node, updates *managementClient.Node
 	if node, err = client.GetNodeByID(nodeID); err != nil {
 		err = fmt.Errorf("rancher2-client.NodeSetAnnotationsLabelsTaints().GetNodeByID() error: %s", err)
 		return
 	}
+	updates = &managementClient.Node{
+		Annotations: node.Annotations,
+		Labels: node.Labels,
+		Taints: node.Taints,
+	}
 	for key, elem := range annotations {
-		node.Annotations[key] = elem
+		updates.Annotations[key] = elem
 	}
 	for key, elem := range labels {
-		node.Labels[key] = elem
+		updates.Labels[key] = elem
 	}
 	for _, taint := range taints {
 	        matched := false
-	        for _, nodeTaint := range node.Taints {
+	        for _, nodeTaint := range updates.Taints {
 	                if taint.Key == nodeTaint.Key && taint.Value == nodeTaint.Value && taint.Effect == nodeTaint.Effect {
 	                        matched = true
 	                }
 	        }
 	        if !matched {
-	                node.Taints = append(node.Taints, taint)
+	                updates.Taints = append(updates.Taints, taint)
 	        }
         }
-	if _, err = client.Management.Node.Update(node, node); err != nil {
+	if _, err = client.Management.Node.Update(node, updates); err != nil {
 		err = fmt.Errorf("rancher2-client.NodeSetAnnotationsLabelsTaints() error: %s", err)
 	}
 	return
@@ -483,18 +488,21 @@ func (client *Rancher2Client) NodeGetLabels(nodeID string) (nodeLabels map[strin
 
 // NodeUpdateLabels updates Rancher node labels
 func (client *Rancher2Client) NodeUpdateLabels(nodeID string, oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
-	var node *managementClient.Node
+	var node, updates *managementClient.Node
 	if node, err = client.GetNodeByID(nodeID); err != nil {
 		err = fmt.Errorf("rancher2-client.NodeUpdateLabels().GetNodeByID() error: %s", err)
 		return
 	}
+	updates = &managementClient.Node{
+		Labels: node.Labels,
+	}
 	for key := range oldLabels {
-		delete(node.Labels, key)
+		delete(updates.Labels, key)
 	}
 	for key, elem := range newLabels {
-		node.Labels[key] = elem.(string)
+		updates.Labels[key] = elem.(string)
 	}
-	if _, err = client.Management.Node.Update(node, node); err != nil {
+	if _, err = client.Management.Node.Update(node, updates); err != nil {
 		err = fmt.Errorf("rancher2-client.NodeUpdateLabels() error: %s", err)
 	}
 	return
@@ -513,7 +521,7 @@ func (client *Rancher2Client) NodeGetTaints(nodeID string) (taints []managementC
 
 // NodeUpdateTaints updates Rancher node taints
 func (client *Rancher2Client) NodeUpdateTaints(nodeID string, oldTaints []interface{}, newTaints []interface{}) (err error) {
-	var node *managementClient.Node
+	var node, updates *managementClient.Node
 	var taints []managementClient.Taint
 	if node, err = client.GetNodeByID(nodeID); err != nil {
 		err = fmt.Errorf("rancher2-client.NodeUpdateTaints().GetNodeByID() error: %s", err)
@@ -547,8 +555,10 @@ func (client *Rancher2Client) NodeUpdateTaints(nodeID string, oldTaints []interf
 	                        })
 	        }
         }
-        node.Taints = taints
-	if _, err = client.Management.Node.Update(node, node); err != nil {
+	updates = &managementClient.Node{
+		Taints: taints,
+	}
+	if _, err = client.Management.Node.Update(node, updates); err != nil {
 		err = fmt.Errorf("rancher2-client.NodeUpdateTaints() error: %s", err)
 	}
 	return

@@ -11,29 +11,41 @@ variable "nodes" {
       os_image = string
       seed_template = string
       boot_lun_size = number
-      data_lun_size = number
-      restore = object({
-        restore = bool
+      data_lun_size = optional(number, 0)
+      data_nvme_size = optional(number, 0)
+      restore = optional(object({
+        restore = optional(bool, false)
         snapshot_name = string
+      }),
+      {
+        restore = false
+        snapshot_name = ""
       })
-      maintenance = object({
-        execute = bool
-        synchronized_run = bool
-        wait_for_node_timeout = number
-        node_grace_timeout = number
-        tasks = list(string)
+      maintenance = optional(object({
+        execute = optional(bool, false)
+        synchronized_run = optional(bool, false)
+        wait_for_node_timeout = optional(number, 0)
+        node_grace_timeout = optional(number, 0)
+        tasks = optional(list(string), ["cordon", "drain", "restart","uncordon"])
+      }),
+      {
+        execute = false
+        synchronized_run = false
+        wait_for_node_timeout = 0
+        node_grace_timeout = 0
+        tasks = ["cordon", "drain", "restart","uncordon"]
       })
-      snapshots = list(object({
+      snapshots = optional(list(object({
         name = string
-        fsfreeze = bool
-      }))
-      labels = map(any)
-      taints = list(object({
+        fsfreeze = optional(bool, false)
+      })), [])
+      labels = optional(map(any), {})
+      taints = optional(list(object({
         key = string
         value = string
         effect = string
-      }))
-      force_update = bool
+      })), [])
+      force_update = optional(bool, false)
     }))
     workers = map(object({
       blade_spec = object({
@@ -46,29 +58,41 @@ variable "nodes" {
       os_image = string
       seed_template = string
       boot_lun_size = number
-      data_lun_size = number
-      restore = object({
-        restore = bool
+      data_lun_size = optional(number, 0)
+      data_nvme_size = optional(number, 0)
+      restore = optional(object({
+        restore = optional(bool, false)
         snapshot_name = string
+      }),
+      {
+        restore = false
+        snapshot_name = ""
       })
-      maintenance = object({
-        execute = bool
-        synchronized_run = bool
-        wait_for_node_timeout = number
-        node_grace_timeout = number
-        tasks = list(string)
+      maintenance = optional(object({
+        execute = optional(bool, false)
+        synchronized_run = optional(bool, false)
+        wait_for_node_timeout = optional(number, 0)
+        node_grace_timeout = optional(number, 0)
+        tasks = optional(list(string), ["cordon", "drain", "restart","uncordon"])
+      }),
+      {
+        execute = false,
+        synchronized_run = false
+        wait_for_node_timeout = 0
+        node_grace_timeout = 0
+        tasks = ["cordon", "drain", "restart","uncordon"]
       })
-      snapshots = list(object({
+      snapshots = optional(list(object({
         name = string
-        fsfreeze = bool
-      }))
-      labels = map(any)
-      taints = list(object({
+        fsfreeze = optional(bool, false)
+      })), [])
+      labels = optional(map(any), {})
+      taints = optional(list(object({
         key = string
         value = string
         effect = string
-      }))
-      force_update = bool
+      })), [])
+      force_update = optional(bool, false)
     }))
   })
 }
@@ -113,14 +137,18 @@ variable "node_config" {
     network = map(list(object({
       name = string
       subnet = string
-      gateway = string
-      dns_server1 = string
-      dns_server2 = string
-      dns_server3 = string
-      dns_domain = string
-      parameters = map(string)
+      gateway = optional(string, "")
+      dns_server1 = optional(string, "")
+      dns_server2 = optional(string, "")
+      dns_server3 = optional(string, "")
+      dns_domain = optional(string, "")
+      parameters = optional(map(string))
     })))
+    nvme_hosts = list(object({
+      host_interface = string
+    }))
     storage = object({
+      svm_name = optional(string)
       api_method = string
     })
   })

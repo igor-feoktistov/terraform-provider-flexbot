@@ -11,19 +11,8 @@ nodes = {
       os_image = "ubuntu-22.04.02.01-iboot"
       seed_template = "ubuntu-22.04.02.01-cloud-init.template"
       boot_lun_size = 32
-      data_lun_size = 64
-      restore = {restore = false, snapshot_name = ""}
+      data_nvme_size = 64
       snapshots = []
-      maintenance = {
-        execute = false
-        synchronized_run = true
-        wait_for_node_timeout = 0
-        node_grace_timeout = 0
-        tasks = ["cordon","drain","restart","uncordon"]
-      }
-      labels = {}
-      taints = []
-      force_update = false
     }
     k8snode-02 = {
       blade_spec = {
@@ -36,19 +25,8 @@ nodes = {
       os_image = "ubuntu-22.04.02.01-iboot"
       seed_template = "ubuntu-22.04.02.01-cloud-init.template"
       boot_lun_size = 32
-      data_lun_size = 64
-      restore = {restore = false, snapshot_name = ""}
+      data_nvme_size = 64
       snapshots = []
-      maintenance = {
-        execute = false
-        synchronized_run = true
-        wait_for_node_timeout = 0
-        node_grace_timeout = 0
-        tasks = ["cordon","drain","restart","uncordon"]
-      }
-      labels = {}
-      taints = []
-      force_update = false
     }
     k8snode-03 = {
       blade_spec = {
@@ -61,19 +39,8 @@ nodes = {
       os_image = "ubuntu-22.04.02.01-iboot"
       seed_template = "ubuntu-22.04.02.01-cloud-init.template"
       boot_lun_size = 32
-      data_lun_size = 64
-      restore = {restore = false, snapshot_name = ""}
+      data_nvme_size = 64
       snapshots = []
-      maintenance = {
-        execute = false
-        synchronized_run = true
-        wait_for_node_timeout = 0
-        node_grace_timeout = 0
-        tasks = ["cordon","drain","restart","uncordon"]
-      }
-      labels = {}
-      taints = []
-      force_update = false
     }
   }
   workers = {
@@ -88,19 +55,7 @@ nodes = {
       os_image = "ubuntu-22.04.02.01-iboot"
       seed_template = "ubuntu-22.04.02.01-cloud-init.template"
       boot_lun_size = 32
-      data_lun_size = 64
-      restore = {restore = false, snapshot_name = ""}
-      snapshots = []
-      maintenance = {
-        execute = false
-        synchronized_run = true
-        wait_for_node_timeout = 0
-        node_grace_timeout = 0
-        tasks = ["cordon","drain","restart","uncordon"]
-      }
-      labels = {"node-role.kubernetes.io/load-balancer" = "true"}
-      taints = []
-      force_update = false
+      data_nvme_size = 64
     }
     k8snode-05 = {
       blade_spec = {
@@ -113,19 +68,7 @@ nodes = {
       os_image = "ubuntu-22.04.02.01-iboot"
       seed_template = "ubuntu-22.04.02.01-cloud-init.template"
       boot_lun_size = 32
-      data_lun_size = 64
-      restore = {restore = false, snapshot_name = ""}
-      snapshots = []
-      maintenance = {
-        execute = false
-        synchronized_run = true
-        wait_for_node_timeout = 0
-        node_grace_timeout = 0
-        tasks = ["cordon","drain","restart","uncordon"]
-      }
-      labels = {"node-role.kubernetes.io/load-balancer" = "true"}
-      taints = []
-      force_update = false
+      data_nvme_size = 64
     }
     k8snode-06 = {
       blade_spec = {
@@ -138,19 +81,7 @@ nodes = {
       os_image = "ubuntu-22.04.02.01-iboot"
       seed_template = "ubuntu-22.04.02.01-cloud-init.template"
       boot_lun_size = 32
-      data_lun_size = 64
-      restore = {restore = false, snapshot_name = ""}
-      snapshots = []
-      maintenance = {
-        execute = false
-        synchronized_run = true
-        wait_for_node_timeout = 0
-        node_grace_timeout = 0
-        tasks = ["cordon","drain","restart","uncordon"]
-      }
-      labels = {"node-role.kubernetes.io/load-balancer" = "true"}
-      taints = []
-      force_update = false
+      data_nvme_size = 64
     }
   }
 }

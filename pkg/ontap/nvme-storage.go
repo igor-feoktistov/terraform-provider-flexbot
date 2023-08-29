@@ -7,9 +7,13 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap/client"
 )
 
-// CreateNvmeStorage creates node NVME data storage in cDOT
+const (
+	apiMethod = "rest"
+)
+
+// CreateNvmeStorage creates node NVME data storage in cDOT (REST API only)
 func CreateNvmeStorage(nodeConfig *config.NodeConfig) (err error) {
-        if len(nodeConfig.Network.NvmeHost) > 0 && nodeConfig.Storage.DataNvme.Size > 0 {
+        if nodeConfig.Storage.CdotCredentials.ApiMethod == apiMethod && len(nodeConfig.Network.NvmeHost) > 0 && nodeConfig.Storage.DataNvme.Size > 0 {
 	        var c client.OntapClient
 	        errorFormat := "CreateNvmeStorage(): %s"
 	        if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -83,9 +87,9 @@ func CreateNvmeStorage(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
-// CreateNvmeStoragePreflight is sanity check before actual storage provisioning
+// CreateNvmeStoragePreflight is sanity check before actual storage provisioning (REST API only)
 func CreateNvmeStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
-        if len(nodeConfig.Network.NvmeHost) > 0 && nodeConfig.Storage.DataNvme.Size > 0 {
+        if nodeConfig.Storage.CdotCredentials.ApiMethod == apiMethod && len(nodeConfig.Network.NvmeHost) > 0 && nodeConfig.Storage.DataNvme.Size > 0 {
 	        var c client.OntapClient
 	        errorFormat := "CreateNvmeStoragePreflight(): %s"
 	        if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -100,9 +104,9 @@ func CreateNvmeStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
-// DeleteNvmeStorage deletes node NVME storage
+// DeleteNvmeStorage deletes node NVME storage (REST API only)
 func DeleteNvmeStorage(nodeConfig *config.NodeConfig) (err error) {
-        if len(nodeConfig.Network.NvmeHost) > 0 && nodeConfig.Storage.DataNvme.Size > 0 {
+        if nodeConfig.Storage.CdotCredentials.ApiMethod == apiMethod && len(nodeConfig.Network.NvmeHost) > 0 {
 	        var c client.OntapClient
 	        errorFormat := "DeleteNvmeStorage(): %s"
 	        if c, err = client.NewOntapClient(nodeConfig); err != nil {
@@ -145,9 +149,9 @@ func DeleteNvmeStorage(nodeConfig *config.NodeConfig) (err error) {
 	return
 }
 
-// DiscoverNvmeStorage discovers NVME storage in cDOT
+// DiscoverNvmeStorage discovers NVME storage in cDOT (REST API only)
 func DiscoverNvmeStorage(nodeConfig *config.NodeConfig) (err error) {
-        if len(nodeConfig.Network.NvmeHost) > 0 && nodeConfig.Storage.DataNvme.Size > 0 {
+        if nodeConfig.Storage.CdotCredentials.ApiMethod == apiMethod && len(nodeConfig.Network.NvmeHost) > 0 && nodeConfig.Storage.DataNvme.Size > 0 {
 	        var c client.OntapClient
 	        errorFormat := "DiscoverNvmeStorage(): %s"
 	        if c, err = client.NewOntapClient(nodeConfig); err != nil {

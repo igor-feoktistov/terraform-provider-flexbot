@@ -139,11 +139,17 @@ func (node *RkeNode) RancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 				Volume:  node.NodeConfig.Storage.VolumeName,
 				Igroup:  node.NodeConfig.Storage.IgroupName,
 				BootLun: node.NodeConfig.Storage.BootLun.Name,
-				DataLun: node.NodeConfig.Storage.DataLun.Name,
 				SeedLun: node.NodeConfig.Storage.SeedLun.Name,
 			}
 			storageAnnotations.BootImage.OsImage = node.NodeConfig.Storage.BootLun.OsImage.Name
 			storageAnnotations.BootImage.SeedTemplate = node.NodeConfig.Storage.SeedLun.SeedTemplate.Name
+			if node.NodeConfig.Storage.DataLun.Size > 0 {
+				storageAnnotations.DataLun = node.NodeConfig.Storage.DataLun.Name
+			}
+			if node.NodeConfig.Storage.DataNvme.Size > 0 {
+				storageAnnotations.DataNvme.Namespace = node.NodeConfig.Storage.DataNvme.Namespace
+				storageAnnotations.DataNvme.Subsystem = node.NodeConfig.Storage.DataNvme.Subsystem
+			}
 			if storageB, err = json.Marshal(storageAnnotations); err != nil {
 				err = fmt.Errorf("json.Marshal(storageAnnotations): %s", err)
 				return

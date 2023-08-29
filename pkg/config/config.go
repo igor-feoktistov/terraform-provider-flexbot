@@ -61,8 +61,12 @@ type StorageAnnotations struct {
 	Volume  string              `yaml:"volume" json:"volume"`
 	Igroup  string              `yaml:"igroup" json:"igroup"`
 	BootLun string              `yaml:"bootLun" json:"bootLun"`
-	DataLun string              `yaml:"dataLun" json:"dataLun"`
 	SeedLun string              `yaml:"seedLun" json:"seedLun"`
+	DataLun string              `yaml:"dataLun,omitempty" json:"dataLun,omitempty"`
+	DataNvme struct {
+		Namespace string    `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+		Subsystem string    `yaml:"subsystem,omitempty" json:"Subsystem,omitempty"`
+	}                           `yaml:"dataNvme,omitempty" json:"dataNvme,omitempty"`
 }
 
 // Credentials is generic credentials resources
