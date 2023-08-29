@@ -418,6 +418,7 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 		}
 		log.Infof("Updating Server Compute for node %s", nodeConfig.Compute.HostName)
 	        if (nodeConfig.ChangeStatus & ChangeBladeSpec) > 0 {
+	        	log.Infof("Running compute  preflight check")
 	                if err = ucsm.UpdateServerPreflight(nodeConfig); err != nil {
 			        err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
 			        meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
@@ -438,6 +439,7 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 			}
 			// Cordon/drain worker nodes
 			if rancherNode.IsNodeWorker() {
+				log.Infof("Cordon/drain node %s", nodeConfig.Compute.HostName)
 				if err = rancherNode.RancherAPINodeCordonDrain(); err != nil {
 					err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
@@ -445,24 +447,34 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 				}
 			}
 			if (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
+				log.Infof("Shutting down node %s", nodeConfig.Compute.HostName)
                                 if err = shutdownServer(nodeConfig, sshUser, sshPrivateKey); err != nil {
 		                        meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 		                        return
                                 }
+			} else {
+				log.Infof("Power off node %s", nodeConfig.Compute.HostName)
+				if err = ucsm.StopServer(nodeConfig); err != nil {
+					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+					return
+				}
 			}
 		}
 		if (nodeConfig.ChangeStatus & ChangeBladeSpec) > 0 {
+			log.Infof("Changing blade specification for node %s", nodeConfig.Compute.HostName)
 			if err = ucsm.UpdateServer(nodeConfig); err != nil {
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
 		}
 		if newPowerState == "up" {
+			log.Infof("Power on node %s", nodeConfig.Compute.HostName)
 			if err = ucsm.StartServer(nodeConfig); err != nil {
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
 			if (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
+				log.Infof("Waiting for node %s on network", nodeConfig.Compute.HostName)
 				if err = waitForSSH(nodeConfig, (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err != nil {
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 					return
@@ -470,6 +482,7 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 			}
 			// Uncordon worker nodes
 			if rancherNode.IsNodeWorker() {
+				log.Infof("Uncordon worker node %s", nodeConfig.Compute.HostName)
 				if err = rancherNode.RancherAPINodeUncordon(); err != nil {
 					err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
@@ -477,11 +490,13 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 				}
 			}
 			if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err != nil {
+				log.Infof("Wait for cluster state active with timeout %d seconds", rancher.Wait4ClusterStateTimeout)
 				err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
 			if meta.(*config.FlexbotConfig).NodeGraceTimeout > 0 {
+				log.Infof("Wait for node %s grace period with timeout %d seconds", nodeConfig.Compute.HostName, meta.(*config.FlexbotConfig).NodeGraceTimeout)
 			        if err = rancherNode.RancherAPINodeWaitForGracePeriod(meta.(*config.FlexbotConfig).NodeGraceTimeout); err != nil {
 				        err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
 				        meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
@@ -542,6 +557,10 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			((oldDataLun == nil || oldDataLun["size"].(int) == 0) && newDataLun != nil && newDataLun["size"].(int) > 0) ||
 			(oldDataNvme != nil && oldDataNvme["size"].(int) > 0 && (newDataNvme == nil || newDataNvme["size"].(int) == 0)) ||
 			((oldDataNvme == nil || oldDataNvme["size"].(int) == 0) && newDataNvme != nil && newDataNvme["size"].(int) > 0) {
+			if newDataLun != nil && newDataLun["size"].(int) > 0 && newDataNvme != nil && newDataNvme["size"].(int) > 0 {
+				err = fmt.Errorf("resourceUpdateServer(storage): expected data disk type of either LUN or NVME, not both")
+				return
+			}
 			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeDataDisk
 		}
 		log.Infof("Updating Server Storage image for node %s", nodeConfig.Compute.HostName)
@@ -641,7 +660,9 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			return
 		}
 		if compute["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
+			log.Infof("Waiting for node %s on network", nodeConfig.Compute.HostName)
 			if err = waitForSSH(nodeConfig, compute["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err == nil {
+				log.Infof("Node %s is accessible on network", nodeConfig.Compute.HostName)
 				if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err != nil {
 					err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
@@ -773,6 +794,7 @@ func resourceUpdateServerSnapshot(d *schema.ResourceData, meta interface{}, node
 		err = fmt.Errorf("resourceUpdateServer(snapshot): %s", err)
 		return
 	}
+	log.Infof("Updating storage snapshots for node %s", nodeConfig.Compute.HostName)
 	for _, name := range oldSnapState {
 		if stringSliceElementExists(snapStorage, name) && !stringSliceElementExists(snapStateInter, name) {
 			if err = ontap.DeleteSnapshot(nodeConfig, name); err != nil {
@@ -1010,6 +1032,7 @@ func resourceUpdateServerLabels(d *schema.ResourceData, meta interface{}, nodeCo
 	oldLabels, newLabels := d.GetChange("labels")
         meta.(*config.FlexbotConfig).Sync.Unlock()
 	if rancherNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, true); err == nil {
+		log.Infof("Updating labels for node %s", nodeConfig.Compute.HostName)
 		err = rancherNode.RancherAPINodeUpdateLabels(oldLabels.(map[string]interface{}), newLabels.(map[string]interface{}))
 	}
 	return
@@ -1021,6 +1044,7 @@ func resourceUpdateServerTaints(d *schema.ResourceData, meta interface{}, nodeCo
 	oldTaints, newTaints := d.GetChange("taints")
         meta.(*config.FlexbotConfig).Sync.Unlock()
 	if rancherNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, true); err == nil {
+		log.Infof("Updating taints for node %s", nodeConfig.Compute.HostName)
 		err = rancherNode.RancherAPINodeUpdateTaints(oldTaints.([]interface{}), newTaints.([]interface{}))
 	}
 	return

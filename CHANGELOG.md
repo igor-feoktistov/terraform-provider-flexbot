@@ -1,4 +1,4 @@
-## 1.9.3 (August 7, 2023)
+## 1.9.3 (August 29, 2023)
 
 ENHANCEMENTS:
 * Further improvements in NVME over TCP support for data disk.
