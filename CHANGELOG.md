@@ -1,3 +1,9 @@
+## 1.9.4 (August 31, 2023)
+
+BUG FIXES:
+* Fix for the issue when node taints may not be properly assigned in certain conditions
+
+
 ## 1.9.3 (August 29, 2023)
 
 ENHANCEMENTS:
