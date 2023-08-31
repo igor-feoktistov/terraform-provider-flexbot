@@ -298,18 +298,6 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 			return
 		}
 	}
-	if isLabels {
-		if err = resourceUpdateServerLabels(d, meta, nodeConfig); err != nil {
-			diags = diag.FromErr(err)
-			return
-		}
-	}
-	if isTaints {
-		if err = resourceUpdateServerTaints(d, meta, nodeConfig); err != nil {
-			diags = diag.FromErr(err)
-			return
-		}
-	}
 	if isMaintenance {
 		if err = resourceUpdateServerMaintenance(d, meta, nodeConfig); err != nil {
 			diags = diag.FromErr(err)
@@ -326,14 +314,27 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 		log.Infof("Set annotations, labels, and taints for node %s", nodeConfig.Compute.HostName)
 		if _, err = ucsm.DiscoverServer(nodeConfig); err == nil {
 			var rancherNode rancher.RancherNode
+			nodeConfig.Labels = nodeLabels
+			nodeConfig.Taints = nodeTaints
 			if rancherNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, (nodeConfig.Compute.Powerstate == "up")); err == nil {
-				nodeConfig.Labels = nodeLabels
-				nodeConfig.Taints = nodeTaints
 				err = rancherNode.RancherAPINodeSetAnnotationsLabelsTaints()
 			}
 		}
 		if err != nil {
 			diags = diag.FromErr(err)
+		}
+	} else {
+		if isLabels {
+			if err = resourceUpdateServerLabels(d, meta, nodeConfig); err != nil {
+				diags = diag.FromErr(err)
+				return
+			}
+		}
+		if isTaints {
+			if err = resourceUpdateServerTaints(d, meta, nodeConfig); err != nil {
+				diags = diag.FromErr(err)
+				return
+			}
 		}
 	}
 	resourceReadServer(ctx, d, meta)
