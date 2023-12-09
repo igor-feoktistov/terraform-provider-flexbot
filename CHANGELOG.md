@@ -1,3 +1,11 @@
+## 1.9.5 (December 8, 2023)
+
+ENHANCEMENTS:
+* Enhancements to support Rancher Management Server 2.7.* and downstream RKE2 clusters
+  * Rancher 2.7.* replaces Node resource with Machine resource in node management for RKE2 clusters
+  * Node removal via Norman API will not remove Machine resource, therefore, requires special handling
+
+
 ## 1.9.4 (August 31, 2023)
 
 BUG FIXES:

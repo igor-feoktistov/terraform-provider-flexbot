@@ -70,6 +70,12 @@ provider "flexbot" {
     provider = "rancher2"
     api_url = "https://rancher.example.com"
     token_key = "token-xxx"
+    # Optional (default is "cluster.x-k8s.io")
+    machine_api_group = "cluster.x-k8s.io"
+    # Optional (default is "v1beta1")
+    machine_api_version = "v1beta1"
+    # Optional (default is "machines")
+    machine_api_resource = "machines"
     insecure = true
     retries = 6
     cluster_id = rancher2_cluster.cluster.id

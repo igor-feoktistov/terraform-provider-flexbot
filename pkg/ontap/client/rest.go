@@ -406,6 +406,7 @@ func (c *OntapRestAPI) LunCopy(lunSrcPath string, lunDstPath string) (err error)
 func (c *OntapRestAPI) LunResize(lunPath string, lunSize int) (err error) {
 	var lun *ontap.Lun
 	if lun, _, err = c.LunGet(lunPath); err != nil {
+		err = fmt.Errorf("LunResize().LunGet() failure: %s", err)
 		return
 	}
 	sizeBytes := int64(lunSize) * 1024 * 1024 * 1024
@@ -415,7 +416,7 @@ func (c *OntapRestAPI) LunResize(lunPath string, lunSize int) (err error) {
 		},
 	}
 	if _, err = c.Client.LunModify(lun.GetRef(), &lunResized); err != nil {
-		err = fmt.Errorf("LunModify() failure: %s", err)
+		err = fmt.Errorf("LunResize().LunModify() failure: %s", err)
 	}
 	return
 }
@@ -504,12 +505,12 @@ func (c *OntapRestAPI) LunDestroy(lunPath string) (err error) {
 		if res.ErrorResponse.Error.Code == ontap.ERROR_ENTRY_DOES_NOT_EXIST {
 			err = nil
 		} else {
-			err = fmt.Errorf("LunDestroy(): failure: %s", err)
+			err = fmt.Errorf("LunDestroy().LunGet(): failure: %s", err)
 		}
 		return
 	}
 	if _, err = c.Client.LunDelete(lun.GetRef()); err != nil {
-		err = fmt.Errorf("LunDelete() failure: %s", err)
+		err = fmt.Errorf("LunDestroy().LunDelete() failure: %s", err)
 	}
 	return
 }
@@ -518,6 +519,7 @@ func (c *OntapRestAPI) LunDestroy(lunPath string) (err error) {
 func (c *OntapRestAPI) LunGetInfo(lunPath string) (lunInfo *LunInfo, err error) {
 	var lun *ontap.Lun
 	if lun, _, err = c.LunGet(lunPath); err != nil {
+		err = fmt.Errorf("LunGetInfo().LunGet(): failure: %s", err)
 		return
 	}
 	lunInfo = &LunInfo{
