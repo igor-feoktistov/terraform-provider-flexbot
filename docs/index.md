@@ -219,6 +219,9 @@ The following arguments are supported:
 * `server_ca_data` - (Optional) Server CA, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)
 * `client_cert_data` - (Optional) Client certificate for x509 authentication, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)
 * `client_key_data` - (Optional) Client private key for x509 authentication, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)
+* `machine_api_group` - (Optional) Machine API group (string, default is "cluster.x-k8s.io")
+* `machine_api_version` - (Optional) Machine API version (string, default is "v1beta1")
+* `machine_api_resource` - (Optional) Machine API resource name (string, default is "machines")
 * `insecure` - (Optional) Disable certificate verification (bool, default is `false`).
 * `retries` - (Optional) Number of API calls retries in case of transient errors (int, default is 3 with 5 seconds wait between attempts)
 * `node_grace_timeout` - (Optional) Wait after node update is completed (int, seconds, default is 0).

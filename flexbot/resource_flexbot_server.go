@@ -27,7 +27,7 @@ const (
 	NodeRestartTimeout = 600
 	NodeGraceShutdownTimeout = 60
 	NodeGracePowerOffTimeout = 10
-	Wait4ClusterTransitioningTimeout = 120
+	Wait4ClusterTransitioningTimeout = 60
 )
 
 // Change status definition while update routine
@@ -697,7 +697,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			        return
 		        }
 		}
-		// Uncordon worker nodes
+		// Uncordon worker RKE1 nodes
 		if rancherNode.IsNodeWorker() && rancherNode.IsProviderRKE1() {
 			log.Infof("Uncordon worker node %s", nodeConfig.Compute.HostName)
 		        if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err == nil {

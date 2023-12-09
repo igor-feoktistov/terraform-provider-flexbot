@@ -486,16 +486,19 @@ type UpdateManager struct {
 
 // RancherConfig is Rancher generic client config
 type RancherConfig struct {
-        Provider       string
-	URL            string
-	TokenKey       string
-	ServerCAData   []byte
-	ClientCertData []byte
-	ClientKeyData  []byte
-	Insecure       bool
-	Retries        int
-	Sync           sync.Mutex
-	NodeDrainInput *rancherManagementClient.NodeDrainInput
+        Provider           string
+	URL                string
+	TokenKey           string
+	ServerCAData       []byte
+	ClientCertData     []byte
+	ClientKeyData      []byte
+	MachineApiGroup    string
+	MachineApiVersion  string
+	MachineApiResource string
+	Insecure           bool
+	Retries            int
+	Sync               sync.Mutex
+	NodeDrainInput     *rancherManagementClient.NodeDrainInput
 }
 
 // FlexbotConfig is main provider configration

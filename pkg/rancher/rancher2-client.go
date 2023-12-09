@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,6 +12,11 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"github.com/rancher/norman/clientbase"
 	"github.com/rancher/norman/types"
 	managementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
@@ -29,6 +35,7 @@ const (
 // Rancher2Client is rancher2 client
 type Rancher2Client struct {
 	Management *managementClient.Client
+	MachineClient dynamic.NamespaceableResourceInterface
 	Retries int
 }
 
@@ -132,6 +139,15 @@ func IsForbidden(err error) bool {
 	return apiError.StatusCode == http.StatusForbidden
 }
 
+// Get string map value safely
+func GetMapString(m interface{}, key string) string {
+	v, ok := m.(map[string]interface{})[key].(string)
+	if !ok {
+		return ""
+	}
+	return v
+}
+
 // InitializeClient initializes Rancher Management Client
 func (c *Rancher2Config) InitializeClient() (err error) {
 	c.Sync.Lock()
@@ -148,7 +164,7 @@ func (c *Rancher2Config) InitializeClient() (err error) {
 		time.Sleep(rancher2RetriesWait * time.Second)
 	}
 	if err != nil {
-	        err = fmt.Errorf("Rancher is not ready after %d attempts in %d seconds, last error: %s", c.Retries, rancher2RetriesWait * c.Retries, err)
+	        err = fmt.Errorf("rancher.InitializeClient(): rancher is not ready after %d attempts in %d seconds, last error: %s", c.Retries, rancher2RetriesWait * c.Retries, err)
 		return
 	}
 	c.URL = NormalizeURL(c.URL)
@@ -160,9 +176,22 @@ func (c *Rancher2Config) InitializeClient() (err error) {
 	}
 	options.URL = options.URL + rancher2ClientAPIVersion
 	if c.Client.Management, err = managementClient.NewClient(options); err != nil {
+                fmt.Errorf("rancher.InitializeClient(): failed to create rancher management client: %s", err)
 		return
 	}
 	c.Client.Retries = c.Retries
+	restConfig := &rest.Config{
+		Host: c.URL + "/k8s/clusters/local",
+                TLSClientConfig: rest.TLSClientConfig{},
+                BearerToken: c.TokenKey,
+                WarningHandler: rest.NoWarnings{},
+        }
+	var dynamicClient dynamic.Interface
+	if dynamicClient, err = dynamic.NewForConfig(restConfig); err != nil {
+		fmt.Errorf("rancher.InitializeClient(): failed to create dynamic client: %s", err)
+		return
+	}
+	c.Client.MachineClient = dynamicClient.Resource(schema.GroupVersionResource{Group: c.MachineApiGroup, Version: c.MachineApiVersion, Resource: c.MachineApiResource})
 	return
 }
 
@@ -261,6 +290,36 @@ func (client *Rancher2Client) GetNodeRole(nodeID string) (controlplane bool, etc
 		return
 	}
 	return node.ControlPlane, node.Etcd, node.Worker, nil
+}
+
+// GetNodeMachine gets Rancher node machine resource
+func (client *Rancher2Client) GetNodeMachine(node *managementClient.Node) (machine *unstructured.Unstructured, err error) {
+	var machineUnstructured *unstructured.Unstructured
+	var cluster_namespace, machine_name string
+	cluster_namespace = node.Annotations["cluster.x-k8s.io/cluster-namespace"]
+	machine_name = node.Annotations["cluster.x-k8s.io/machine"]
+	if len(cluster_namespace) > 0 && len(machine_name) > 0 {
+		if machineUnstructured, err = client.MachineClient.Namespace(cluster_namespace).Get(context.Background(), machine_name, metav1.GetOptions{}); err == nil {
+			machine = machineUnstructured
+		} else {
+			fmt.Errorf("rancher2-client.GetNodeMachine().Get() error: %s", err)
+        	}
+	} else {
+		var machineList *unstructured.UnstructuredList
+		if machineList, err = client.MachineClient.List(context.Background(), metav1.ListOptions{}); err == nil {
+			for _, item := range machineList.Items {
+				u := item.UnstructuredContent()
+				labels, ok := u["metadata"].(map[string]interface{})["labels"]
+				if ok && labels.(map[string]interface{})["rke.cattle.io/node-name"].(string) == node.NodeName {
+					machine = &item
+					break
+				}
+			}
+		} else {
+			fmt.Errorf("rancher2-client.GetNodeMachine().List() error: %s", err)
+		}
+	}
+	return
 }
 
 // ClusterWaitForState waits until cluster is in specified state
@@ -427,15 +486,29 @@ func (client *Rancher2Client) NodeUncordon(nodeID string) (err error) {
 	return
 }
 
-// DeleteNode deletes Rancher node
+// DeleteNode deletes Rancher node and node machine
 func (client *Rancher2Client) DeleteNode(nodeID string) (err error) {
 	var node *managementClient.Node
+	var machine *unstructured.Unstructured
 	if node, err = client.GetNodeByID(nodeID); err != nil {
 		err = fmt.Errorf("rancher2-client.DeleteNode().GetNodeByID() error: %s", err)
 		return
 	}
+	if machine, err = client.GetNodeMachine(node); err != nil {
+		err = fmt.Errorf("rancher2-client.DeleteNode().GetNodeMachine() error: %s", err)
+		return
+	}
 	if err = client.Management.Node.Delete(node); err != nil {
 		err = fmt.Errorf("rancher2-client.DeleteNode() error: %s", err)
+		return
+	}
+	if machine != nil {
+		u := machine.UnstructuredContent()
+		machineName := GetMapString(u["metadata"], "name")
+		machineNamespace := GetMapString(u["metadata"], "namespace")
+		if len(machineName) > 0 && len(machineNamespace) > 0 {
+			client.MachineClient.Namespace(machineNamespace).Delete(context.Background(), machineName, metav1.DeleteOptions{})
+		}
 	}
 	return
 }

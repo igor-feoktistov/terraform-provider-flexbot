@@ -230,6 +230,22 @@ func Provider() *schema.Provider {
 							Optional: true,
 							Default:  "",
 						},
+						"machine_api_group": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "cluster.x-k8s.io",
+						},
+						"machine_api_version": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "v1beta1",
+						},
+						"machine_api_resource": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "machines",
+						},
+
 						"insecure": {
 							Type:     schema.TypeBool,
 							Optional: true,
@@ -407,15 +423,18 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		        }
 		}
 		rancherConfig := &config.RancherConfig{
-		        Provider:       rancherAPI["provider"].(string),
-			URL:            rancherAPI["api_url"].(string),
-			TokenKey:       tokenKey,
-			ServerCAData:   serverCAData,
-			ClientCertData: clientCertData,
-			ClientKeyData:  clientKeyData,
-			Insecure:       rancherAPI["insecure"].(bool),
-			NodeDrainInput: nodeDrainInput,
-			Retries:        rancherAPI["retries"].(int),
+		        Provider:           rancherAPI["provider"].(string),
+			URL:                rancherAPI["api_url"].(string),
+			TokenKey:           tokenKey,
+			ServerCAData:       serverCAData,
+			ClientCertData:     clientCertData,
+			ClientKeyData:      clientKeyData,
+			MachineApiGroup:    rancherAPI["machine_api_group"].(string),
+			MachineApiVersion:  rancherAPI["machine_api_version"].(string),
+			MachineApiResource: rancherAPI["machine_api_resource"].(string),
+			Insecure:           rancherAPI["insecure"].(bool),
+			NodeDrainInput:     nodeDrainInput,
+			Retries:            rancherAPI["retries"].(int),
 		}
 		flexbotConfig = &config.FlexbotConfig{
 			Sync:               &sync.Mutex{},
