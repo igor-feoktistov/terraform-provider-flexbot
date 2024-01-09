@@ -72,7 +72,7 @@ resource "flexbot_server" "k8s-node1" {
     # Optional - commands to patch host, required for "maintenance" task "upgrade"
     ssh_node_upgrade_commands = [
       "sudo DEBIAN_FRONTEND=noninteractive apt -y update",
-      "sudo DEBIAN_FRONTEND=noninteractive apt -y upgrade",
+      "sudo DEBIAN_FRONTEND=noninteractive apt -y upgrade"
     ]
   }
 
