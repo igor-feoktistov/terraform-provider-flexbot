@@ -1,8 +1,8 @@
 ## 1.9.6 (January 8, 2024)
 
 ENHANCEMENTS:
-* Enhancements to support `maintenance` task **upgrade**
-  * Requires resource argument **ssh_node_upgrade_commands**
+* Enhancements to support `maintenance` task `upgrade`
+  * Requires resource argument `ssh_node_upgrade_commands`
   * See resource documentation for more details.
 
 
