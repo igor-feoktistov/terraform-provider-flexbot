@@ -2,7 +2,7 @@
 
 ENHANCEMENTS:
 * Enhancements to support `maintenance` task **upgrade**
-  * Requires resource argument **ssh_node_init_commands**
+  * Requires resource argument **ssh_node_upgrade_commands**
   * See resource documentation for more details.
 
 
