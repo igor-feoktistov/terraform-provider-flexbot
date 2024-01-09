@@ -10,7 +10,7 @@ import (
 
 var (
         // Available maintenance tasks
-        MaintenanceTasks = []string{"cordon", "uncordon", "drain", "restart"}
+        MaintenanceTasks = []string{"cordon", "uncordon", "drain", "upgrade", "restart"}
         // Node taint effects
         TaintEffects = []string{"PreferNoSchedule", "NoSchedule", "NoExecute"}
 )
@@ -76,6 +76,11 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 						Elem:     &schema.Schema{Type: schema.TypeString},
 					},
 					"ssh_node_datadisk_resize_commands": {
+						Type:     schema.TypeList,
+						Optional: true,
+						Elem:     &schema.Schema{Type: schema.TypeString},
+					},
+					"ssh_node_upgrade_commands": {
 						Type:     schema.TypeList,
 						Optional: true,
 						Elem:     &schema.Schema{Type: schema.TypeString},

@@ -1,3 +1,11 @@
+## 1.9.6 (January 8, 2024)
+
+ENHANCEMENTS:
+* Enhancements to support `maintenance` task **upgrade**
+  * Requires resource argument **ssh_node_init_commands**
+  * See resource documentation for more details.
+
+
 ## 1.9.5 (December 8, 2023)
 
 ENHANCEMENTS:
