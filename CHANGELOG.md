@@ -1,3 +1,9 @@
+## 1.9.7 (January 10, 2024)
+
+BUG FIXES:
+* Fix for incorrect upgrade command reference
+
+
 ## 1.9.6 (January 10, 2024)
 
 ENHANCEMENTS:
