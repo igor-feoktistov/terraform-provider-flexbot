@@ -936,7 +936,7 @@ func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, n
                                 }
                         }
 			if compute["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
-				for _, cmd := range compute["ssh_node_bootdisk_resize_commands"].([]interface{}) {
+				for _, cmd := range compute["ssh_node_upgrade_commands"].([]interface{}) {
 					var cmdOutput string
 					log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
 					if cmdOutput, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, cmd.(string)); err != nil {
