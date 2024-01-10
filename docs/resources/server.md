@@ -69,6 +69,11 @@ resource "flexbot_server" "k8s-node1" {
     ssh_node_bootdisk_resize_commands = ["sudo /usr/sbin/growbootdisk"]
     # Optional - commands to re-size data disk on host
     ssh_node_datadisk_resize_commands = ["sudo /usr/sbin/growdatadisk"]
+    # Optional - commands to patch host, required for "maintenance" task "upgrade"
+    ssh_node_upgrade_commands = [
+      "sudo DEBIAN_FRONTEND=noninteractive apt -y update",
+      "sudo DEBIAN_FRONTEND=noninteractive apt -y upgrade"
+    ]
   }
 
   # Required - cDOT storage
@@ -238,9 +243,9 @@ resource "flexbot_server" "k8s-node1" {
     # Number of seconds to wait after restart is completed or node state change to "active" (see above)
     node_grace_timeout = 0
     # List of tasks to execute sequentially
-    # The following tasks are supported: cordon, uncordon, drain, restart
+    # The following tasks are supported: cordon, uncordon, drain, upgrade, restart
     # The tasks cordon, uncordon, and drain require Rancher API enabled in provider
-    tasks = ["cordon","drain","restart","uncordon"]
+    tasks = ["cordon","drain","upgrade","restart","uncordon"]
   }
 
   # Optional - Connection info for provisioners

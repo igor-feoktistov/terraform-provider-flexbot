@@ -914,15 +914,40 @@ func resourceUpdateServerMaintenance(d *schema.ResourceData, meta interface{}, n
 			                return
 		                }
 			} else {
-	                        if err = ucsm.StopServer(nodeConfig); err == nil {
-	                                time.Sleep(NodeGraceShutdownTimeout * time.Second)
-                                        err = ucsm.StartServer(nodeConfig)
-	                        }
-	                        if err != nil {
-			                err = fmt.Errorf("resourceUpdateServer(maintenance): restart error: %s", err)
-			                meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			                return
+				if err = ucsm.StopServer(nodeConfig); err == nil {
+					time.Sleep(NodeGraceShutdownTimeout * time.Second)
+					err = ucsm.StartServer(nodeConfig)
+				}
+				if err != nil {
+					err = fmt.Errorf("resourceUpdateServer(maintenance): restart error: %s", err)
+					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+					return
+				}
+			}
+		        nodeState = "cordoned,drained,active"
+                case "upgrade":
+	                var sshPrivateKey string
+                        sshUser := compute["ssh_user"].(string)
+                        if len(compute["ssh_private_key"].(string)) > 0 {
+                                if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
+                                        err = fmt.Errorf("resourceUpdateServer(maintenance): decryptAttribute() failure: %s", err)
+		                        meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+                                        return
                                 }
+                        }
+			if compute["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
+				for _, cmd := range compute["ssh_node_bootdisk_resize_commands"].([]interface{}) {
+					var cmdOutput string
+					log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
+					if cmdOutput, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, cmd.(string)); err != nil {
+						err = fmt.Errorf("resourceUpdateServer(maintenance): upgrade error: %s", err)
+						meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+						return
+					}
+					if len(cmdOutput) > 0 && log.IsLevelEnabled(log.DebugLevel) {
+						log.Debugf("Completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
+					}
+				}
 			}
 		        nodeState = "cordoned,drained,active"
                 }
