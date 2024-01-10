@@ -1,6 +1,7 @@
-## 1.9.6 (January 8, 2024)
+## 1.9.6 (January 10, 2024)
 
 ENHANCEMENTS:
+* GoLang v1.21
 * Enhancements to support `maintenance` task `upgrade`
   * Requires resource argument `ssh_node_upgrade_commands`
   * See resource documentation for more details.
