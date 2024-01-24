@@ -11,11 +11,13 @@ Compared to other bare-metal tools it does not require any additional infrastruc
 
 The provider is integrated with Rancher API for Rancher downstream clusters nodes lifecycle management.
 
+
 Requirements
 ------------
 
 - [Terraform](https://www.terraform.io/downloads.html) 0.15.x or later
 - [Go](https://golang.org/doc/install) 1.19 or later
+
 
 Building the provider
 ---------------------
