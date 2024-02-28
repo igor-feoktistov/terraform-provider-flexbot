@@ -533,6 +533,7 @@ func (c *OntapZAPI) LunCreateAndUpload(volumeName string, filePath string, fileS
 	        err = c.FileUploadNFS(volumeName, filePath, fileReader)
 	}
 	if err == nil {
+		time.Sleep(10 * time.Second)
 	        err = c.LunCreateFromFile(volumeName, filePath, lunPath, lunComment)
 	}
 	if err != nil {

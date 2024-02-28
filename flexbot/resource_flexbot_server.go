@@ -28,6 +28,8 @@ const (
 	NodeGraceShutdownTimeout = 60
 	NodeGracePowerOffTimeout = 10
 	Wait4ClusterTransitioningTimeout = 60
+	StorageRetryAttempts = 3
+	StorageRetryTimeout = 15
 )
 
 // Change status definition while update routine
@@ -639,19 +641,20 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			}
 		}
 		log.Infof("Re-provision Storage for node %s", nodeConfig.Compute.HostName)
-		if err = ontap.DeleteBootLUNs(nodeConfig); err != nil {
-			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			return
+		for i := 0; i < StorageRetryAttempts; i++ {
+			if err = ontap.DeleteBootLUNs(nodeConfig); err == nil {
+				time.Sleep(5 * time.Second)
+				if err = ontap.CreateBootStorage(nodeConfig); err == nil {
+					if err = ontap.CreateNvmeStorage(nodeConfig); err == nil {
+						if err = ontap.CreateSeedStorage(nodeConfig); err == nil {
+							break
+						}
+					}
+				}
+			}
+			time.Sleep(StorageRetryTimeout * time.Second)
 		}
-		if err = ontap.CreateBootStorage(nodeConfig); err != nil {
-			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			return
-		}
-		if err = ontap.CreateNvmeStorage(nodeConfig); err != nil {
-			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			return
-		}
-		if err = ontap.CreateSeedStorage(nodeConfig); err != nil {
+		if err != nil {
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
