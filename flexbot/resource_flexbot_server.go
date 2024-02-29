@@ -161,11 +161,10 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 				if err = ontap.CreateSeedStorage(nodeConfig); err == nil {
 					break
 				}
-			} else {
-				time.Sleep(StorageRetryTimeout * time.Second)
-				ontap.DeleteNvmeStorage(nodeConfig)
 			}
 			errs = append(errs, err)
+			time.Sleep(StorageRetryTimeout * time.Second)
+			ontap.DeleteNvmeStorage(nodeConfig)
 			time.Sleep(StorageRetryTimeout * time.Second)
 		}
 	}
