@@ -142,7 +142,7 @@ func CreateSeedStoragePreflight(nodeConfig *config.NodeConfig) (err error) {
 				templateExists, err = RepoTemplateExists(nodeConfig, nodeConfig.Storage.SeedLun.SeedTemplate.Location)
 			}
 			if !templateExists {
-				err = fmt.Errorf("CreateSeedStoragePreflight(): failure to open cloud-init template %s: %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location, err)
+				err = fmt.Errorf("CreateSeedStoragePreflight(): failure to open cloud-init template %s", nodeConfig.Storage.SeedLun.SeedTemplate.Location)
 			}
 		} else {
 			file.Close()

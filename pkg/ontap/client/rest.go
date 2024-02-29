@@ -783,6 +783,7 @@ func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fi
 		err = fmt.Errorf("LunCreateAndUpload(): LunCreate() failure: %s", err)
 		return
         }
+        time.Sleep(10 * time.Second)
 	if bytesWritten, _, err = c.Client.LunWrite(luns[0].GetRef(), 0, fileReader); err != nil {
 		err = fmt.Errorf("LunCreateAndUpload(): LunWrite() failure: %s", err)
 		return

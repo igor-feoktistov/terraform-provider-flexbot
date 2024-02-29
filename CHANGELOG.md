@@ -1,3 +1,9 @@
+## 1.9.8 (February 29, 2024)
+
+ENHANCEMENTS:
+* Enhancements to improve resiliency to storage related errors.
+
+
 ## 1.9.7 (January 10, 2024)
 
 BUG FIXES:

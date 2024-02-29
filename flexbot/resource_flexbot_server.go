@@ -28,6 +28,8 @@ const (
 	NodeGraceShutdownTimeout = 60
 	NodeGracePowerOffTimeout = 10
 	Wait4ClusterTransitioningTimeout = 60
+	StorageRetryAttempts = 3
+	StorageRetryTimeout = 15
 )
 
 // Change status definition while update routine
@@ -64,6 +66,7 @@ func resourceFlexbotServer() *schema.Resource {
 
 func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
+	var errs []error
 	var nodeConfig *config.NodeConfig
 	var sshPrivateKey string
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
@@ -140,25 +143,42 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
         meta.(*config.FlexbotConfig).Sync.Lock()
 	d.SetId(nodeConfig.Compute.HostName)
         meta.(*config.FlexbotConfig).Sync.Unlock()
-	err = ontap.CreateBootStorage(nodeConfig)
+	for i := 0; i < StorageRetryAttempts; i++ {
+		if err = ontap.CreateBootStorage(nodeConfig); err == nil {
+			break
+		}
+		errs = append(errs, err)
+		time.Sleep(StorageRetryTimeout * time.Second)
+		ontap.DeleteBootStorage(nodeConfig)
+		time.Sleep(StorageRetryTimeout * time.Second)
+	}
 	if err == nil {
 		_, err = ucsm.CreateServer(nodeConfig)
 	}
 	if err == nil {
-		err = ontap.CreateNvmeStorage(nodeConfig)
-	}
-	if err == nil {
-		err = ontap.CreateSeedStorage(nodeConfig)
+		for i := 0; i < StorageRetryAttempts; i++ {
+			if err = ontap.CreateNvmeStorage(nodeConfig); err == nil {
+				if err = ontap.CreateSeedStorage(nodeConfig); err == nil {
+					break
+				}
+			}
+			errs = append(errs, err)
+			time.Sleep(StorageRetryTimeout * time.Second)
+			ontap.DeleteNvmeStorage(nodeConfig)
+			time.Sleep(StorageRetryTimeout * time.Second)
+		}
 	}
 	if err == nil {
 		err = ucsm.StartServer(nodeConfig)
+	} else {
+		ontap.DeleteBootStorage(nodeConfig)
 	}
 	if err == nil {
                 meta.(*config.FlexbotConfig).Sync.Lock()
 		d.SetConnInfo(map[string]string{"type": "ssh", "host": nodeConfig.Network.Node[0].Ip})
                 meta.(*config.FlexbotConfig).Sync.Unlock()
 	}
-	if compute["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 && err == nil {
+	if err == nil && compute["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
 		if err = waitForSSH(nodeConfig, compute["wait_for_ssh_timeout"].(int), sshUser, sshPrivateKey); err == nil {
 			for _, cmd := range compute["ssh_node_init_commands"].([]interface{}) {
 				var cmdOutput string
@@ -193,7 +213,14 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 		}
 	}
 	if err != nil {
-		diags = diag.FromErr(fmt.Errorf("resourceCreateServer(): %s", err))
+		errs = append(errs, err)
+		for _, err = range errs {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "resourceCreateServer()",
+				Detail:   err.Error(),
+			})
+		}
 	}
 	return
 }
@@ -639,19 +666,20 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			}
 		}
 		log.Infof("Re-provision Storage for node %s", nodeConfig.Compute.HostName)
-		if err = ontap.DeleteBootLUNs(nodeConfig); err != nil {
-			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			return
+		for i := 0; i < StorageRetryAttempts; i++ {
+			if err = ontap.DeleteBootLUNs(nodeConfig); err == nil {
+				time.Sleep(5 * time.Second)
+				if err = ontap.CreateBootStorage(nodeConfig); err == nil {
+					if err = ontap.CreateNvmeStorage(nodeConfig); err == nil {
+						if err = ontap.CreateSeedStorage(nodeConfig); err == nil {
+							break
+						}
+					}
+				}
+			}
+			time.Sleep(StorageRetryTimeout * time.Second)
 		}
-		if err = ontap.CreateBootStorage(nodeConfig); err != nil {
-			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			return
-		}
-		if err = ontap.CreateNvmeStorage(nodeConfig); err != nil {
-			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			return
-		}
-		if err = ontap.CreateSeedStorage(nodeConfig); err != nil {
+		if err != nil {
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
