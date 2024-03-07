@@ -1,4 +1,10 @@
-## 1.9.8 (February 27, 2024)
+## 1.9.9 (March 7, 2024)
+
+ENHANCEMENTS:
+* Timeouts and counters adjustments in resiliency to storage related errors logic.
+
+
+## 1.9.8 (February 29, 2024)
 
 ENHANCEMENTS:
 * Enhancements to improve resiliency to storage related errors.

@@ -28,7 +28,7 @@ const (
 	NodeGraceShutdownTimeout = 60
 	NodeGracePowerOffTimeout = 10
 	Wait4ClusterTransitioningTimeout = 60
-	StorageRetryAttempts = 3
+	StorageRetryAttempts = 5
 	StorageRetryTimeout = 15
 )
 
@@ -150,7 +150,7 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 		errs = append(errs, err)
 		time.Sleep(StorageRetryTimeout * time.Second)
 		ontap.DeleteBootStorage(nodeConfig)
-		time.Sleep(StorageRetryTimeout * time.Second)
+		time.Sleep(time.Duration(StorageRetryTimeout * (i + 1)) * time.Second)
 	}
 	if err == nil {
 		_, err = ucsm.CreateServer(nodeConfig)
@@ -163,9 +163,9 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 				}
 			}
 			errs = append(errs, err)
-			time.Sleep(StorageRetryTimeout * time.Second)
+			time.Sleep(time.Duration(StorageRetryTimeout) * time.Second)
 			ontap.DeleteNvmeStorage(nodeConfig)
-			time.Sleep(StorageRetryTimeout * time.Second)
+			time.Sleep(time.Duration(StorageRetryTimeout * (i + 1)) * time.Second)
 		}
 	}
 	if err == nil {
@@ -668,7 +668,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		log.Infof("Re-provision Storage for node %s", nodeConfig.Compute.HostName)
 		for i := 0; i < StorageRetryAttempts; i++ {
 			if err = ontap.DeleteBootLUNs(nodeConfig); err == nil {
-				time.Sleep(5 * time.Second)
+				time.Sleep(time.Duration(5 * (i + 1)) * time.Second)
 				if err = ontap.CreateBootStorage(nodeConfig); err == nil {
 					if err = ontap.CreateNvmeStorage(nodeConfig); err == nil {
 						if err = ontap.CreateSeedStorage(nodeConfig); err == nil {
@@ -677,7 +677,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 					}
 				}
 			}
-			time.Sleep(StorageRetryTimeout * time.Second)
+			time.Sleep(time.Duration(StorageRetryTimeout * (i + 1)) * time.Second)
 		}
 		if err != nil {
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
