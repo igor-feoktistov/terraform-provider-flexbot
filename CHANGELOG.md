@@ -1,6 +1,7 @@
 ## 1.9.9 (March 7, 2024)
 
 ENHANCEMENTS:
+* GoLang v1.22
 * Timeouts and counters adjustments in resiliency to storage related errors logic.
 
 
