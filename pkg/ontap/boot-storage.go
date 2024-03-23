@@ -282,6 +282,20 @@ func DiscoverBootStorage(nodeConfig *config.NodeConfig) (storageExists bool, err
 	if !storageExists {
 		return
 	}
+	if storageExists, err = c.LunExists(bootLunPath); err != nil {
+		err = fmt.Errorf(errorFormat, err)
+		return
+	}
+	if !storageExists {
+		return
+	}
+	if storageExists, err = c.LunExists(seedLunPath); err != nil {
+		err = fmt.Errorf(errorFormat, err)
+		return
+	}
+	if !storageExists {
+		return
+	}
 	var lunInfo *client.LunInfo
 	if lunInfo, err = c.LunGetInfo(bootLunPath); err != nil {
 		err = fmt.Errorf(errorFormat, err)

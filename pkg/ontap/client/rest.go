@@ -16,6 +16,8 @@ const (
         MAX_WAIT_FOR_LUN = 300
         LUN_SIZE_BASE = 1024 * 1024
         LUN_SIZE_OVERHEAD = 1024 * 1024
+	REST_RETRY_ATTEMPTS = 5
+	REST_RETRY_TIMEOUT = 15
 )
 
 // OntapRestAPI is ontap REST API client
@@ -363,6 +365,7 @@ func (c *OntapRestAPI) IsLunMapped(lunPath string, igroupName string) (mapped bo
 
 // LunCopy copies LUN from src to dst
 func (c *OntapRestAPI) LunCopy(lunSrcPath string, lunDstPath string) (err error) {
+	var res *ontap.RestResponse
 	volumeDstName := filepath.Base(filepath.Dir(lunDstPath))
 	lunDstName := filepath.Base(lunDstPath)
 	req := ontap.Lun{
@@ -384,8 +387,16 @@ func (c *OntapRestAPI) LunCopy(lunSrcPath string, lunDstPath string) (err error)
 			Name: c.Svm,
 		},
 	}
-	if _, _, err = c.Client.LunCreate(&req, []string{}); err != nil {
-		err = fmt.Errorf("LunCopy() failure, src LUN %s, dst LUN %s: %s", lunSrcPath, lunDstPath, err)
+	var retryCounter int
+	for retryCounter = 0; retryCounter < REST_RETRY_ATTEMPTS; retryCounter++ {
+		if _, res, err = c.Client.LunCreate(&req, []string{}); err == nil || res.ErrorResponse.Error.Code != ontap.ERROR_LUN_EXIST {
+			break
+		}
+		c.LunDestroy(lunDstPath)
+		time.Sleep(time.Duration(REST_RETRY_TIMEOUT * (retryCounter + 1)) * time.Second)
+	}
+	if err != nil {
+		err = fmt.Errorf("LunCopy() failure after %d attempts, src LUN %s, dst LUN %s: %s", retryCounter, lunSrcPath, lunDstPath, err)
 	        return
 	}
 	giveupTime := time.Now().Add(time.Second * MAX_WAIT_FOR_LUN)
