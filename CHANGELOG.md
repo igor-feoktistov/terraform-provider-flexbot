@@ -1,3 +1,10 @@
+## 1.9.9 (March 25, 2024)
+
+ENHANCEMENTS:
+* GoLang v1.22
+* More enhancements to improve resiliency to storage related errors.
+
+
 ## 1.9.8 (February 29, 2024)
 
 ENHANCEMENTS:
