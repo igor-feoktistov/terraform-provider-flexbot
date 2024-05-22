@@ -1,0 +1,37 @@
+#!/bin/sh
+
+return_code=0
+
+echo "Validating iscsi disks..."
+
+echo -n "Validating root disk..."
+root_mpath_dev=`blkid --label rootfs | sed -n "s/^\/dev\/mapper\/\([0-9a-f]*\)\(p1\)*.*/\1/p"`
+if [ ! -z "${root_mpath_dev}" ]; then
+    path_count=`multipath -ll ${root_mpath_dev} | grep "active ready running" | wc -l`
+    if [ "4" -gt "${path_count}" ]; then
+	echo "failed"
+	echo "Multipath for root iSCSI disk has only ${path_count} active paths!"
+    else
+	echo "passed"
+    fi
+else
+    echo "failed"
+    echo "Root disk is not on multipath device!"
+    return_code=1
+fi
+echo -n "Validating data disk..."
+data_mpath_dev=`blkid --label datafs | sed -n "s/^\/dev\/mapper\/\([0-9a-f]*\)\(p1\)*.*/\1/p"`
+if [ ! -z "${data_mpath_dev}" ]; then
+    path_count=`multipath -ll ${data_mpath_dev} | grep "active ready running" | wc -l`
+    if [ "4" -gt "${path_count}" ]; then
+	echo "failed"
+	echo "Multipath for data iSCSI disk has only ${path_count} active paths!"
+    else
+	echo "passed"
+    fi
+else
+    echo "failed"
+    echo "Data disk is not on multipath device!"
+    return_code=1
+fi
+return ${return_code}

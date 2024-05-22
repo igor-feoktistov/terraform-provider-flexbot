@@ -1247,12 +1247,15 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.Storage.IgroupName = storage["igroup_name"].(string)
 	bootLun := storage["boot_lun"].([]interface{})[0].(map[string]interface{})
 	nodeConfig.Storage.BootLun.Name = bootLun["name"].(string)
+	nodeConfig.Storage.BootLun.Id = bootLun["id"].(int)
 	nodeConfig.Storage.BootLun.Size = bootLun["size"].(int)
 	seedLun := storage["seed_lun"].([]interface{})[0].(map[string]interface{})
 	nodeConfig.Storage.SeedLun.Name = seedLun["name"].(string)
+	nodeConfig.Storage.SeedLun.Id = seedLun["id"].(int)
 	if len(storage["data_lun"].([]interface{})) > 0 {
 		dataLun := storage["data_lun"].([]interface{})[0].(map[string]interface{})
 		nodeConfig.Storage.DataLun.Name = dataLun["name"].(string)
+		nodeConfig.Storage.DataLun.Id = dataLun["id"].(int)
 		nodeConfig.Storage.DataLun.Size = dataLun["size"].(int)
 	}
 	if len(storage["data_nvme"].([]interface{})) > 0 {

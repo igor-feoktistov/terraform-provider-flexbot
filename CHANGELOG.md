@@ -1,4 +1,10 @@
-## 1.9.9 (March 23, 2024)
+## 1.9.10 (April 23, 2024)
+
+ENHANCEMENTS:
+* LUN Id's for boot, seed, and data LUN's are configurable now in IaC
+
+
+## 1.9.9 (March 25, 2024)
 
 ENHANCEMENTS:
 * GoLang v1.22

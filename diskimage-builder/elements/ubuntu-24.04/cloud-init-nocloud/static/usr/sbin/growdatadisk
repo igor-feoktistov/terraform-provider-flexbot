@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# This script grows data FS on either iSCSI or NVME disk
+#
+mpath_dev=`blkid --label datafs | sed -n "s/^\/dev\/mapper\/\([0-9a-f]*\)\(p1\)*.*/\1/p"`
+nvme_dev=`blkid --label datafs | sed -n "s/^\/dev\/\(nvme[0-9]*n[0-9]*\).*/\1/p"`
+if [ ! -z "${mpath_dev}" ]; then
+    iscsiadm -m session --rescan
+    multipathd -k"resize map ${mpath_dev}"
+    xfs_growfs /dev/mapper/${mpath_dev}
+fi
+if [ ! -z "${nvme_dev}" ]; then
+    xfs_growfs /dev/${nvme_dev}
+fi

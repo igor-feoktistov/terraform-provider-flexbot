@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# Each validation script must return diagnostic message
+# and non-zero return code if validation failed.
+# Example:
+# ---
+# #!/bin/sh
+# echo "failed to validate resource"
+# return 1
+# ---
+#
+cd /usr/local/image-validator/scripts
+echo -n > /var/log/image-validator.log
+for SCRIPT in `ls | sort`; do
+    return_code=0
+    echo "Running ${SCRIPT}:" >> /var/log/image-validator.log
+    (. ./${SCRIPT} 2>&1) >> /var/log/image-validator.log || return_code=$?
+    if [ ! "${return_code}" = "0" ]; then
+	cat /var/log/image-validator.log
+	return ${return_code}
+    fi
+done
