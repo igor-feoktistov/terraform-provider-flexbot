@@ -1,7 +1,8 @@
-## 1.9.10 (April 23, 2024)
+## 1.9.10 (June 25, 2024)
 
 ENHANCEMENTS:
 * LUN Id's for boot, seed, and data LUN's are configurable now in IaC
+* Enhancements to improve resiliency to UCS API related errors.
 
 
 ## 1.9.9 (March 25, 2024)

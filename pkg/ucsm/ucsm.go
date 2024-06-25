@@ -16,7 +16,20 @@ import (
 const (
 	assignTryMax  = 5
 	assignWaitMax = 3600
+	transientWaitMax = 300
 )
+
+// UcsmLogin return client with the authentication cookie
+func UcsmLogin(endPoint string, username string, password string) (client *api.Client, err error) {
+	giveupTime := time.Now().Add(time.Second * time.Duration(transientWaitMax))
+        for time.Now().Before(giveupTime) {
+		if client, err = util.AaaLogin(endPoint, username, password); err == nil {
+			break
+		}
+		time.Sleep(time.Duration(30 * time.Second))
+	}
+	return
+}
 
 // AssignBlade assigns physical blade to SP
 func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) {
@@ -86,7 +99,7 @@ func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) 
 func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 	var client *api.Client
 	var lsServers []*mo.LsServer
-	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
+	client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
 	if err != nil {
 		err = fmt.Errorf("CreateServer: AaaLogin() failure: %s", err)
 		return
@@ -154,7 +167,7 @@ func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 // CreateServerPreflight does sanity check before SP creation
 func CreateServerPreflight(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
-	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
+	client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
 	if err != nil {
 		err = fmt.Errorf("CreateServerPreflight: AaaLogin() failure: %s", err)
 		return
@@ -223,7 +236,7 @@ func CreateServerPreflight(nodeConfig *config.NodeConfig) (err error) {
 // DiscoverServer finds SP by name and retrives it's attributes
 func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error) {
 	var client *api.Client
-	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
+	client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
 	if err != nil {
 		err = fmt.Errorf("DiscoverServer: AaaLogin() failure: %s", err)
 		return
@@ -336,7 +349,7 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 // UpdateServerPreflight check blade availability before re-assigning
 func UpdateServerPreflight(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
-	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
+	client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
 	if err != nil {
 		err = fmt.Errorf("UpdateServerPreflight: AaaLogin() failure: %s", err)
 		return
@@ -357,7 +370,7 @@ func UpdateServerPreflight(nodeConfig *config.NodeConfig) (err error) {
 // UpdateServer re-assigns physical blade
 func UpdateServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
-	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
+	client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
 	if err != nil {
 		err = fmt.Errorf("UpdateServer: AaaLogin() failure: %s", err)
 		return
@@ -389,7 +402,7 @@ func UpdateServer(nodeConfig *config.NodeConfig) (err error) {
 // UpdateServerAttributes sets updates SP description and label
 func UpdateServerAttributes(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
-	client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
+	client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password)
 	if err != nil {
 		err = fmt.Errorf("UpdateServerAttributes: AaaLogin() failure: %s", err)
 		return
@@ -418,7 +431,7 @@ func DeleteServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	var powerState string
 	spDn := nodeConfig.Compute.SpOrg + "/ls-" + nodeConfig.Compute.HostName
-	if client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
+	if client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
 		err = fmt.Errorf("DeleteServer: AaaLogin() failure: %s", err)
 		return
 	}
@@ -453,7 +466,7 @@ func StartServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	var lsPower *mo.LsPower
 	spDn := nodeConfig.Compute.SpOrg + "/ls-" + nodeConfig.Compute.HostName
-	if client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
+	if client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
 		err = fmt.Errorf("StartServer: AaaLogin() failure: %s", err)
 		return
 	}
@@ -471,7 +484,7 @@ func StopServer(nodeConfig *config.NodeConfig) (err error) {
 	var client *api.Client
 	var lsPower *mo.LsPower
 	spDn := nodeConfig.Compute.SpOrg + "/ls-" + nodeConfig.Compute.HostName
-	if client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
+	if client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
 		err = fmt.Errorf("StopServer: AaaLogin() failure: %s", err)
 		return
 	}
@@ -488,7 +501,7 @@ func StopServer(nodeConfig *config.NodeConfig) (err error) {
 func GetServerPowerState(nodeConfig *config.NodeConfig) (powerState string, err error) {
 	var client *api.Client
 	spDn := nodeConfig.Compute.SpOrg + "/ls-" + nodeConfig.Compute.HostName
-	if client, err = util.AaaLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
+	if client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
 		err = fmt.Errorf("GetServerPowerState: AaaLogin() failure: %s", err)
 		return
 	}
