@@ -35,21 +35,18 @@ type RkApiNode struct {
 }
 
 func RkApiInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node *RkApiNode, err error) {
-	var machine *unstructured.Unstructured
+	rancherConfig := meta.(*config.FlexbotConfig).RancherConfig
         node = &RkApiNode{
 	        NodeConfig:       nodeConfig,
-		ClusterProvider:  "rke2",
 		NodeControlPlane: false,
 		NodeEtcd:         false,
 		NodeWorker:       false,
 	}
-	rancherConfig := meta.(*config.FlexbotConfig).RancherConfig
 	if rancherConfig == nil || !meta.(*config.FlexbotConfig).RancherApiEnabled {
 		return
 	}
 	node.NodeDrainInput = rancherConfig.NodeDrainInput
         meta.(*config.FlexbotConfig).Sync.Lock()
-	network := d.Get("network").([]interface{})[0].(map[string]interface{})
 	p := meta.(*config.FlexbotConfig).FlexbotProvider
 	node.ClusterName = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_name"].(string)
 	node.ClusterID = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_id"].(string)
@@ -74,53 +71,25 @@ func RkApiInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *confi
                 return
         }
 	node.RancherClient = rkApiClient
-	if machine, err = node.RancherClient.GetMachine(node.ClusterName, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
-		node.NodeID = getMapValue(machine.UnstructuredContent()["metadata"], "name").(string)
-		if labels := getMapValue(machine.UnstructuredContent()["metadata"], "labels"); labels != nil {
-			if label, ok := labels.(map[string]interface{})["rke.cattle.io/worker-role"]; ok && label.(string) == "true" {
-				node.NodeWorker = true
-			}
-			if label, ok := labels.(map[string]interface{})["rke.cattle.io/control-plane-role"]; ok && label.(string) == "true" {
-				node.NodeControlPlane = true
-			}
-			if label, ok := labels.(map[string]interface{})["rke.cattle.io/etcd-role"]; ok && label.(string)== "true" {
-				node.NodeEtcd = true
-			}
-		}
-	}
+	node.RancherAPINodeGetID(d, meta)
 	if waitForNode && meta.(*config.FlexbotConfig).WaitForNodeTimeout > 0 {
 		giveupTime := time.Now().Add(time.Second * time.Duration(meta.(*config.FlexbotConfig).WaitForNodeTimeout))
 		if err = node.RancherClient.ClusterWaitForState(node.ClusterName, "active", meta.(*config.FlexbotConfig).WaitForNodeTimeout); err != nil {
 			return
 		}
 		for time.Now().Before(giveupTime) {
-			if machine, err = node.RancherClient.GetMachine(node.ClusterName, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+			if err = node.RancherAPINodeGetID(d, meta); err != nil {
 			        if !node.RancherClient.IsMachineNotFound(err) {
 				        return
 				}
 			}
 			if err == nil {
 				if err = node.RancherClient.MachineWaitForState(node.NodeID, "active", int(math.Round(time.Until(giveupTime).Seconds()))); err == nil {
-					node.NodeID = getMapValue(machine.UnstructuredContent()["metadata"], "name").(string)
-					if labels := getMapValue(machine.UnstructuredContent()["metadata"], "labels"); labels != nil {
-						if label, ok := labels.(map[string]interface{})["rke.cattle.io/worker-role"]; ok && label.(string) == "true" {
-							node.NodeWorker = true
-						}
-						if label, ok := labels.(map[string]interface{})["rke.cattle.io/control-plane-role"]; ok && label.(string) == "true" {
-							node.NodeControlPlane = true
-						}
-						if label, ok := labels.(map[string]interface{})["rke.cattle.io/etcd-role"]; ok && label.(string)== "true" {
-							node.NodeEtcd = true
-						}
-					}
 					return
 				}
 			}
 			time.Sleep(rancher2Wait4State * time.Second)
 		}
-	        if err == nil && len(node.NodeID) == 0 {
-	                err = fmt.Errorf("RkApiInitialize(): node with IP address %s is not found in the cluster", network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string))
-	        }
 	}
 	return
 }
@@ -131,10 +100,19 @@ func (node *RkApiNode) RancherAPINodeGetID(d *schema.ResourceData, meta interfac
                 meta.(*config.FlexbotConfig).Sync.Lock()
 	        network := d.Get("network").([]interface{})[0].(map[string]interface{})
                 meta.(*config.FlexbotConfig).Sync.Unlock()
-	        if machine, err = node.RancherClient.GetMachine(node.ClusterName, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
+	        if machine, err = node.RancherClient.GetMachineByNodeIp(node.ClusterName, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
 			node.NodeID = getMapValue(machine.UnstructuredContent()["metadata"], "name").(string)
-		} else {
-			err = fmt.Errorf("rancherAPINodeGetID(): node %s not found", node.NodeConfig.Compute.HostName)
+			if labels := getMapValue(machine.UnstructuredContent()["metadata"], "labels"); labels != nil {
+				if label, ok := labels.(map[string]interface{})["rke.cattle.io/worker-role"]; ok && label.(string) == "true" {
+					node.NodeWorker = true
+				}
+				if label, ok := labels.(map[string]interface{})["rke.cattle.io/control-plane-role"]; ok && label.(string) == "true" {
+					node.NodeControlPlane = true
+				}
+				if label, ok := labels.(map[string]interface{})["rke.cattle.io/etcd-role"]; ok && label.(string)== "true" {
+					node.NodeEtcd = true
+				}
+			}
 		}
 	}
         return
@@ -142,20 +120,37 @@ func (node *RkApiNode) RancherAPINodeGetID(d *schema.ResourceData, meta interfac
 
 func (node *RkApiNode) RancherAPIClusterWaitForState(state string, timeout int) (err error) {
         if node.RancherClient != nil {
-                err = node.RancherClient.ClusterWaitForState(node.ClusterID, state, timeout)
+                err = node.RancherClient.ClusterWaitForState(node.ClusterName, state, timeout)
         }
         return
 }
 
 func (node *RkApiNode) RancherAPIClusterWaitForTransitioning(timeout int) (err error) {
+        if node.RancherClient != nil {
+                err = node.RancherClient.ClusterWaitForTransitioning(node.ClusterName, timeout)
+        }
         return
 }
 
 func (node *RkApiNode) RancherAPINodeWaitForState(state string, timeout int) (err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+	        err = node.RancherClient.MachineWaitForState(node.NodeID, state, timeout)
+	}
         return
 }
 
 func (node *RkApiNode) RancherAPINodeWaitForGracePeriod(timeout int) (err error) {
+	if node.RancherClient != nil {
+                giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
+		for time.Now().Before(giveupTime) {
+                        nextTimeout := int(math.Round(time.Until(giveupTime).Seconds()))
+                        if nextTimeout > 0 {
+	                        if err = node.RancherClient.MachineWaitForState(node.NodeID, "active", nextTimeout); err == nil {
+			                time.Sleep(rkeApiWait4State * time.Second)
+			        }
+			}
+		}
+        }
         return
 }
 
@@ -181,6 +176,9 @@ func (node *RkApiNode) RancherAPINodeUncordon() (err error) {
 }
 
 func (node *RkApiNode) RancherAPINodeDelete() (err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+		err = node.RancherClient.DeleteMachine(node.NodeID)
+	}
         return
 }
 

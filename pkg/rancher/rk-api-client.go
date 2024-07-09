@@ -13,18 +13,29 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	//"k8s.io/client-go/rest"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubectl/pkg/drain"
 	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
 
 const (
+	rkApiReadyAnswer = "pong"
 	rkApiRetriesWait = 5
+	rkApiStabilizeWait = 3
+	rkApiStabilizeMax = 10
+)
+
+const (
+	CAPI_Group = "cluster.x-k8s.io"
+	CAPI_Version = "v1beta1"
+	CAPI_ClusterResource = "clusters"
+	CAPI_MachineResource = "machines"
 )
 
 // RkApiClient is RK-API client
 type RkApiClient struct {
+	RancherConfig           *config.RancherConfig
 	LocalClusterClient      dynamic.Interface
 	DownstreamClusterClient *kubernetes.Clientset
 }
@@ -37,7 +48,27 @@ func getMapValue(m interface{}, key string) interface{} {
         return v
 }
 
-func (client *RkApiClient) GetMachine(clusterName string, nodeIp string) (machine *unstructured.Unstructured, err error) {
+// Retry Rancher server URL probes number of "Retries" attempts or until ready
+func (client *RkApiClient) IsRancherReady() (err error) {
+	var resp []byte
+	for retry := 0; retry < client.RancherConfig.Retries; retry++ {
+	        for stabilize := 0; stabilize < rkApiStabilizeMax; stabilize++ {
+		        resp, err = DoGet(client.RancherConfig.URL + "/ping", "", "", "", string(client.RancherConfig.ServerCAData), client.RancherConfig.Insecure)
+		        if err == nil && rkApiReadyAnswer == string(resp) {
+		                time.Sleep(rkApiStabilizeWait * time.Second)
+		        } else {
+		                break
+		        }
+		}
+		if err == nil && rkApiReadyAnswer == string(resp) {
+		        return
+                }
+		time.Sleep(rkApiRetriesWait * time.Second)
+	}
+	return fmt.Errorf("rk-api-client.IsRancherReady(): rancher is not ready after %d attempts in %d seconds, last error: %s", client.RancherConfig.Retries, rkApiRetriesWait * client.RancherConfig.Retries, err)
+}
+
+func (client *RkApiClient) GetMachineByNodeIp(clusterName string, nodeIp string) (machine *unstructured.Unstructured, err error) {
 	var machineList *unstructured.UnstructuredList
 	machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"})
 	opt := metav1.ListOptions{
@@ -55,6 +86,26 @@ func (client *RkApiClient) GetMachine(clusterName string, nodeIp string) (machin
 			}
 		}
 		err = fmt.Errorf("rk-api-client.GetMachine() failure: no machine found in cluster \"%s\" with node IP address \"%s\"", clusterName, nodeIp)
+	} else {
+		err = fmt.Errorf("rk-api-client.GetMachine() failure: %s", err)
+	}
+        return
+}
+
+func (client *RkApiClient) GetMachineByName(machineName string) (machine *unstructured.Unstructured, err error) {
+	var machineList *unstructured.UnstructuredList
+	machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"})
+	opt := metav1.ListOptions{
+		FieldSelector:   fields.OneTermEqualSelector("metadata.name", machineName).String(),
+	}
+	if machineList, err = machineClient.List(context.Background(), opt); err == nil {
+		for _, item := range machineList.Items {
+			if name := getMapValue(item.UnstructuredContent()["metadata"], "name"); name != nil && name == machineName {
+				machine = &item
+				return
+			}
+		}
+		err = fmt.Errorf("rk-api-client.GetMachine() failure: no machine found with name \"%s\"", machineName)
 	} else {
 		err = fmt.Errorf("rk-api-client.GetMachine() failure: %s", err)
 	}
@@ -109,6 +160,27 @@ func (client *RkApiClient) GetMachineState(machineName string) (state string, er
 		err = fmt.Errorf("rk-api-client.GetMachine() failure: %s", err)
 	}
         return
+}
+
+// DeleteMachine deletes node machine
+func (client *RkApiClient) DeleteMachine(machineName string) (err error) {
+	var machine *unstructured.Unstructured
+	if machine, err = client.GetMachineByName(machineName); err != nil {
+		if client.IsMachineNotFound(err) {
+			err = nil
+		}
+		return
+	}
+	if machine != nil {
+		u := machine.UnstructuredContent()
+		machineName := GetMapString(u["metadata"], "name")
+		machineNamespace := GetMapString(u["metadata"], "namespace")
+		if len(machineName) > 0 && len(machineNamespace) > 0 {
+			machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"})
+			machineClient.Namespace(machineNamespace).Delete(context.Background(), machineName, metav1.DeleteOptions{})
+		}
+	}
+	return
 }
 
 func (client *RkApiClient) IsMachineNotFound(err error) (bool) {
@@ -276,5 +348,124 @@ func (client *RkApiClient) NodeCordonDrain(nodeName string, nodeDrainInput *ranc
 		        err = nil
 		}
         }
+        return
+}
+
+// NodeSetAnnotationsLabelsTaints sets Rancher node annotations, labels, and taints
+func (client *RkApiClient) NodeSetAnnotationsLabelsTaints(nodeName string, annotations map[string]string, labels map[string]string, taints []v1.Taint) (err error) {
+        var node *v1.Node
+	if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
+		err = fmt.Errorf("rk-api-client.NodeSetAnnotationsLabelsTaints() error: %s", err)
+		return
+	}
+	for key, elem := range annotations {
+		node.Annotations[key] = elem
+	}
+	for key, elem := range labels {
+		node.Labels[key] = elem
+	}
+	for _, taint := range taints {
+	        matched := false
+	        for _, nodeTaint := range node.Spec.Taints {
+	                if taint.Key == nodeTaint.Key && taint.Value == nodeTaint.Value && taint.Effect == nodeTaint.Effect {
+	                        matched = true
+	                }
+	        }
+	        if !matched {
+	                node.Spec.Taints = append(node.Spec.Taints, taint)
+	        }
+        }
+	if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
+		err = fmt.Errorf("rk-api-client.NodeSetAnnotationsLabelsTaints() error: %s", err)
+	}
+	return
+}
+
+// NodeGetLabels get node labels
+func (client *RkApiClient) NodeGetLabels(nodeName string) (nodeLabels map[string]string, err error) {
+        var node *v1.Node
+	if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
+		err = fmt.Errorf("rk-api-client.NodeGetLabels() error: %s", err)
+	} else {
+	        nodeLabels = node.Labels
+	}
+	return
+}
+
+// NodeUpdateLabels updates node labels
+func (client *RkApiClient) NodeUpdateLabels(nodeName string, oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
+        var node *v1.Node
+	if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
+		err = fmt.Errorf("rk-api-client.NodeUpdateLabels() error: %s", err)
+		return
+	}
+        if node.Labels == nil {
+                node.Labels = map[string]string{}
+        }
+        for key := range oldLabels {
+                if _, ok := node.Labels[key]; ok {
+                        delete(node.Labels, key)
+                }
+        }
+        for key, value := range newLabels {
+                node.Labels[key] = value.(string)
+        }
+	if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
+		err = fmt.Errorf("rk-api-client.NodeUpdateLabels() error: %s", err)
+	}
+	return
+}
+
+// NodeGetTaints get node taints
+func (client *RkApiClient) NodeGetTaints(nodeName string) (nodeTaints []v1.Taint, err error) {
+        var node *v1.Node
+	if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
+		err = fmt.Errorf("rk-api-client.NodeGetTaints() error: %s", err)
+	} else {
+	        nodeTaints = node.Spec.Taints
+        }
+	return
+}
+
+// NodeUpdateTaints updates node taints
+func (client *RkApiClient) NodeUpdateTaints(nodeName string, oldTaints []interface{}, newTaints []interface{}) (err error) {
+        var node *v1.Node
+	var taints []v1.Taint
+	if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
+		err = fmt.Errorf("rk-api-client.NodeUpdateTaints() error: %s", err)
+		return
+	}
+	for _, taint := range node.Spec.Taints {
+	        matched := false
+	        for _, oldTaint := range oldTaints {
+	                if oldTaint.(map[string]interface{})["key"].(string) == taint.Key && oldTaint.(map[string]interface{})["value"].(string) == taint.Value && oldTaint.(map[string]interface{})["effect"].(string) == string(taint.Effect) {
+	                        matched = true
+	                }
+	        }
+	        if !matched {
+	                taints = append(taints, taint)
+	        }
+        }
+	for _, newTaint := range newTaints {
+	        matched := false
+	        for _, taint := range taints {
+	                if newTaint.(map[string]interface{})["key"].(string) == taint.Key && newTaint.(map[string]interface{})["value"].(string) == taint.Value && newTaint.(map[string]interface{})["effect"].(string) == string(taint.Effect) {
+	                        matched = true
+	                }
+	        }
+	        if !matched {
+	                taints = append(
+	                        taints,
+	                        v1.Taint{
+	                                Key: newTaint.(map[string]interface{})["key"].(string),
+	                                Value: newTaint.(map[string]interface{})["value"].(string),
+	                                Effect: v1.TaintEffect(newTaint.(map[string]interface{})["effect"].(string)),
+	                        })
+	        }
+        }
+        node.Spec.Taints = taints
+	if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err != nil {
+		err = fmt.Errorf("rk-api-client.NodeUpdateTaints() error: %s", err)
+	}
         return
 }
