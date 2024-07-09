@@ -245,7 +245,6 @@ func Provider() *schema.Provider {
 							Optional: true,
 							Default:  "machines",
 						},
-
 						"insecure": {
 							Type:     schema.TypeBool,
 							Optional: true,
@@ -255,6 +254,10 @@ func Provider() *schema.Provider {
 							Optional: true,
 							Type:     schema.TypeInt,
 							Default:  3,
+						},
+						"cluster_name": {
+							Type:     schema.TypeString,
+							Required: true,
 						},
 						"cluster_id": {
 							Type:     schema.TypeString,
