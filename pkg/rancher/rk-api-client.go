@@ -40,14 +40,6 @@ type RkApiClient struct {
 	DownstreamClusterClient *kubernetes.Clientset
 }
 
-func getMapValue(m interface{}, key string) interface{} {
-        v, ok := m.(map[string]interface{})[key]
-        if !ok {
-                return nil
-        }
-        return v
-}
-
 // Retry Rancher server URL probes number of "Retries" attempts or until ready
 func (client *RkApiClient) IsRancherReady() (err error) {
 	var resp []byte
@@ -68,13 +60,23 @@ func (client *RkApiClient) IsRancherReady() (err error) {
 	return fmt.Errorf("rk-api-client.IsRancherReady(): rancher is not ready after %d attempts in %d seconds, last error: %s", client.RancherConfig.Retries, rkApiRetriesWait * client.RancherConfig.Retries, err)
 }
 
+// Resilient to transient errors GetMachineList
+func (client *RkApiClient) GetMachineList(opt metav1.ListOptions) (machineList *unstructured.UnstructuredList, err error) {
+	machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: CAPI_Group, Version: CAPI_Version, Resource: CAPI_MachineResource})
+	if machineList, err = machineClient.List(context.Background(), opt); err != nil {
+		if err = client.IsRancherReady(); err == nil {
+			machineList, err = machineClient.List(context.Background(), opt)
+		}
+	}
+	return
+}
+
 func (client *RkApiClient) GetMachineByNodeIp(clusterName string, nodeIp string) (machine *unstructured.Unstructured, err error) {
 	var machineList *unstructured.UnstructuredList
-	machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"})
 	opt := metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("cluster.x-k8s.io/cluster-name=%s", clusterName),
+		LabelSelector: fmt.Sprintf("%s/cluster-name=%s", CAPI_Group, clusterName),
 	}
-	if machineList, err = machineClient.List(context.Background(), opt); err == nil {
+	if machineList, err = client.GetMachineList(opt); err == nil {
 		for _, item := range machineList.Items {
 			if addresses := getMapValue(item.UnstructuredContent()["status"], "addresses"); addresses != nil {
 				for _, address := range addresses.([]interface{}) {
@@ -94,11 +96,10 @@ func (client *RkApiClient) GetMachineByNodeIp(clusterName string, nodeIp string)
 
 func (client *RkApiClient) GetMachineByName(machineName string) (machine *unstructured.Unstructured, err error) {
 	var machineList *unstructured.UnstructuredList
-	machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"})
 	opt := metav1.ListOptions{
-		FieldSelector:   fields.OneTermEqualSelector("metadata.name", machineName).String(),
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", machineName).String(),
 	}
-	if machineList, err = machineClient.List(context.Background(), opt); err == nil {
+	if machineList, err = client.GetMachineList(opt); err == nil {
 		for _, item := range machineList.Items {
 			if name := getMapValue(item.UnstructuredContent()["metadata"], "name"); name != nil && name == machineName {
 				machine = &item
@@ -114,11 +115,10 @@ func (client *RkApiClient) GetMachineByName(machineName string) (machine *unstru
 
 func (client *RkApiClient) GetMachineState(machineName string) (state string, err error) {
 	var machineList *unstructured.UnstructuredList
-	machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"})
 	opt := metav1.ListOptions{
-		FieldSelector:   fields.OneTermEqualSelector("metadata.name", machineName).String(),
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", machineName).String(),
 	}
-	if machineList, err = machineClient.List(context.Background(), opt); err == nil {
+	if machineList, err = client.GetMachineList(opt); err == nil {
 		for _, item := range machineList.Items {
 			if name := getMapValue(item.UnstructuredContent()["metadata"], "name"); name != nil && name == machineName {
 				phase := getMapValue(item.UnstructuredContent()["status"], "phase")
@@ -176,7 +176,7 @@ func (client *RkApiClient) DeleteMachine(machineName string) (err error) {
 		machineName := GetMapString(u["metadata"], "name")
 		machineNamespace := GetMapString(u["metadata"], "namespace")
 		if len(machineName) > 0 && len(machineNamespace) > 0 {
-			machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "machines"})
+			machineClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: CAPI_Group, Version: CAPI_Version, Resource: CAPI_MachineResource})
 			machineClient.Namespace(machineNamespace).Delete(context.Background(), machineName, metav1.DeleteOptions{})
 		}
 	}
@@ -209,13 +209,23 @@ func (client *RkApiClient) MachineWaitForState(machineName string, state string,
 	return
 }
 
+// Resilient to transient errors GetClusterList
+func (client *RkApiClient) GetClusterList(opt metav1.ListOptions) (clusterList *unstructured.UnstructuredList, err error) {
+	clusterClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: CAPI_Group, Version: CAPI_Version, Resource: CAPI_ClusterResource})
+	if clusterList, err = clusterClient.List(context.Background(), opt); err != nil {
+		if err = client.IsRancherReady(); err == nil {
+			clusterList, err = clusterClient.List(context.Background(), opt)
+		}
+	}
+	return
+}
+
 func (client *RkApiClient) GetClusterState(clusterName string) (state string, err error) {
 	var clusterList *unstructured.UnstructuredList
-	clusterClient := client.LocalClusterClient.Resource(schema.GroupVersionResource{Group: "cluster.x-k8s.io", Version: "v1beta1", Resource: "clusters"})
 	opt := metav1.ListOptions{
-		FieldSelector:   fields.OneTermEqualSelector("metadata.name", clusterName).String(),
+		FieldSelector: fields.OneTermEqualSelector("metadata.name", clusterName).String(),
 	}
-	if clusterList, err = clusterClient.List(context.Background(), opt); err == nil {
+	if clusterList, err = client.GetClusterList(opt); err == nil {
 		for _, item := range clusterList.Items {
 			if name := getMapValue(item.UnstructuredContent()["metadata"], "name"); name != nil && name == clusterName {
 				phase := getMapValue(item.UnstructuredContent()["status"], "phase")

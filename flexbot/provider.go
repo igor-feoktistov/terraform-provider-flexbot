@@ -20,7 +20,7 @@ import (
 
 var (
         // Available rancher_api provides
-        RancherApiProviders = []string{"rancher2", "rke"}
+        RancherApiProviders = []string{"rancher2", "rke", "rk-api"}
 )
 
 // Provider builds schema

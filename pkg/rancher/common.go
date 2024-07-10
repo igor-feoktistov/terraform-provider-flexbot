@@ -14,6 +14,14 @@ const (
 	maxHTTPRedirect = 5
 )
 
+func getMapValue(m interface{}, key string) interface{} {
+        v, ok := m.(map[string]interface{})[key]
+        if !ok {
+                return nil
+        }
+        return v
+}
+
 // DoGet is core HTTP get routine
 func DoGet(url, username, password, token, cacert string, insecure bool) ([]byte, error) {
 	if url == "" {

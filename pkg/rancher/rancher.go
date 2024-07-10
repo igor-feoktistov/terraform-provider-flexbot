@@ -63,6 +63,10 @@ func RancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 	        if node, err = RkeAPIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
                         err = fmt.Errorf("RkeAPIInitialize(): error: %s", err)
                 }
+	case "rk-api":
+	        if node, err = RkApiInitialize(d, meta, nodeConfig, waitForNode); err != nil {
+                        err = fmt.Errorf("RkApiInitialize(): error: %s", err)
+                }
 	default:
 		err = fmt.Errorf("RancherAPIInitialize(): rancher API provider %s is not implemented", meta.(*config.FlexbotConfig).RancherConfig.Provider)
 	}
