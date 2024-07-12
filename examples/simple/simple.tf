@@ -78,6 +78,7 @@ provider "flexbot" {
     machine_api_resource = "machines"
     insecure = true
     retries = 6
+    cluster_name = rancher2_cluster.cluster.name
     cluster_id = rancher2_cluster.cluster.id
     # Optional - Grace timeout in seconds after each node update in changing
     #            blade_spec or os_image/seed_template. Checks for node status
@@ -94,8 +95,28 @@ provider "flexbot" {
       timeout = 1800
     }
   }
+  # This example is for rk-api API provider to manage RKE2 downstream cluster nodes
+  #rancher_api {
+    #enabled = true
+    #provider = "rk-api"
+    #api_url = "https://rancher.example.com"
+    #token_key = "token-xxx"
+    #insecure = true
+    #retries = 120
+    #cluster_name = rancher2_cluster.cluster.name
+    #cluster_id = rancher2_cluster.cluster.id
+    #node_grace_timeout = 60
+    #wait_for_node_timeout = 1800
+    #drain_input {
+    #  force = true
+    #  delete_local_data = true
+    #  grace_period = 60
+    #  ignore_daemon_sets = true
+    #  timeout = 300
+    #}
+  #}
   #
-  # This example is for RKE or any other Kubernetes API provider
+  # This example is for RKE or any other Kubernetes API providers
   #
   #rancher_api {
     #enabled = true

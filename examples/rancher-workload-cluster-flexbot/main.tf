@@ -194,6 +194,7 @@ provider "flexbot" {
     api_url = var.rancher_config.api_url
     token_key = data.flexbot_crypt.rancher_token_key.decrypted
     insecure = true
+    cluster_name = rancher2_cluster.cluster.name
     cluster_id = rancher2_cluster.cluster.id
     wait_for_node_timeout = 1800
     node_grace_timeout = 60

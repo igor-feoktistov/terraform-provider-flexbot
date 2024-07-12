@@ -24,7 +24,7 @@ const (
 type RkApiNode struct {
         RancherClient    *RkApiClient
 	NodeConfig       *config.NodeConfig
-	NodeDrainInput   *rancherManagementClient.NodeDrainInput
+	NodeDrainInput   *config.NodeDrainInput
 	ClusterName      string
 	ClusterID        string
 	NodeName         string

@@ -15,7 +15,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubectl/pkg/drain"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
 
@@ -349,7 +348,7 @@ func (client *RkApiClient) NodeUncordon(nodeName string) (err error) {
 }
 
 // NodeCordonDrain cordon and drain Kubernetes node
-func (client *RkApiClient) NodeCordonDrain(nodeName string, nodeDrainInput *rancherManagementClient.NodeDrainInput) (err error) {
+func (client *RkApiClient) NodeCordonDrain(nodeName string, nodeDrainInput *config.NodeDrainInput) (err error) {
         if err = client.NodeCordon(nodeName); err != nil {
                 return
         }

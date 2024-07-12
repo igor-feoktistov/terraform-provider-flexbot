@@ -484,6 +484,15 @@ type UpdateManager struct {
 	LastError error
 }
 
+// NodeDrainInput node drain strategy
+type NodeDrainInput struct {
+	DeleteLocalData  bool
+	Force            bool
+	GracePeriod      int64
+	IgnoreDaemonSets *bool
+	Timeout          int64
+}
+
 // RancherConfig is Rancher generic client config
 type RancherConfig struct {
         Provider           string
@@ -498,7 +507,7 @@ type RancherConfig struct {
 	Insecure           bool
 	Retries            int
 	Sync               sync.Mutex
-	NodeDrainInput     *rancherManagementClient.NodeDrainInput
+	NodeDrainInput     *NodeDrainInput
 }
 
 // FlexbotConfig is main provider configration
@@ -507,7 +516,7 @@ type FlexbotConfig struct {
 	FlexbotProvider       *schema.ResourceData
 	RancherApiEnabled     bool
 	RancherConfig         *RancherConfig
-	RancherNodeDrainInput *rancherManagementClient.NodeDrainInput
+	RancherNodeDrainInput *NodeDrainInput
 	NodeGraceTimeout      int
 	WaitForNodeTimeout    int
 	UpdateManager         UpdateManager

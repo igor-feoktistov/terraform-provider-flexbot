@@ -47,7 +47,13 @@ func Rancher2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig 
 	        return
 	}
 	node.RancherClient = &rancher2Config.Client
-	node.NodeDrainInput = rancher2Config.NodeDrainInput
+	node.NodeDrainInput = &rancherManagementClient.NodeDrainInput{
+		DeleteLocalData: rancher2Config.NodeDrainInput.DeleteLocalData,
+		Force: rancher2Config.NodeDrainInput.Force,
+		GracePeriod: rancher2Config.NodeDrainInput.GracePeriod,
+		IgnoreDaemonSets: rancher2Config.NodeDrainInput.IgnoreDaemonSets,
+		Timeout: rancher2Config.NodeDrainInput.Timeout,
+	}
         meta.(*config.FlexbotConfig).Sync.Lock()
 	p := meta.(*config.FlexbotConfig).FlexbotProvider
 	network := d.Get("network").([]interface{})[0].(map[string]interface{})

@@ -58,10 +58,12 @@ provider "flexbot" {
   }
   rancher_api {
     enabled = true
+    provider = "rk-api"
     api_url = var.rancher_config.api_url
     token_key = data.flexbot_crypt.rancher_token_key.decrypted
     insecure = true
     retries = 120
+    cluster_name = rancher2_cluster_v2.cluster.name
     cluster_id = rancher2_cluster_v2.cluster.cluster_v1_id
     wait_for_node_timeout = 1800
     node_grace_timeout = 60

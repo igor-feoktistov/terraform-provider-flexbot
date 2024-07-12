@@ -16,7 +16,7 @@ import (
 type RkeNode struct {
         RancherClient    *RkeClient
 	NodeConfig       *config.NodeConfig
-	NodeDrainInput   *rancherManagementClient.NodeDrainInput
+	NodeDrainInput   *config.NodeDrainInput
 	ClusterID        string
 	NodeID           string
 	NodeControlPlane bool

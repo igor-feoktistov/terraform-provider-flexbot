@@ -15,7 +15,6 @@ import (
 	nodeConfig "github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
 var (
@@ -367,7 +366,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	if len(d.Get("rancher_api").([]interface{})) > 0 {
 		rancherAPI := d.Get("rancher_api").([]interface{})[0].(map[string]interface{})
 		ignoreDaemonSets := rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["ignore_daemon_sets"].(bool)
-		nodeDrainInput := &rancherManagementClient.NodeDrainInput{
+		nodeDrainInput := &config.NodeDrainInput{
 			Force:            rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["force"].(bool),
 			IgnoreDaemonSets: &ignoreDaemonSets,
 			DeleteLocalData:  rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["delete_local_data"].(bool),
