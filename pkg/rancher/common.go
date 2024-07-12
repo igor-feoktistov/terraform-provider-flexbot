@@ -7,19 +7,44 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 const (
 	maxHTTPRedirect = 5
+	rancherReadyAnswer = "pong"
 )
 
+// Get map value safely
 func getMapValue(m interface{}, key string) interface{} {
         v, ok := m.(map[string]interface{})[key]
         if !ok {
                 return nil
         }
         return v
+}
+
+// Get string map value safely
+func GetMapString(m interface{}, key string) string {
+	v, ok := m.(map[string]interface{})[key].(string)
+	if !ok {
+		return ""
+	}
+	return v
+}
+
+// NormalizeURL normalizes URL
+func NormalizeURL(input string) string {
+	if input == "" {
+		return ""
+	}
+	u, err := url.Parse(input)
+	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
+		return ""
+	}
+	u.Path = ""
+	return u.String()
 }
 
 // DoGet is core HTTP get routine

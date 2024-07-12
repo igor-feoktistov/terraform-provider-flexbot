@@ -27,7 +27,7 @@ type RkApiNode struct {
 	NodeDrainInput   *rancherManagementClient.NodeDrainInput
 	ClusterName      string
 	ClusterID        string
-	ClusterProvider  string
+	NodeName         string
 	NodeID           string
 	NodeControlPlane bool
 	NodeEtcd         bool
@@ -51,7 +51,9 @@ func RkApiInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *confi
 	node.ClusterName = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_name"].(string)
 	node.ClusterID = p.Get("rancher_api").([]interface{})[0].(map[string]interface{})["cluster_id"].(string)
         meta.(*config.FlexbotConfig).Sync.Unlock()
-	rkApiClient := &RkApiClient{}
+	rkApiClient := &RkApiClient{
+		RancherConfig: rancherConfig,
+	}
 	k8sLocalClusterConfig := &rest.Config{
 		Host: fmt.Sprintf("%s/k8s/clusters/local", rancherConfig.URL),
 		TLSClientConfig: rest.TLSClientConfig{},
@@ -101,7 +103,14 @@ func (node *RkApiNode) RancherAPINodeGetID(d *schema.ResourceData, meta interfac
 	        network := d.Get("network").([]interface{})[0].(map[string]interface{})
                 meta.(*config.FlexbotConfig).Sync.Unlock()
 	        if machine, err = node.RancherClient.GetMachineByNodeIp(node.ClusterName, network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
-			node.NodeID = getMapValue(machine.UnstructuredContent()["metadata"], "name").(string)
+	        	if machineName := getMapValue(machine.UnstructuredContent()["metadata"], "name"); machineName != nil {
+				node.NodeID = machineName.(string)
+			}
+			if nodeRef := getMapValue(machine.UnstructuredContent()["status"], "nodeRef"); nodeRef != nil {
+				if nodeName := getMapValue(nodeRef, "name"); nodeName != nil {
+					node.NodeName = nodeName.(string)
+				}
+			}
 			if labels := getMapValue(machine.UnstructuredContent()["metadata"], "labels"); labels != nil {
 				if label, ok := labels.(map[string]interface{})["rke.cattle.io/worker-role"]; ok && label.(string) == "true" {
 					node.NodeWorker = true
@@ -155,22 +164,22 @@ func (node *RkApiNode) RancherAPINodeWaitForGracePeriod(timeout int) (err error)
 }
 
 func (node *RkApiNode) RancherAPINodeCordon() (err error) {
-	if node.RancherClient != nil && len(node.NodeID) > 0 {
-	        err = node.RancherClient.NodeCordon(node.NodeID)
+	if node.RancherClient != nil && len(node.NodeName) > 0 {
+	        err = node.RancherClient.NodeCordon(node.NodeName)
 	}
         return
 }
 
 func (node *RkApiNode) RancherAPINodeCordonDrain() (err error) {
-	if node.RancherClient != nil && len(node.NodeID) > 0 {
-	        err = node.RancherClient.NodeCordonDrain(node.NodeID, node.NodeDrainInput)
+	if node.RancherClient != nil && len(node.NodeName) > 0 {
+	        err = node.RancherClient.NodeCordonDrain(node.NodeName, node.NodeDrainInput)
 	}
         return
 }
 
 func (node *RkApiNode) RancherAPINodeUncordon() (err error) {
-	if node.RancherClient != nil && len(node.NodeID) > 0 {
-	        err = node.RancherClient.NodeUncordon(node.NodeID)
+	if node.RancherClient != nil && len(node.NodeName) > 0 {
+	        err = node.RancherClient.NodeUncordon(node.NodeName)
 	}
         return
 }
@@ -185,7 +194,7 @@ func (node *RkApiNode) RancherAPINodeDelete() (err error) {
 func (node *RkApiNode) RancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 	var taints []v1.Taint
 	var computeB, storageB []byte
-	if node.RancherClient != nil && len(node.NodeID) > 0 {
+	if node.RancherClient != nil && len(node.NodeName) > 0 {
 		annotations := make(map[string]string)
 		if len(node.NodeConfig.Compute.SpDn) > 0 && len(node.NodeConfig.Compute.BladeAssigned.Dn) > 0 {
 			computeAnnotations := config.ComputeAnnotations{
@@ -231,29 +240,29 @@ func (node *RkApiNode) RancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 	                                Effect: v1.TaintEffect(taint.Effect),
 	                        })
                 }
-		err = node.RancherClient.NodeSetAnnotationsLabelsTaints(node.NodeID, annotations, node.NodeConfig.Labels, taints)
+		err = node.RancherClient.NodeSetAnnotationsLabelsTaints(node.NodeName, annotations, node.NodeConfig.Labels, taints)
 	}
 	return
 }
 
 func (node *RkApiNode) RancherAPINodeGetLabels() (labels map[string]string, err error) {
-	if node.RancherClient != nil && len(node.NodeID) > 0 {
-	        labels, err = node.RancherClient.NodeGetLabels(node.NodeID)
+	if node.RancherClient != nil && len(node.NodeName) > 0 {
+	        labels, err = node.RancherClient.NodeGetLabels(node.NodeName)
 	}
         return
 }
 
 func (node *RkApiNode) RancherAPINodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (err error) {
-	if node.RancherClient != nil && len(node.NodeID) > 0 {
-	        err = node.RancherClient.NodeUpdateLabels(node.NodeID, oldLabels, newLabels)
+	if node.RancherClient != nil && len(node.NodeName) > 0 {
+	        err = node.RancherClient.NodeUpdateLabels(node.NodeName, oldLabels, newLabels)
 	}
         return
 }
 
 func (node *RkApiNode) RancherAPINodeGetTaints() (taints []rancherManagementClient.Taint, err error) {
         var nodeTaints []v1.Taint
-	if node.RancherClient != nil && len(node.NodeID) > 0 {
-	        if nodeTaints, err = node.RancherClient.NodeGetTaints(node.NodeID); err == nil {
+	if node.RancherClient != nil && len(node.NodeName) > 0 {
+	        if nodeTaints, err = node.RancherClient.NodeGetTaints(node.NodeName); err == nil {
 	                for _, taint := range nodeTaints {
 		                taints = append(
                                         taints,
@@ -269,8 +278,8 @@ func (node *RkApiNode) RancherAPINodeGetTaints() (taints []rancherManagementClie
 }
 
 func (node *RkApiNode) RancherAPINodeUpdateTaints(oldTaints []interface{}, newTaints []interface{}) (err error) {
-	if node.RancherClient != nil && len(node.NodeID) > 0 {
-		err = node.RancherClient.NodeUpdateTaints(node.NodeID, oldTaints, newTaints)
+	if node.RancherClient != nil && len(node.NodeName) > 0 {
+		err = node.RancherClient.NodeUpdateTaints(node.NodeName, oldTaints, newTaints)
 	}
         return
 }

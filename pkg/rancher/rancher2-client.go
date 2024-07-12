@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 
 const (
 	rancher2ClientAPIVersion = "/v3"
-	rancher2ReadyAnswer = "pong"
 	rancher2RetriesWait = 5
 	rancher2StabilizeWait = 3
 	rancher2StabilizeMax = 10
@@ -38,19 +36,6 @@ type Rancher2Client struct {
 type Rancher2Config struct {
         config.RancherConfig
 	Client Rancher2Client
-}
-
-// NormalizeURL normalizes URL
-func NormalizeURL(input string) string {
-	if input == "" {
-		return ""
-	}
-	u, err := url.Parse(input)
-	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
-		return ""
-	}
-	u.Path = ""
-	return u.String()
 }
 
 // RootURL gets root URL
@@ -83,15 +68,6 @@ func IsForbidden(err error) bool {
 	return apiError.StatusCode == http.StatusForbidden
 }
 
-// Get string map value safely
-func GetMapString(m interface{}, key string) string {
-	v, ok := m.(map[string]interface{})[key].(string)
-	if !ok {
-		return ""
-	}
-	return v
-}
-
 // InitializeClient initializes Rancher Management Client
 func (c *Rancher2Config) InitializeClient() (err error) {
 	c.Sync.Lock()
@@ -102,7 +78,7 @@ func (c *Rancher2Config) InitializeClient() (err error) {
 	for i := 0; i <= c.Retries; i++ {
 	        var resp []byte
 		resp, err = DoGet(RootURL(c.URL) + "/ping", "", "", "", string(c.ServerCAData), c.Insecure)
-		if err == nil && rancher2ReadyAnswer == string(resp) {
+		if err == nil && rancherReadyAnswer == string(resp) {
 			break
 		}
 		time.Sleep(rancher2RetriesWait * time.Second)
@@ -146,13 +122,13 @@ func (client *Rancher2Client) isRancherReady() (err error) {
 	for retry := 0; retry < client.Retries; retry++ {
 	        for stabilize := 0; stabilize < rancher2StabilizeMax; stabilize++ {
 		        resp, err = DoGet(url, "", "", "", client.Management.Opts.CACerts, client.Management.Opts.Insecure)
-		        if err == nil && rancher2ReadyAnswer == string(resp) {
+		        if err == nil && rancherReadyAnswer == string(resp) {
 		                time.Sleep(rancher2StabilizeWait * time.Second)
 		        } else {
 		                break
 		        }
 		}
-		if err == nil && rancher2ReadyAnswer == string(resp) {
+		if err == nil && rancherReadyAnswer == string(resp) {
 		        return
                 }
 		time.Sleep(rancher2RetriesWait * time.Second)
