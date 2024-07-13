@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
@@ -185,6 +186,7 @@ func (node *Rancher2Node) RancherAPINodeDelete() (err error) {
 
 func (node *Rancher2Node) RancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 	var computeB, storageB []byte
+	var taints []rancherManagementClient.Taint
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		annotations := make(map[string]string)
 		if len(node.NodeConfig.Compute.SpDn) > 0 && len(node.NodeConfig.Compute.BladeAssigned.Dn) > 0 {
@@ -222,7 +224,15 @@ func (node *Rancher2Node) RancherAPINodeSetAnnotationsLabelsTaints() (err error)
 			}
 			annotations[config.NodeAnnotationStorage] = string(storageB)
 		}
-		err = node.RancherClient.NodeSetAnnotationsLabelsTaints(node.NodeID, annotations, node.NodeConfig.Labels, node.NodeConfig.Taints)
+		for _, taint := range node.NodeConfig.Taints {
+			newTaint := rancherManagementClient.Taint{
+				Effect: string(taint.Effect),
+				Key: taint.Key,
+				Value: taint.Value,
+			}
+			taints = append(taints, newTaint)
+	        }
+		err = node.RancherClient.NodeSetAnnotationsLabelsTaints(node.NodeID, annotations, node.NodeConfig.Labels, taints)
 	}
 	return
 }
@@ -241,9 +251,19 @@ func (node *Rancher2Node) RancherAPINodeUpdateLabels(oldLabels map[string]interf
 	return
 }
 
-func (node *Rancher2Node) RancherAPINodeGetTaints() (taints []rancherManagementClient.Taint, err error) {
+func (node *Rancher2Node) RancherAPINodeGetTaints() (taints []v1.Taint, err error) {
+	var rancherTaints []rancherManagementClient.Taint
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
-		taints, err = node.RancherClient.NodeGetTaints(node.NodeID)
+		if rancherTaints, err = node.RancherClient.NodeGetTaints(node.NodeID); err == nil {
+			for _, taint := range rancherTaints {
+				newTaint := v1.Taint{
+					Effect: v1.TaintEffect(taint.Effect),
+					Key: taint.Key,
+					Value: taint.Value,
+				}
+				taints = append(taints, newTaint)
+	        	}
+	        }
 	}
 	return
 }

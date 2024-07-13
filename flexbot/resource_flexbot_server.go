@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	log "github.com/sirupsen/logrus"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
@@ -18,8 +20,6 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
-	log "github.com/sirupsen/logrus"
 )
 
 // Default timeouts
@@ -270,7 +270,7 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	var err error
 	var nodeConfig *config.NodeConfig
 	var nodeLabels map[string]string
-	var nodeTaints []rancherManagementClient.Taint
+	var nodeTaints []v1.Taint
 	var isNew, isSnapshot, isCompute, isStorage, isLabels, isTaints, isRestore, isMaintenance bool
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
@@ -291,14 +291,14 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 			for labelKey, labelValue := range d.Get("labels").(map[string]interface{}) {
 				nodeLabels[labelKey] = labelValue.(string)
 			}
-			nodeTaints = make([]rancherManagementClient.Taint, 0)
+			nodeTaints = make([]v1.Taint, 0)
 			for _, taint := range d.Get("taints").([]interface{}) {
 				nodeTaints = append(
 					nodeTaints,
-					rancherManagementClient.Taint{
+					v1.Taint{
 						Key: taint.(map[string]interface{})["key"].(string),
 						Value: taint.(map[string]interface{})["value"].(string),
-						Effect: taint.(map[string]interface{})["effect"].(string),
+						Effect: v1.TaintEffect(taint.(map[string]interface{})["effect"].(string)),
 					})
 			}
         	}
@@ -1331,14 +1331,14 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	for labelKey, labelValue := range d.Get("labels").(map[string]interface{}) {
 		nodeConfig.Labels[labelKey] = labelValue.(string)
 	}
-	nodeConfig.Taints = make([]rancherManagementClient.Taint, 0)
+	nodeConfig.Taints = make([]v1.Taint, 0)
 	for _, taint := range d.Get("taints").([]interface{}) {
 		nodeConfig.Taints = append(
                         nodeConfig.Taints,
-                        rancherManagementClient.Taint{
+                        v1.Taint{
                                 Key: taint.(map[string]interface{})["key"].(string),
                                 Value: taint.(map[string]interface{})["value"].(string),
-                                Effect: taint.(map[string]interface{})["effect"].(string),
+                                Effect: v1.TaintEffect(taint.(map[string]interface{})["effect"].(string)),
                         })
 	}
 	if err = config.SetDefaults(nodeConfig, compute["hostname"].(string), bootLun["os_image"].(string), seedLun["seed_template"].(string), p.Get("pass_phrase").(string)); err != nil {

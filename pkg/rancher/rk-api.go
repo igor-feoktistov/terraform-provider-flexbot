@@ -8,7 +8,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -259,20 +258,20 @@ func (node *RkApiNode) RancherAPINodeUpdateLabels(oldLabels map[string]interface
         return
 }
 
-func (node *RkApiNode) RancherAPINodeGetTaints() (taints []rancherManagementClient.Taint, err error) {
-        var nodeTaints []v1.Taint
+func (node *RkApiNode) RancherAPINodeGetTaints() (taints []v1.Taint, err error) {
+	var nodeTaints []v1.Taint
 	if node.RancherClient != nil && len(node.NodeName) > 0 {
-	        if nodeTaints, err = node.RancherClient.NodeGetTaints(node.NodeName); err == nil {
-	                for _, taint := range nodeTaints {
-		                taints = append(
-                                        taints,
-                                        rancherManagementClient.Taint{
-                                                Key: taint.Key,
-                                                Value: taint.Value,
-                                                Effect: string(taint.Effect),
-                                        })
-	                }
-	        }
+		if nodeTaints, err = node.RancherClient.NodeGetTaints(node.NodeName); err == nil {
+			for _, taint := range nodeTaints {
+				taints = append(
+					taints,
+					v1.Taint{
+						Key: taint.Key,
+						Value: taint.Value,
+						Effect: taint.Effect,
+					})
+			}
+		}
 	}
         return
 }

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
 // Default timeouts
@@ -31,7 +31,7 @@ type RancherNode interface {
         RancherAPINodeSetAnnotationsLabelsTaints() (error)
         RancherAPINodeGetLabels() (map[string]string, error)
         RancherAPINodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (error)
-        RancherAPINodeGetTaints() ([]rancherManagementClient.Taint, error)
+        RancherAPINodeGetTaints() ([]v1.Taint, error)
         RancherAPINodeUpdateTaints(oldTaints []interface{}, newTaints []interface{}) (error)
         IsNodeControlPlane() (bool)
         IsNodeWorker() (bool)
@@ -76,7 +76,7 @@ func RancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 func DiscoverNode(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
         var node RancherNode
         var labels map[string]string
-        var nodeTaints, declaredTaints []rancherManagementClient.Taint
+        var nodeTaints, declaredTaints []v1.Taint
         if node, err = RancherAPIInitialize(d, meta, nodeConfig, false); err == nil {
                 if labels, err = node.RancherAPINodeGetLabels(); err == nil {
                         nodeTaints, err = node.RancherAPINodeGetTaints()
@@ -93,7 +93,7 @@ func DiscoverNode(d *schema.ResourceData, meta interface{}, nodeConfig *config.N
                         }
                 }
                 declaredTaints = nodeConfig.Taints
-                nodeConfig.Taints = make([]rancherManagementClient.Taint, 0)
+                nodeConfig.Taints = make([]v1.Taint, 0)
                 if nodeTaints != nil {
 	                for _, declaredTaint := range declaredTaints {
 	                        for _, nodeTaint := range nodeTaints {
