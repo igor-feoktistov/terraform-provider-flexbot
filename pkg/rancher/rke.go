@@ -82,6 +82,10 @@ func (node *RkeNode) RancherAPIClusterWaitForTransitioning(timeout int) (err err
         return
 }
 
+func (node *RkeNode) RancherAPINodeWaitUntilDeleted(timeout int) (err error) {
+	return
+}
+
 func (node *RkeNode) RancherAPINodeWaitForState(state string, timeout int) (err error) {
         return
 }

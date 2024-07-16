@@ -121,6 +121,11 @@ func (node *RkApiNode) RancherAPINodeGetID(d *schema.ResourceData, meta interfac
 					node.NodeEtcd = true
 				}
 			}
+		} else {
+			if node.RancherClient.IsMachineNotFound(err) {
+				node.NodeID = ""
+				node.NodeName = ""
+			}
 		}
 	}
         return
@@ -160,6 +165,28 @@ func (node *RkApiNode) RancherAPINodeWaitForGracePeriod(timeout int) (err error)
 		}
         }
         return
+}
+
+func (node *RkApiNode) RancherAPINodeWaitUntilDeleted(timeout int) (err error) {
+	var machine *unstructured.Unstructured
+	if node.RancherClient != nil {
+		giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
+		for time.Now().Before(giveupTime) {
+			if machine, err = node.RancherClient.GetMachineByName(node.NodeID); err != nil {
+				if node.RancherClient.IsMachineNotFound(err) {
+					err = nil
+				}
+				return
+			}
+			time.Sleep(rkApiRetriesWait * time.Second)
+		}
+		condition := "unknown"
+		if machine != nil {
+			condition = node.RancherClient.GetMachineCondition(machine)
+		}
+		err = fmt.Errorf("rk-api.RancherAPINodeWaitUntilDeleted(): wait exceeded timeout=%d: node condition: %s", timeout, condition)
+	}
+	return
 }
 
 func (node *RkApiNode) RancherAPINodeCordon() (err error) {

@@ -146,6 +146,10 @@ func (node *Rancher2Node) RancherAPINodeWaitForGracePeriod(timeout int) (err err
         return
 }
 
+func (node *Rancher2Node) RancherAPINodeWaitUntilDeleted(timeout int) (err error) {
+	return
+}
+
 func (node *Rancher2Node) RancherAPINodeCordon() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", Wait4ClusterStateTimeout); err == nil {

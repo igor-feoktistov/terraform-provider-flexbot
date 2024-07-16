@@ -12,10 +12,12 @@ import (
 
 // Default timeouts
 const (
-	Wait4ClusterStateTimeout = 1800
-	Wait4NodeStateTimeout    = 600
-	ConnResetTriesMax        = 12
-	ConnResetSleepTimeout    = 60
+	Wait4ClusterStateTimeout         = 1800
+	Wait4ClusterTransitioningTimeout = 60
+	Wait4NodeStateTimeout            = 600
+	Wait4NodeDeleteTimeout           = 600
+	ConnResetTriesMax                = 12
+	ConnResetSleepTimeout            = 60
 )
 
 type RancherNode interface {
@@ -23,6 +25,7 @@ type RancherNode interface {
         RancherAPIClusterWaitForState(state string, timeout int) (error)
         RancherAPIClusterWaitForTransitioning(timeout int) (error)
         RancherAPINodeWaitForState(state string, timeout int) (error)
+        RancherAPINodeWaitUntilDeleted(timeout int) (error)
         RancherAPINodeWaitForGracePeriod(timeout int) (error)
         RancherAPINodeCordon() (error)
         RancherAPINodeCordonDrain() (error)

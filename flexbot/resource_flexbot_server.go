@@ -27,7 +27,6 @@ const (
 	NodeRestartTimeout = 600
 	NodeGraceShutdownTimeout = 60
 	NodeGracePowerOffTimeout = 10
-	Wait4ClusterTransitioningTimeout = 60
 	StorageRetryAttempts = 5
 	StorageRetryTimeout = 15
 )
@@ -640,7 +639,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() || rancherNode.IsProviderRKE2() {
 			log.Infof("Deleting node %s from cluster", nodeConfig.Compute.HostName)
 			if err = rancherNode.RancherAPINodeDelete(); err == nil {
-			        rancherNode.RancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
+			        rancherNode.RancherAPIClusterWaitForTransitioning(rancher.Wait4ClusterTransitioningTimeout)
 				err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout)
 			}
 			if err != nil {
@@ -712,12 +711,14 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		}
 		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() || rancherNode.IsProviderRKE2() {
 			if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() {
-				log.Infof("Wait for cluster transitioning with timeout %d seconds", Wait4ClusterTransitioningTimeout)
-				rancherNode.RancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
+				log.Infof("Wait for cluster transitioning with timeout %d seconds", rancher.Wait4ClusterTransitioningTimeout)
+				rancherNode.RancherAPIClusterWaitForTransitioning(rancher.Wait4ClusterTransitioningTimeout)
 			}
 			log.Infof("Wait for cluster state active with timeout %d seconds", rancher.Wait4ClusterStateTimeout)
 		        if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err == nil {
-		                err = rancherNode.RancherAPINodeGetID(d, meta)
+			        if err = rancherNode.RancherAPINodeWaitUntilDeleted(rancher.Wait4NodeDeleteTimeout); err == nil {
+		                	err = rancherNode.RancherAPINodeGetID(d, meta)
+		                }
 		        }
 		        if err != nil {
 			        err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
@@ -1143,8 +1144,11 @@ func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 	// Wait for etcd/controlplane node cluster update
 	if powerState == "up" && (rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane()) {
-	        rancherNode.RancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
-		if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err != nil {
+	        rancherNode.RancherAPIClusterWaitForTransitioning(rancher.Wait4ClusterTransitioningTimeout)
+		if err = rancherNode.RancherAPINodeWaitUntilDeleted(rancher.Wait4NodeDeleteTimeout); err == nil {
+			err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout)
+		}
+		if err != nil {
 		        diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 			return
 		}

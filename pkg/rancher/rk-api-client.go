@@ -114,6 +114,24 @@ func (client *RkApiClient) GetMachineByName(machineName string) (machine *unstru
         return
 }
 
+// GetMachineCondition get machine condition details
+func (client *RkApiClient) GetMachineCondition(machine *unstructured.Unstructured) (string) {
+	if conditions := getMapValue(machine.UnstructuredContent()["status"], "conditions"); conditions != nil {
+		for _, condition := range conditions.([]interface{}) {
+			if conditionStatus, ok := condition.(map[string]interface{})["status"]; ok && conditionStatus.(string) != "True" {
+				if conditionType, ok := condition.(map[string]interface{})["type"]; ok {
+					if conditionReason, ok := condition.(map[string]interface{})["reason"]; ok {
+						if conditionMessage, ok := condition.(map[string]interface{})["message"]; ok {
+							return fmt.Sprintf("type=%s, reason=%s, message=%s", conditionType.(string), conditionReason.(string), conditionMessage.(string))
+						}
+					}
+				}
+			}
+		}
+	}
+        return "unknown"
+}
+
 // GetMachineState returns machine state: "active", "inTransition", or "notReady"
 func (client *RkApiClient) GetMachineState(machineName string) (state string, err error) {
 	var machineList *unstructured.UnstructuredList
@@ -125,21 +143,16 @@ func (client *RkApiClient) GetMachineState(machineName string) (state string, er
 			if name := getMapValue(item.UnstructuredContent()["metadata"], "name"); name != nil && name == machineName {
 				phase := getMapValue(item.UnstructuredContent()["status"], "phase")
 				infrastructureReady := getMapValue(item.UnstructuredContent()["status"], "infrastructureReady")
+				state = "notReady"
 				if phase != nil && phase.(string) == "Running" && infrastructureReady != nil && infrastructureReady.(bool) {
-					state = "active"
 					if conditions := getMapValue(item.UnstructuredContent()["status"], "conditions"); conditions != nil {
+						state = "active"
 						for _, condition := range conditions.([]interface{}) {
-							for _, conditionTypeLabel := range []string{"Ready", "BootstrapReady", "InfrastructureReady", "NodeHealthy", "PlanApplied", "Reconciled"} {
-								if conditionType, ok := condition.(map[string]interface{})["type"]; ok && conditionType.(string) == conditionTypeLabel {
-									if conditionStatus, ok := condition.(map[string]interface{})["status"]; ok && conditionStatus.(string) != "True" {
-										state = "inTransition"
-									}
-								}
+							if conditionStatus, ok := condition.(map[string]interface{})["status"]; ok && conditionStatus.(string) != "True" {
+								state = "inTransition"
 							}
 						}
 					}
-				} else {
-					state = "notReady"
 				}
 				return
 			}
@@ -220,21 +233,16 @@ func (client *RkApiClient) GetClusterState(clusterName string) (state string, er
 				phase := getMapValue(item.UnstructuredContent()["status"], "phase")
 				infrastructureReady := getMapValue(item.UnstructuredContent()["status"], "infrastructureReady")
 				controlPlaneReady := getMapValue(item.UnstructuredContent()["status"], "controlPlaneReady")
+				state = "notReady"
 				if phase != nil && phase.(string) == "Provisioned" && infrastructureReady != nil && infrastructureReady.(bool) && controlPlaneReady != nil && controlPlaneReady.(bool) {
-					state = "active"
 					if conditions := getMapValue(item.UnstructuredContent()["status"], "conditions"); conditions != nil {
+						state = "active"
 						for _, condition := range conditions.([]interface{}) {
-							for _, conditionTypeLabel := range []string{"Ready", "ControlPlaneInitialized", "ControlPlaneReady", "InfrastructureReady"} {
-								if conditionType, ok := condition.(map[string]interface{})["type"]; ok && conditionType.(string) == conditionTypeLabel {
-									if conditionStatus, ok := condition.(map[string]interface{})["status"]; ok && conditionStatus.(string) != "True" {
-										state = "inTransition"
-									}
-								}
+							if conditionStatus, ok := condition.(map[string]interface{})["status"]; ok && conditionStatus.(string) != "True" {
+								state = "inTransition"
 							}
 						}
 					}
-				} else {
-					state = "notReady"
 				}
 				return
 			}
@@ -291,9 +299,12 @@ func (client *RkApiClient) ClusterWaitForTransitioning(clusterName string, timeo
 	return
 }
 
-// IsObjectModified returns true if error signifies the object has been modified
-func (client *RkApiClient) IsObjectModified(err error) (bool) {
+// IsTransientError returns true in case of transient error
+func (client *RkApiClient) IsTransientError(err error) (bool) {
 	if strings.Contains(err.Error(), "the object has been modified; please apply your changes to the latest version and try again") {
+		return true
+	}
+	if strings.Contains(err.Error(), "error trying to reach service: tunnel disconnect") {
 		return true
 	}
 	return false
@@ -304,14 +315,13 @@ func (client *RkApiClient) NodeCordon(nodeName string) (err error) {
         var node *v1.Node
 	if err = client.IsRancherReady(); err == nil {
 		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
-			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
-				break
+			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
+				node.Spec.Unschedulable = true
+				if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
+					break
+				}
 			}
-			node.Spec.Unschedulable = true
-			if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
-				break
-			}
-			if !client.IsObjectModified(err) {
+			if !client.IsTransientError(err) {
 				break
 			}
 			time.Sleep(rkApiRetriesWait * time.Second)
@@ -328,14 +338,13 @@ func (client *RkApiClient) NodeUncordon(nodeName string) (err error) {
         var node *v1.Node
 	if err = client.IsRancherReady(); err == nil {
 		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
-			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
-				break
+			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
+				node.Spec.Unschedulable = false
+				if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
+					break
+				}
 			}
-			node.Spec.Unschedulable = false
-			if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
-				break
-			}
-			if !client.IsObjectModified(err) {
+			if !client.IsTransientError(err) {
 				break
 			}
 			time.Sleep(rkApiRetriesWait * time.Second)
@@ -380,30 +389,29 @@ func (client *RkApiClient) NodeSetAnnotationsLabelsTaints(nodeName string, annot
         var node *v1.Node
 	if err = client.IsRancherReady(); err == nil {
 		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
-			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
-				break
+			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
+				for key, elem := range annotations {
+					node.Annotations[key] = elem
+				}
+				for key, elem := range labels {
+					node.Labels[key] = elem
+				}
+				for _, taint := range taints {
+	        			matched := false
+	        			for _, nodeTaint := range node.Spec.Taints {
+	                			if taint.Key == nodeTaint.Key && taint.Value == nodeTaint.Value && taint.Effect == nodeTaint.Effect {
+	                        			matched = true
+	                			}
+	        			}
+	        			if !matched {
+	                			node.Spec.Taints = append(node.Spec.Taints, taint)
+	        			}
+        			}
+				if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
+					break
+				}
 			}
-			for key, elem := range annotations {
-				node.Annotations[key] = elem
-			}
-			for key, elem := range labels {
-				node.Labels[key] = elem
-			}
-			for _, taint := range taints {
-	        		matched := false
-	        		for _, nodeTaint := range node.Spec.Taints {
-	                		if taint.Key == nodeTaint.Key && taint.Value == nodeTaint.Value && taint.Effect == nodeTaint.Effect {
-	                        		matched = true
-	                		}
-	        		}
-	        		if !matched {
-	                		node.Spec.Taints = append(node.Spec.Taints, taint)
-	        		}
-        		}
-			if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
-				break
-			}
-			if !client.IsObjectModified(err) {
+			if !client.IsTransientError(err) {
 				break
 			}
 			time.Sleep(rkApiRetriesWait * time.Second)
@@ -419,8 +427,15 @@ func (client *RkApiClient) NodeSetAnnotationsLabelsTaints(nodeName string, annot
 func (client *RkApiClient) NodeGetLabels(nodeName string) (nodeLabels map[string]string, err error) {
         var node *v1.Node
 	if err = client.IsRancherReady(); err == nil {
-		if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
-	        	nodeLabels = node.Labels
+		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
+			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
+				nodeLabels = node.Labels
+				break
+			}
+			if !client.IsTransientError(err) {
+				break
+			}
+			time.Sleep(rkApiRetriesWait * time.Second)
 		}
 	}
 	if err != nil {
@@ -434,24 +449,23 @@ func (client *RkApiClient) NodeUpdateLabels(nodeName string, oldLabels map[strin
         var node *v1.Node
 	if err = client.IsRancherReady(); err == nil {
 		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
-			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
-				break
-			}
-			if node.Labels == nil {
-				node.Labels = map[string]string{}
-			}
-			for key := range oldLabels {
-				if _, ok := node.Labels[key]; ok {
-					delete(node.Labels, key)
+			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
+				if node.Labels == nil {
+					node.Labels = map[string]string{}
+				}
+				for key := range oldLabels {
+					if _, ok := node.Labels[key]; ok {
+						delete(node.Labels, key)
+					}
+				}
+				for key, value := range newLabels {
+					node.Labels[key] = value.(string)
+				}
+				if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
+					break
 				}
 			}
-			for key, value := range newLabels {
-				node.Labels[key] = value.(string)
-			}
-			if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
-				break
-			}
-			if !client.IsObjectModified(err) {
+			if !client.IsTransientError(err) {
 				break
 			}
 			time.Sleep(rkApiRetriesWait * time.Second)
@@ -467,8 +481,15 @@ func (client *RkApiClient) NodeUpdateLabels(nodeName string, oldLabels map[strin
 func (client *RkApiClient) NodeGetTaints(nodeName string) (nodeTaints []v1.Taint, err error) {
         var node *v1.Node
 	if err = client.IsRancherReady(); err == nil {
-		if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
-			nodeTaints = node.Spec.Taints
+		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
+			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
+				nodeTaints = node.Spec.Taints
+				break
+			}
+			if !client.IsTransientError(err) {
+				break
+			}
+			time.Sleep(rkApiRetriesWait * time.Second)
 		}
 	}
 	if err != nil {
@@ -483,42 +504,41 @@ func (client *RkApiClient) NodeUpdateTaints(nodeName string, oldTaints []interfa
 	if err = client.IsRancherReady(); err == nil {
 		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
 			var taints []v1.Taint
-			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
-				break
-			}
-			for _, taint := range node.Spec.Taints {
-	        		matched := false
-	        		for _, oldTaint := range oldTaints {
-	                		if oldTaint.(map[string]interface{})["key"].(string) == taint.Key && oldTaint.(map[string]interface{})["value"].(string) == taint.Value && oldTaint.(map[string]interface{})["effect"].(string) == string(taint.Effect) {
-	                        		matched = true
-	                		}
-	        		}
-	        		if !matched {
-	                		taints = append(taints, taint)
-	        		}
-        		}
-			for _, newTaint := range newTaints {
-	        		matched := false
-				for _, taint := range taints {
-					if newTaint.(map[string]interface{})["key"].(string) == taint.Key && newTaint.(map[string]interface{})["value"].(string) == taint.Value && newTaint.(map[string]interface{})["effect"].(string) == string(taint.Effect) {
-						matched = true
+			if node, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
+				for _, taint := range node.Spec.Taints {
+	        			matched := false
+	        			for _, oldTaint := range oldTaints {
+	                			if oldTaint.(map[string]interface{})["key"].(string) == taint.Key && oldTaint.(map[string]interface{})["value"].(string) == taint.Value && oldTaint.(map[string]interface{})["effect"].(string) == string(taint.Effect) {
+	                        			matched = true
+	                			}
+	        			}
+	        			if !matched {
+	                			taints = append(taints, taint)
+	        			}
+        			}
+				for _, newTaint := range newTaints {
+	        			matched := false
+					for _, taint := range taints {
+						if newTaint.(map[string]interface{})["key"].(string) == taint.Key && newTaint.(map[string]interface{})["value"].(string) == taint.Value && newTaint.(map[string]interface{})["effect"].(string) == string(taint.Effect) {
+							matched = true
+						}
+					}
+					if !matched {
+						taints = append(
+							taints,
+							v1.Taint{
+								Key: newTaint.(map[string]interface{})["key"].(string),
+								Value: newTaint.(map[string]interface{})["value"].(string),
+								Effect: v1.TaintEffect(newTaint.(map[string]interface{})["effect"].(string)),
+							})
 					}
 				}
-				if !matched {
-					taints = append(
-						taints,
-						v1.Taint{
-							Key: newTaint.(map[string]interface{})["key"].(string),
-							Value: newTaint.(map[string]interface{})["value"].(string),
-							Effect: v1.TaintEffect(newTaint.(map[string]interface{})["effect"].(string)),
-						})
+				node.Spec.Taints = taints
+				if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
+					break
 				}
 			}
-			node.Spec.Taints = taints
-			if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{}); err == nil {
-				break
-			}
-			if !client.IsObjectModified(err) {
+			if !client.IsTransientError(err) {
 				break
 			}
 			time.Sleep(rkApiRetriesWait * time.Second)
