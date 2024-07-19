@@ -13,7 +13,12 @@ import (
 
 const (
 	maxHTTPRedirect = 5
-	rancherReadyAnswer = "pong"
+	rancherReadyRequest = "/ping"
+	rancherReadyResponse = "pong"
+	CAPI_Group = "cluster.x-k8s.io"
+	CAPI_Version = "v1beta1"
+	CAPI_ClusterResource = "clusters"
+	CAPI_MachineResource = "machines"
 )
 
 // Get map value safely

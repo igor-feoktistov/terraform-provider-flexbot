@@ -1,4 +1,4 @@
-## 1.10.0 (July 17, 2024)
+## 1.10.0 (July 19, 2024)
 
 ENHANCEMENTS:
 * LUN Id's for boot, seed, and data LUN's are configurable now in IaC

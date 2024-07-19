@@ -24,13 +24,6 @@ const (
 	rkApiStabilizeMax = 10
 )
 
-const (
-	CAPI_Group = "cluster.x-k8s.io"
-	CAPI_Version = "v1beta1"
-	CAPI_ClusterResource = "clusters"
-	CAPI_MachineResource = "machines"
-)
-
 // RkApiClient is RK-API client
 type RkApiClient struct {
 	RancherConfig           *config.RancherConfig
@@ -41,19 +34,19 @@ type RkApiClient struct {
 // Retry Rancher server URL probes number of "Retries" attempts or until ready
 func (client *RkApiClient) IsRancherReady() (err error) {
 	var resp []byte
-	if resp, err = DoGet(NormalizeURL(client.RancherConfig.URL) + "/ping", "", "", "", string(client.RancherConfig.ServerCAData), client.RancherConfig.Insecure); err == nil && string(resp) == rancherReadyAnswer {
+	if resp, err = DoGet(NormalizeURL(client.RancherConfig.URL) + rancherReadyRequest, "", "", "", string(client.RancherConfig.ServerCAData), client.RancherConfig.Insecure); err == nil && string(resp) == rancherReadyResponse {
 		return
 	}
 	for retry := 0; retry < client.RancherConfig.Retries; retry++ {
 	        for stabilize := 0; stabilize < rkApiStabilizeMax; stabilize++ {
-			resp, err = DoGet(NormalizeURL(client.RancherConfig.URL) + "/ping", "", "", "", string(client.RancherConfig.ServerCAData), client.RancherConfig.Insecure)
-			if err == nil && rancherReadyAnswer == string(resp) {
+			resp, err = DoGet(NormalizeURL(client.RancherConfig.URL) + rancherReadyRequest, "", "", "", string(client.RancherConfig.ServerCAData), client.RancherConfig.Insecure)
+			if err == nil && rancherReadyResponse == string(resp) {
 				time.Sleep(rkApiStabilizeWait * time.Second)
 			} else {
 				break
 			}
 		}
-		if err == nil && rancherReadyAnswer == string(resp) {
+		if err == nil && rancherReadyResponse == string(resp) {
 			return
                 }
 		time.Sleep(rkApiRetriesWait * time.Second)
@@ -304,7 +297,13 @@ func (client *RkApiClient) IsTransientError(err error) (bool) {
 	if strings.Contains(err.Error(), "the object has been modified; please apply your changes to the latest version and try again") {
 		return true
 	}
-	if strings.Contains(err.Error(), "error trying to reach service: tunnel disconnect") {
+	if strings.Contains(err.Error(), "tunnel disconnect") {
+		return true
+	}
+	if strings.Contains(err.Error(), "connection timed out") {
+		return true
+	}
+	if strings.Contains(err.Error(), "context deadline exceeded") {
 		return true
 	}
 	return false
@@ -372,14 +371,25 @@ func (client *RkApiClient) NodeCordonDrain(nodeName string, nodeDrainInput *conf
                 DeleteEmptyDirData:  nodeDrainInput.DeleteLocalData,
                 Timeout:             time.Second * time.Duration(nodeDrainInput.Timeout),
         }
-	drainTimeMax := time.Now().Add(time.Second * time.Duration(nodeDrainInput.Timeout))
-        if err = drain.RunNodeDrain(drainer, nodeName); err != nil {
-                // Do not fail drains which exceeded drain maximum time
-		if time.Now().Before(drainTimeMax) {
-		        err = fmt.Errorf("rk-api-client.NodeCordonDrain() error: %s", err)
-		} else {
-		        err = nil
+	if err = client.IsRancherReady(); err == nil {
+		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
+			drainTimeMax := time.Now().Add(time.Second * time.Duration(nodeDrainInput.Timeout))
+			if err = drain.RunNodeDrain(drainer, nodeName); err == nil {
+				break
+			}
+                	// Do not fail drains which exceeded drain maximum time
+			if time.Now().After(drainTimeMax) {
+				err = nil
+				break
+			}
+			if !client.IsTransientError(err) {
+				break
+			}
+			time.Sleep(rkApiRetriesWait * time.Second)
 		}
+        }
+        if err != nil {
+		err = fmt.Errorf("rk-api-client.NodeCordonDrain() error: %s", err)
         }
         return
 }

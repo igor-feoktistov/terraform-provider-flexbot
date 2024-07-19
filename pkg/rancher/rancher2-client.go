@@ -77,8 +77,8 @@ func (c *Rancher2Config) InitializeClient() (err error) {
 	}
 	for i := 0; i <= c.Retries; i++ {
 	        var resp []byte
-		resp, err = DoGet(RootURL(c.URL) + "/ping", "", "", "", string(c.ServerCAData), c.Insecure)
-		if err == nil && rancherReadyAnswer == string(resp) {
+		resp, err = DoGet(RootURL(c.URL) + rancherReadyRequest, "", "", "", string(c.ServerCAData), c.Insecure)
+		if err == nil && rancherReadyResponse == string(resp) {
 			break
 		}
 		time.Sleep(rancher2RetriesWait * time.Second)
@@ -111,24 +111,24 @@ func (c *Rancher2Config) InitializeClient() (err error) {
 		fmt.Errorf("rancher.InitializeClient(): failed to create dynamic client: %s", err)
 		return
 	}
-	c.Client.MachineClient = dynamicClient.Resource(schema.GroupVersionResource{Group: c.MachineApiGroup, Version: c.MachineApiVersion, Resource: c.MachineApiResource})
+	c.Client.MachineClient = dynamicClient.Resource(schema.GroupVersionResource{Group: CAPI_Group, Version: CAPI_Version, Resource: CAPI_MachineResource})
 	return
 }
 
 // Retry Rancher API probe number of "Retries" attempts or until ready
 func (client *Rancher2Client) isRancherReady() (err error) {
 	var resp []byte
-	url := RootURL(client.Management.Opts.URL) + "/ping"
+	url := RootURL(client.Management.Opts.URL) + rancherReadyRequest
 	for retry := 0; retry < client.Retries; retry++ {
 	        for stabilize := 0; stabilize < rancher2StabilizeMax; stabilize++ {
 		        resp, err = DoGet(url, "", "", "", client.Management.Opts.CACerts, client.Management.Opts.Insecure)
-		        if err == nil && rancherReadyAnswer == string(resp) {
+		        if err == nil && rancherReadyResponse == string(resp) {
 		                time.Sleep(rancher2StabilizeWait * time.Second)
 		        } else {
 		                break
 		        }
 		}
-		if err == nil && rancherReadyAnswer == string(resp) {
+		if err == nil && rancherReadyResponse == string(resp) {
 		        return
                 }
 		time.Sleep(rancher2RetriesWait * time.Second)

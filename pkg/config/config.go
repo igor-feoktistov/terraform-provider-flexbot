@@ -501,9 +501,6 @@ type RancherConfig struct {
 	ServerCAData       []byte
 	ClientCertData     []byte
 	ClientKeyData      []byte
-	MachineApiGroup    string
-	MachineApiVersion  string
-	MachineApiResource string
 	Insecure           bool
 	Retries            int
 	Sync               sync.Mutex
