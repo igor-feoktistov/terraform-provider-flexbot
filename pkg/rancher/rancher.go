@@ -5,17 +5,19 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
 // Default timeouts
 const (
-	Wait4ClusterStateTimeout = 1800
-	Wait4NodeStateTimeout    = 600
-	ConnResetTriesMax        = 12
-	ConnResetSleepTimeout    = 60
+	Wait4ClusterStateTimeout         = 1800
+	Wait4ClusterTransitioningTimeout = 60
+	Wait4NodeStateTimeout            = 600
+	Wait4NodeDeleteTimeout           = 600
+	ConnResetTriesMax                = 12
+	ConnResetSleepTimeout            = 60
 )
 
 type RancherNode interface {
@@ -23,6 +25,7 @@ type RancherNode interface {
         RancherAPIClusterWaitForState(state string, timeout int) (error)
         RancherAPIClusterWaitForTransitioning(timeout int) (error)
         RancherAPINodeWaitForState(state string, timeout int) (error)
+        RancherAPINodeWaitUntilDeleted(timeout int) (error)
         RancherAPINodeWaitForGracePeriod(timeout int) (error)
         RancherAPINodeCordon() (error)
         RancherAPINodeCordonDrain() (error)
@@ -31,7 +34,7 @@ type RancherNode interface {
         RancherAPINodeSetAnnotationsLabelsTaints() (error)
         RancherAPINodeGetLabels() (map[string]string, error)
         RancherAPINodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (error)
-        RancherAPINodeGetTaints() ([]rancherManagementClient.Taint, error)
+        RancherAPINodeGetTaints() ([]v1.Taint, error)
         RancherAPINodeUpdateTaints(oldTaints []interface{}, newTaints []interface{}) (error)
         IsNodeControlPlane() (bool)
         IsNodeWorker() (bool)
@@ -63,6 +66,10 @@ func RancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 	        if node, err = RkeAPIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
                         err = fmt.Errorf("RkeAPIInitialize(): error: %s", err)
                 }
+	case "rk-api":
+	        if node, err = RkApiInitialize(d, meta, nodeConfig, waitForNode); err != nil {
+                        err = fmt.Errorf("RkApiInitialize(): error: %s", err)
+                }
 	default:
 		err = fmt.Errorf("RancherAPIInitialize(): rancher API provider %s is not implemented", meta.(*config.FlexbotConfig).RancherConfig.Provider)
 	}
@@ -72,7 +79,7 @@ func RancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 func DiscoverNode(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
         var node RancherNode
         var labels map[string]string
-        var nodeTaints, declaredTaints []rancherManagementClient.Taint
+        var nodeTaints, declaredTaints []v1.Taint
         if node, err = RancherAPIInitialize(d, meta, nodeConfig, false); err == nil {
                 if labels, err = node.RancherAPINodeGetLabels(); err == nil {
                         nodeTaints, err = node.RancherAPINodeGetTaints()
@@ -89,7 +96,7 @@ func DiscoverNode(d *schema.ResourceData, meta interface{}, nodeConfig *config.N
                         }
                 }
                 declaredTaints = nodeConfig.Taints
-                nodeConfig.Taints = make([]rancherManagementClient.Taint, 0)
+                nodeConfig.Taints = make([]v1.Taint, 0)
                 if nodeTaints != nil {
 	                for _, declaredTaint := range declaredTaints {
 	                        for _, nodeTaint := range nodeTaints {

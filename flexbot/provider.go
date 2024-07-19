@@ -15,12 +15,11 @@ import (
 	nodeConfig "github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
 var (
         // Available rancher_api provides
-        RancherApiProviders = []string{"rancher2", "rke"}
+        RancherApiProviders = []string{"rancher2", "rke", "rk-api"}
 )
 
 // Provider builds schema
@@ -230,22 +229,6 @@ func Provider() *schema.Provider {
 							Optional: true,
 							Default:  "",
 						},
-						"machine_api_group": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "cluster.x-k8s.io",
-						},
-						"machine_api_version": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "v1beta1",
-						},
-						"machine_api_resource": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "machines",
-						},
-
 						"insecure": {
 							Type:     schema.TypeBool,
 							Optional: true,
@@ -255,6 +238,10 @@ func Provider() *schema.Provider {
 							Optional: true,
 							Type:     schema.TypeInt,
 							Default:  3,
+						},
+						"cluster_name": {
+							Type:     schema.TypeString,
+							Required: true,
 						},
 						"cluster_id": {
 							Type:     schema.TypeString,
@@ -364,7 +351,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	if len(d.Get("rancher_api").([]interface{})) > 0 {
 		rancherAPI := d.Get("rancher_api").([]interface{})[0].(map[string]interface{})
 		ignoreDaemonSets := rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["ignore_daemon_sets"].(bool)
-		nodeDrainInput := &rancherManagementClient.NodeDrainInput{
+		nodeDrainInput := &config.NodeDrainInput{
 			Force:            rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["force"].(bool),
 			IgnoreDaemonSets: &ignoreDaemonSets,
 			DeleteLocalData:  rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["delete_local_data"].(bool),
@@ -429,9 +416,6 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			ServerCAData:       serverCAData,
 			ClientCertData:     clientCertData,
 			ClientKeyData:      clientKeyData,
-			MachineApiGroup:    rancherAPI["machine_api_group"].(string),
-			MachineApiVersion:  rancherAPI["machine_api_version"].(string),
-			MachineApiResource: rancherAPI["machine_api_resource"].(string),
 			Insecure:           rancherAPI["insecure"].(bool),
 			NodeDrainInput:     nodeDrainInput,
 			Retries:            rancherAPI["retries"].(int),

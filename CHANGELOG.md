@@ -1,3 +1,14 @@
+## 1.10.0 (July 19, 2024)
+
+ENHANCEMENTS:
+* LUN Id's for boot, seed, and data LUN's are configurable now in IaC
+* Enhancements to improve resiliency to UCS API related errors.
+* Enhancements to support RK API (Rancher Kubernetes API) for nodes management
+  * requires Rancher Management Server v2.8.5 or higher
+  * manages RKE2 downstream cluster nodes via RK API
+  * See provider documentation for more details.
+
+
 ## 1.9.9 (March 25, 2024)
 
 ENHANCEMENTS:

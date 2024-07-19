@@ -6,4 +6,4 @@ fi
 set -eu
 set -o pipefail
 
-sed -ie 's/^ - runcmd$/ - remotedisk_setup\n - runcmd/' /etc/cloud/cloud.cfg
+sed -ie 's/^\([ ]*\)- runcmd$/\1- remotedisk_setup\n\1- runcmd/' /etc/cloud/cloud.cfg

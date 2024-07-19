@@ -1,14 +1,9 @@
 package rancher
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -25,11 +20,9 @@ import (
 
 const (
 	rancher2ClientAPIVersion = "/v3"
-	rancher2ReadyAnswer = "pong"
 	rancher2RetriesWait = 5
 	rancher2StabilizeWait = 3
 	rancher2StabilizeMax = 10
-	maxHTTPRedirect = 5
 )
 
 // Rancher2Client is rancher2 client
@@ -43,19 +36,6 @@ type Rancher2Client struct {
 type Rancher2Config struct {
         config.RancherConfig
 	Client Rancher2Client
-}
-
-// NormalizeURL normalizes URL
-func NormalizeURL(input string) string {
-	if input == "" {
-		return ""
-	}
-	u, err := url.Parse(input)
-	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
-		return ""
-	}
-	u.Path = ""
-	return u.String()
 }
 
 // RootURL gets root URL
@@ -74,57 +54,6 @@ func NewListOpts(filters map[string]interface{}) *types.ListOpts {
 	return listOpts
 }
 
-// DoGet is core HTTP get routine
-func DoGet(url, username, password, token, cacert string, insecure bool) ([]byte, error) {
-	if url == "" {
-		return nil, fmt.Errorf("doing get: URL is nil")
-	}
-	client := &http.Client{
-		Timeout: time.Duration(60 * time.Second),
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= maxHTTPRedirect {
-				return fmt.Errorf("stopped after %d redirects", maxHTTPRedirect)
-			}
-			if len(token) > 0 {
-				req.Header.Add("Authorization", "Bearer "+token)
-			} else if len(username) > 0 && len(password) > 0 {
-				s := username + ":" + password
-				req.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(s)))
-			}
-			return nil
-		},
-	}
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
-		Proxy:           http.ProxyFromEnvironment,
-	}
-	if cacert != "" {
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
-		}
-		rootCAs.AppendCertsFromPEM([]byte(cacert))
-		transport.TLSClientConfig.RootCAs = rootCAs
-	}
-	client.Transport = transport
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("doing get: %v", err)
-	}
-	if len(token) > 0 {
-		req.Header.Add("Authorization", "Bearer "+token)
-	} else if len(username) > 0 && len(password) > 0 {
-		s := username + ":" + password
-		req.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(s)))
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("doing get: %v", err)
-	}
-	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
-}
-
 // IsNotFound checks NotFound in return
 func IsNotFound(err error) bool {
 	return clientbase.IsNotFound(err)
@@ -139,15 +68,6 @@ func IsForbidden(err error) bool {
 	return apiError.StatusCode == http.StatusForbidden
 }
 
-// Get string map value safely
-func GetMapString(m interface{}, key string) string {
-	v, ok := m.(map[string]interface{})[key].(string)
-	if !ok {
-		return ""
-	}
-	return v
-}
-
 // InitializeClient initializes Rancher Management Client
 func (c *Rancher2Config) InitializeClient() (err error) {
 	c.Sync.Lock()
@@ -157,8 +77,8 @@ func (c *Rancher2Config) InitializeClient() (err error) {
 	}
 	for i := 0; i <= c.Retries; i++ {
 	        var resp []byte
-		resp, err = DoGet(RootURL(c.URL) + "/ping", "", "", "", string(c.ServerCAData), c.Insecure)
-		if err == nil && rancher2ReadyAnswer == string(resp) {
+		resp, err = DoGet(RootURL(c.URL) + rancherReadyRequest, "", "", "", string(c.ServerCAData), c.Insecure)
+		if err == nil && rancherReadyResponse == string(resp) {
 			break
 		}
 		time.Sleep(rancher2RetriesWait * time.Second)
@@ -191,24 +111,24 @@ func (c *Rancher2Config) InitializeClient() (err error) {
 		fmt.Errorf("rancher.InitializeClient(): failed to create dynamic client: %s", err)
 		return
 	}
-	c.Client.MachineClient = dynamicClient.Resource(schema.GroupVersionResource{Group: c.MachineApiGroup, Version: c.MachineApiVersion, Resource: c.MachineApiResource})
+	c.Client.MachineClient = dynamicClient.Resource(schema.GroupVersionResource{Group: CAPI_Group, Version: CAPI_Version, Resource: CAPI_MachineResource})
 	return
 }
 
 // Retry Rancher API probe number of "Retries" attempts or until ready
 func (client *Rancher2Client) isRancherReady() (err error) {
 	var resp []byte
-	url := RootURL(client.Management.Opts.URL) + "/ping"
+	url := RootURL(client.Management.Opts.URL) + rancherReadyRequest
 	for retry := 0; retry < client.Retries; retry++ {
 	        for stabilize := 0; stabilize < rancher2StabilizeMax; stabilize++ {
 		        resp, err = DoGet(url, "", "", "", client.Management.Opts.CACerts, client.Management.Opts.Insecure)
-		        if err == nil && rancher2ReadyAnswer == string(resp) {
+		        if err == nil && rancherReadyResponse == string(resp) {
 		                time.Sleep(rancher2StabilizeWait * time.Second)
 		        } else {
 		                break
 		        }
 		}
-		if err == nil && rancher2ReadyAnswer == string(resp) {
+		if err == nil && rancherReadyResponse == string(resp) {
 		        return
                 }
 		time.Sleep(rancher2RetriesWait * time.Second)

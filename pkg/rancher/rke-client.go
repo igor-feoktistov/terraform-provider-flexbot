@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/util/node"
 	"k8s.io/kubectl/pkg/drain"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
 )
 
 const (
@@ -83,7 +83,7 @@ func (client *RkeClient) NodeCordon(nodeName string) (err error) {
 }
 
 // NodeCordonDrain cordon and drain RKE node
-func (client *RkeClient) NodeCordonDrain(nodeName string, nodeDrainInput *rancherManagementClient.NodeDrainInput) (err error) {
+func (client *RkeClient) NodeCordonDrain(nodeName string, nodeDrainInput *config.NodeDrainInput) (err error) {
         if err = client.NodeCordon(nodeName); err != nil {
                 return
         }

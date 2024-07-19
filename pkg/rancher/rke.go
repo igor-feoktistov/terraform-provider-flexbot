@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -16,7 +15,7 @@ import (
 type RkeNode struct {
         RancherClient    *RkeClient
 	NodeConfig       *config.NodeConfig
-	NodeDrainInput   *rancherManagementClient.NodeDrainInput
+	NodeDrainInput   *config.NodeDrainInput
 	ClusterID        string
 	NodeID           string
 	NodeControlPlane bool
@@ -81,6 +80,10 @@ func (node *RkeNode) RancherAPIClusterWaitForState(state string, timeout int) (e
 
 func (node *RkeNode) RancherAPIClusterWaitForTransitioning(timeout int) (err error) {
         return
+}
+
+func (node *RkeNode) RancherAPINodeWaitUntilDeleted(timeout int) (err error) {
+	return
 }
 
 func (node *RkeNode) RancherAPINodeWaitForState(state string, timeout int) (err error) {
@@ -184,20 +187,20 @@ func (node *RkeNode) RancherAPINodeUpdateLabels(oldLabels map[string]interface{}
         return
 }
 
-func (node *RkeNode) RancherAPINodeGetTaints() (taints []rancherManagementClient.Taint, err error) {
-        var nodeTaints []v1.Taint
+func (node *RkeNode) RancherAPINodeGetTaints() (taints []v1.Taint, err error) {
+	var nodeTaints []v1.Taint
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
-	        if nodeTaints, err = node.RancherClient.NodeGetTaints(node.NodeID); err == nil {
-	                for _, taint := range nodeTaints {
-		                taints = append(
-                                        taints,
-                                        rancherManagementClient.Taint{
-                                                Key: taint.Key,
-                                                Value: taint.Value,
-                                                Effect: string(taint.Effect),
-                                        })
-	                }
-	        }
+		if nodeTaints, err = node.RancherClient.NodeGetTaints(node.NodeID); err == nil {
+			for _, taint := range nodeTaints {
+				taints = append(
+					taints,
+					v1.Taint{
+						Key: taint.Key,
+						Value: taint.Value,
+						Effect: taint.Effect,
+					})
+			}
+		}
 	}
         return
 }

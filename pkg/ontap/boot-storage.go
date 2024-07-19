@@ -73,7 +73,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 		return
 	}
 	if !lunMapped {
-		if err = c.LunMap(bootLunPath, 0, nodeConfig.Storage.IgroupName); err != nil {
+		if err = c.LunMap(bootLunPath, nodeConfig.Storage.BootLun.Id, nodeConfig.Storage.IgroupName); err != nil {
 			err = fmt.Errorf(errorFormat, err)
 			return
 		}

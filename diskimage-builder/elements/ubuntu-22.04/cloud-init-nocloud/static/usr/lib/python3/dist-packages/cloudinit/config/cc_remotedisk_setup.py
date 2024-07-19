@@ -628,7 +628,7 @@ def _add_fstab_entry(device,
                      fs_passno):
     # Create fstab entry
     fstab_lines = []
-    for line in util.load_file(FSTAB_PATH).splitlines():
+    for line in util.load_text_file(FSTAB_PATH).splitlines():
         try:
             toks = re.compile("[%s]+" % (whitespace)).split(line)
         except:

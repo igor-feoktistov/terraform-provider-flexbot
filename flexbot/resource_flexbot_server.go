@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	log "github.com/sirupsen/logrus"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
@@ -18,8 +20,6 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
-	rancherManagementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
-	log "github.com/sirupsen/logrus"
 )
 
 // Default timeouts
@@ -27,7 +27,6 @@ const (
 	NodeRestartTimeout = 600
 	NodeGraceShutdownTimeout = 60
 	NodeGracePowerOffTimeout = 10
-	Wait4ClusterTransitioningTimeout = 60
 	StorageRetryAttempts = 5
 	StorageRetryTimeout = 15
 )
@@ -270,7 +269,7 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	var err error
 	var nodeConfig *config.NodeConfig
 	var nodeLabels map[string]string
-	var nodeTaints []rancherManagementClient.Taint
+	var nodeTaints []v1.Taint
 	var isNew, isSnapshot, isCompute, isStorage, isLabels, isTaints, isRestore, isMaintenance bool
 	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
@@ -291,14 +290,14 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 			for labelKey, labelValue := range d.Get("labels").(map[string]interface{}) {
 				nodeLabels[labelKey] = labelValue.(string)
 			}
-			nodeTaints = make([]rancherManagementClient.Taint, 0)
+			nodeTaints = make([]v1.Taint, 0)
 			for _, taint := range d.Get("taints").([]interface{}) {
 				nodeTaints = append(
 					nodeTaints,
-					rancherManagementClient.Taint{
+					v1.Taint{
 						Key: taint.(map[string]interface{})["key"].(string),
 						Value: taint.(map[string]interface{})["value"].(string),
-						Effect: taint.(map[string]interface{})["effect"].(string),
+						Effect: v1.TaintEffect(taint.(map[string]interface{})["effect"].(string)),
 					})
 			}
         	}
@@ -640,7 +639,7 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() || rancherNode.IsProviderRKE2() {
 			log.Infof("Deleting node %s from cluster", nodeConfig.Compute.HostName)
 			if err = rancherNode.RancherAPINodeDelete(); err == nil {
-			        rancherNode.RancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
+			        rancherNode.RancherAPIClusterWaitForTransitioning(rancher.Wait4ClusterTransitioningTimeout)
 				err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout)
 			}
 			if err != nil {
@@ -712,12 +711,14 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 		}
 		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() || rancherNode.IsProviderRKE2() {
 			if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() {
-				log.Infof("Wait for cluster transitioning with timeout %d seconds", Wait4ClusterTransitioningTimeout)
-				rancherNode.RancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
+				log.Infof("Wait for cluster transitioning with timeout %d seconds", rancher.Wait4ClusterTransitioningTimeout)
+				rancherNode.RancherAPIClusterWaitForTransitioning(rancher.Wait4ClusterTransitioningTimeout)
 			}
 			log.Infof("Wait for cluster state active with timeout %d seconds", rancher.Wait4ClusterStateTimeout)
 		        if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err == nil {
-		                err = rancherNode.RancherAPINodeGetID(d, meta)
+			        if err = rancherNode.RancherAPINodeWaitUntilDeleted(rancher.Wait4NodeDeleteTimeout); err == nil {
+		                	err = rancherNode.RancherAPINodeGetID(d, meta)
+		                }
 		        }
 		        if err != nil {
 			        err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
@@ -1143,8 +1144,11 @@ func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 	// Wait for etcd/controlplane node cluster update
 	if powerState == "up" && (rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane()) {
-	        rancherNode.RancherAPIClusterWaitForTransitioning(Wait4ClusterTransitioningTimeout)
-		if err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout); err != nil {
+	        rancherNode.RancherAPIClusterWaitForTransitioning(rancher.Wait4ClusterTransitioningTimeout)
+		if err = rancherNode.RancherAPINodeWaitUntilDeleted(rancher.Wait4NodeDeleteTimeout); err == nil {
+			err = rancherNode.RancherAPIClusterWaitForState("active", rancher.Wait4ClusterStateTimeout)
+		}
+		if err != nil {
 		        diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
 			return
 		}
@@ -1247,12 +1251,15 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.Storage.IgroupName = storage["igroup_name"].(string)
 	bootLun := storage["boot_lun"].([]interface{})[0].(map[string]interface{})
 	nodeConfig.Storage.BootLun.Name = bootLun["name"].(string)
+	nodeConfig.Storage.BootLun.Id = bootLun["id"].(int)
 	nodeConfig.Storage.BootLun.Size = bootLun["size"].(int)
 	seedLun := storage["seed_lun"].([]interface{})[0].(map[string]interface{})
 	nodeConfig.Storage.SeedLun.Name = seedLun["name"].(string)
+	nodeConfig.Storage.SeedLun.Id = seedLun["id"].(int)
 	if len(storage["data_lun"].([]interface{})) > 0 {
 		dataLun := storage["data_lun"].([]interface{})[0].(map[string]interface{})
 		nodeConfig.Storage.DataLun.Name = dataLun["name"].(string)
+		nodeConfig.Storage.DataLun.Id = dataLun["id"].(int)
 		nodeConfig.Storage.DataLun.Size = dataLun["size"].(int)
 	}
 	if len(storage["data_nvme"].([]interface{})) > 0 {
@@ -1328,14 +1335,14 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	for labelKey, labelValue := range d.Get("labels").(map[string]interface{}) {
 		nodeConfig.Labels[labelKey] = labelValue.(string)
 	}
-	nodeConfig.Taints = make([]rancherManagementClient.Taint, 0)
+	nodeConfig.Taints = make([]v1.Taint, 0)
 	for _, taint := range d.Get("taints").([]interface{}) {
 		nodeConfig.Taints = append(
                         nodeConfig.Taints,
-                        rancherManagementClient.Taint{
+                        v1.Taint{
                                 Key: taint.(map[string]interface{})["key"].(string),
                                 Value: taint.(map[string]interface{})["value"].(string),
-                                Effect: taint.(map[string]interface{})["effect"].(string),
+                                Effect: v1.TaintEffect(taint.(map[string]interface{})["effect"].(string)),
                         })
 	}
 	if err = config.SetDefaults(nodeConfig, compute["hostname"].(string), bootLun["os_image"].(string), seedLun["seed_template"].(string), p.Get("pass_phrase").(string)); err != nil {

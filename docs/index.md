@@ -8,7 +8,7 @@ The [Flexbot](https://github.com/igor-feoktistov/flexbot) provider allows to bui
 
 Compared to other bare-metal tools it does not require any additional infrastructure like PXE/DHCP servers.
 
-## Example - Simple
+## Example - Base
 
 ```hcl
 provider "flexbot" {
@@ -41,13 +41,13 @@ provider "flexbot" {
       host = "vserver.example.com"
       user = "vsadmin"
       password = "base64:qiZIN5H04oK15<...skip...>7k4uoBIIg/boi2n3+4kQ="
-      api_method = "zapi"
+      api_method = "rest"
     }
   }
 }
 ```
 
-## Example - Usage in mix with `rancher2` provider
+## Example - `rancher_api` is enabled with provider type of `rancher2`
 
 ```hcl
 provider "flexbot" {
@@ -80,7 +80,7 @@ provider "flexbot" {
       host = "vserver.example.com"
       user = "vsadmin"
       password = "base64:qiZIN5H04oK15<...skip...>7k4uoBIIg/boi2n3+4kQ="
-      api_method = "zapi"
+      api_method = "rest"
     }
   }
   # Rancher API (rancher2 provider)
@@ -91,6 +91,7 @@ provider "flexbot" {
     token_key = "token-xxxx"
     insecure = true
     retries = 12
+    cluster_name = rancher2_cluster.cluster.name
     cluster_id = rancher2_cluster.cluster.id
     node_grace_timeout = 60
     wait_for_node_timeout = 1800
@@ -105,7 +106,7 @@ provider "flexbot" {
 }
 ```
 
-## Example - Usage in mix with `rke` or any other Kubernetes API provider
+## Example - `rancher_api` is enabled with provider type of `rke`
 
 ```hcl
 provider "flexbot" {
@@ -138,18 +139,78 @@ provider "flexbot" {
       host = "vserver.example.com"
       user = "vsadmin"
       password = "base64:qiZIN5H04oK15<...skip...>7k4uoBIIg/boi2n3+4kQ="
-      api_method = "zapi"
+      api_method = "rest"
     }
   }
-  # Rancher API (rke or any other k8s provider)
+  # Rancher API (rke provider)
   rancher_api {
     enabled = true
     provider = "rke"
     api_url = "https://rke.example.com:6443"
+    cluster_name = "onprem-us-east-1-01"
     cluster_id = "onprem-us-east-1-01"
     server_ca_data = "LS0tLS1CEUdJUiBDRVJUSKZJQ0F<...skip...>tLSItYQo="
     client_cert_data = "LS0dLS1TRUdJTi<...skip...>BFEUaLS0sLQo="
     client_key_data = "base64:giZIN7H04oQw5<...skip...>8k4uoWEIg/woi2n3+4kQ="
+    drain_input {
+      force = true
+      delete_local_data = true
+      grace_period = 30
+      ignore_daemon_sets = true
+      timeout = 300
+    }
+  }
+}
+```
+
+## Example - `rancher_api` is enabled with provider type of `rk-api`
+
+```hcl
+provider "flexbot" {
+  pass_phrase = "secret"
+  synchronized_updates = true
+  # IPAM
+  ipam {
+    provider = "Infoblox"
+    credentials {
+      host = "ib.example.com"
+      user = "admin"
+      password = "base64:jqdbcMI8dI5Dq<...skip...>yoskcRz9UUP+gN4v0Eo="
+      wapi_version = "2.5"
+      dns_view = "Internal"
+      network_view = "default"
+    }
+    dns_zone = "example.com"
+  }
+  # UCS compute
+  compute {
+    credentials {
+      host = "ucsm.example.com"
+      user = "admin"
+      password = "base64:kEqDbvk/DwABc<...skip...>orS6UIjo21DpA6QTFDOc="
+    }
+  }
+  # cDOT storage
+  storage {
+    credentials {
+      host = "vserver.example.com"
+      user = "vsadmin"
+      password = "base64:qiZIN5H04oK15<...skip...>7k4uoBIIg/boi2n3+4kQ="
+      api_method = "rest"
+    }
+  }
+  # Rancher API (rk-api provider)
+  rancher_api {
+    enabled = true
+    provider = "rk-api"
+    api_url = "https://rancher.example.com"
+    token_key = "token-xxxx"
+    insecure = true
+    retries = 12
+    cluster_name = rancher2_cluster_v2.cluster.name
+    cluster_id = rancher2_cluster_v2.cluster.cluster_v1_id
+    node_grace_timeout = 60
+    wait_for_node_timeout = 1800
     drain_input {
       force = true
       delete_local_data = true
@@ -212,16 +273,17 @@ The following arguments are supported:
 ##### Arguments
 
 * `enabled` - (Optional) Quickly enable/disable rancher API support (bool, default is `false`)
-* `provider` - (Optional) Rancher API provider. Currently supported `rancher2` and `rke` when in mix with respective terraform providers (string, defailt is `rancher2`).
+* `provider` - (Optional) Rancher API provider. Currently supported `rancher2`, `rke`, and `rk-api` when in mix with respective terraform providers (string, defailt is `rancher2`).
+  * `rancher2` - manages RKE1 and RKE2 downstream cluster nodes (implemeneted via legacy Norman API)
+  * `rk-api` - manages RKE2 downstream cluster nodes (implemented via RK API and requires Rancher Management Server v2.8.5 or higher)
+  * `rke` - manages RKE1 or RKE2 clusters outside of Rancher Management Server (implemented via standard Kubernetes API to cordon/drain nodes and maintain annotations, labels, and taints)
 * `api_url` - (Required) Rancher API endpoint is either Rancher Server endpoint or Kubernetes API endpoint for RKE/Kubernetes use case (string).
+* `cluster_name` - (Required) Kubernetes cluster name (string).
 * `cluster_id` - (Required) Downstream cluster ID in case of `rancher2`, or Kubernetes cluster name (string).
 * `token_key` - (Optional) API token for Rancher API, required for `rancher2` provider. Can be encrypted by `flexbot-crypt` (string).
 * `server_ca_data` - (Optional) Server CA, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)
 * `client_cert_data` - (Optional) Client certificate for x509 authentication, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)
 * `client_key_data` - (Optional) Client private key for x509 authentication, base64 encoded PEM, exactly as you would have it in kubeconfig. Can be encrypted by `flexbot-crypt` (string)
-* `machine_api_group` - (Optional) Machine API group (string, default is "cluster.x-k8s.io")
-* `machine_api_version` - (Optional) Machine API version (string, default is "v1beta1")
-* `machine_api_resource` - (Optional) Machine API resource name (string, default is "machines")
 * `insecure` - (Optional) Disable certificate verification (bool, default is `false`).
 * `retries` - (Optional) Number of API calls retries in case of transient errors (int, default is 3 with 5 seconds wait between attempts)
 * `node_grace_timeout` - (Optional) Wait after node update is completed (int, seconds, default is 0).

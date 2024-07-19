@@ -262,7 +262,7 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 								"id": {
 									Type:     schema.TypeInt,
 									Optional: true,
-									Computed: true,
+									Default:  0,
 								},
 								"size": {
 									Type:     schema.TypeInt,
@@ -296,7 +296,7 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 								"id": {
 									Type:     schema.TypeInt,
 									Optional: true,
-									Computed: true,
+									Default:  2,
 								},
 								"seed_template": {
 									Type:     schema.TypeString,
@@ -319,7 +319,7 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 								"id": {
 									Type:     schema.TypeInt,
 									Optional: true,
-									Computed: true,
+									Default:  1,
 								},
 								"size": {
 									Type:     schema.TypeInt,
