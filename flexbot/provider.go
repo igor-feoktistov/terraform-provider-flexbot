@@ -101,6 +101,12 @@ func Provider() *schema.Provider {
 										Type:     schema.TypeString,
 										Required: true,
 									},
+									"ext_attributes": {
+										Type:     schema.TypeMap,
+										Optional: true,
+										Default:  make(map[string]interface{}),
+										Elem:     &schema.Schema{Type: schema.TypeString},
+									},
 								},
 							},
 						},

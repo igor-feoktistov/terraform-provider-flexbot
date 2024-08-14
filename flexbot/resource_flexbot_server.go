@@ -1219,6 +1219,10 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 	nodeConfig.Ipam.IbCredentials.WapiVersion = ibCredentials["wapi_version"].(string)
 	nodeConfig.Ipam.IbCredentials.DnsView = ibCredentials["dns_view"].(string)
 	nodeConfig.Ipam.IbCredentials.NetworkView = ibCredentials["network_view"].(string)
+	nodeConfig.Ipam.IbCredentials.ExtAttributes = make(map[string]interface{})
+	for attrName, attrValue := range ibCredentials["ext_attributes"].(map[string]interface{}) {
+		nodeConfig.Ipam.IbCredentials.ExtAttributes[attrName] = attrValue
+	}
 	pCompute := p.Get("compute").([]interface{})[0].(map[string]interface{})
 	ucsmCredentials := pCompute["credentials"].([]interface{})[0].(map[string]interface{})
 	nodeConfig.Compute.UcsmCredentials.Host = ucsmCredentials["host"].(string)

@@ -34,6 +34,7 @@ func RkeAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	if meta.(*config.FlexbotConfig).RancherConfig == nil || !meta.(*config.FlexbotConfig).RancherApiEnabled {
 		return
 	}
+	rancherConfig := meta.(*config.FlexbotConfig).RancherConfig
 	node.NodeDrainInput = meta.(*config.FlexbotConfig).RancherConfig.NodeDrainInput
         meta.(*config.FlexbotConfig).Sync.Lock()
 	p := meta.(*config.FlexbotConfig).FlexbotProvider
@@ -49,7 +50,9 @@ func RkeAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *conf
                         KeyData: meta.(*config.FlexbotConfig).RancherConfig.ClientKeyData,
 	        },
 	}
-	rkeClient := &RkeClient{}
+	rkeClient := &RkeClient{
+		RancherConfig: rancherConfig,
+	}
 	if rkeClient.Management, err = kubernetes.NewForConfig(rkeConfig); err != nil {
 	        return
 	}
