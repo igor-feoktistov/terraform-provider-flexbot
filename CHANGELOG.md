@@ -1,3 +1,11 @@
+## 1.10.1 (August 14, 2024)
+
+ENHANCEMENTS:
+* Infoblox IPAM provider now accepts `ext_attributes` parameter which defines default Extensible Attributes for each host records created.
+  * See provider documentation for more details.
+* Enhancements to improve resiliency for RKE API
+
+
 ## 1.10.0 (July 19, 2024)
 
 ENHANCEMENTS:

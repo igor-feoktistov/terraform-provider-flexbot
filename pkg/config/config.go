@@ -78,10 +78,11 @@ type Credentials struct {
 
 // InfobloxCredentials is Infoblox specific credentials
 type InfobloxCredentials struct {
-	Credentials `yaml:",inline" json:",inline"`
-	WapiVersion string `yaml:"wapiVersion,omitempty" json:"wapiVersion,omitempty"`
-	DnsView     string `yaml:"dnsView,omitempty" json:"dnsView,omitempty"`
-	NetworkView string `yaml:"networkView,omitempty" json:"networkView,omitempty"`
+	Credentials                          `yaml:",inline" json:",inline"`
+	WapiVersion   string                 `yaml:"wapiVersion,omitempty" json:"wapiVersion,omitempty"`
+	DnsView       string                 `yaml:"dnsView,omitempty" json:"dnsView,omitempty"`
+	NetworkView   string                 `yaml:"networkView,omitempty" json:"networkView,omitempty"`
+	ExtAttributes map[string]interface{} `yaml:"extAttributes,omitempty" json:"extAttributes,omitempty"`
 }
 
 // CdotCredentials is cDOT specific credentials

@@ -44,10 +44,11 @@ type IpRange struct {
 
 // InfobloxProvider is Infoblox IPAM provider
 type InfobloxProvider struct {
-	HostConfig  ibclient.HostConfig
-	DnsView     string
-	NetworkView string
-	DnsZone     string
+	HostConfig    ibclient.HostConfig
+	DnsView       string
+	NetworkView   string
+	ExtAttributes map[string]interface{}
+	DnsZone       string
 }
 
 func validateIpRange(c *ibclient.Connector, networkView string, networkCidr string, rangeStr string) (err error) {
@@ -239,9 +240,10 @@ func NewInfobloxProvider(ipam *config.Ipam) (provider *InfobloxProvider) {
 			Username: ipam.IbCredentials.User,
 			Password: ipam.IbCredentials.Password,
 		},
-		DnsView:     ipam.IbCredentials.DnsView,
-		NetworkView: ipam.IbCredentials.NetworkView,
-		DnsZone:     ipam.DnsZone,
+		DnsView:       ipam.IbCredentials.DnsView,
+		NetworkView:   ipam.IbCredentials.NetworkView,
+		ExtAttributes: ipam.IbCredentials.ExtAttributes,
+		DnsZone:       ipam.DnsZone,
 	}
 	return
 }
@@ -274,12 +276,17 @@ func (p *InfobloxProvider) AllocateIp(cidr string, fqdn string) (ipaddr string, 
 		recordHostIpAddrSlice := []ibclient.HostRecordIpv4Addr{*recordHostIpAddr}
 		enableDNS := new(bool)
 		*enableDNS = true
+		ea := make(ibclient.EA)
+		for attrName, attrValue := range p.ExtAttributes {
+			ea[attrName] = attrValue
+		}
 		host := ibclient.NewHostRecord(ibclient.HostRecord{
 			Name:        fqdn,
 			EnableDns:   enableDNS,
 			NetworkView: p.NetworkView,
 			View:        p.DnsView,
 			Ipv4Addrs:   recordHostIpAddrSlice,
+			Ea:          ea,
 		})
 		var ref string
 		if ref, err = conn.CreateObject(host); err != nil {
@@ -322,12 +329,17 @@ func (p *InfobloxProvider) AssignIp(ipaddr string, fqdn string) (err error) {
 		recordHostIpAddrSlice := []ibclient.HostRecordIpv4Addr{*recordHostIpAddr}
 		enableDNS := new(bool)
 		*enableDNS = true
+		ea := make(ibclient.EA)
+		for attrName, attrValue := range p.ExtAttributes {
+			ea[attrName] = attrValue
+		}
 		host := ibclient.NewHostRecord(ibclient.HostRecord{
 			Name:        fqdn,
 			EnableDns:   enableDNS,
 			NetworkView: p.NetworkView,
 			View:        p.DnsView,
 			Ipv4Addrs:   recordHostIpAddrSlice,
+			Ea:          ea,
 		})
 		if _, err = conn.CreateObject(host); err != nil {
 			err = fmt.Errorf("AssignIp(): CreateObject(): %s", err)

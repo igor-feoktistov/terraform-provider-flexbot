@@ -179,6 +179,10 @@ provider "flexbot" {
       wapi_version = "2.5"
       dns_view = "Internal"
       network_view = "default"
+      ext_attributes = {
+        "Region" = "us-east-1"
+        "Site" = "onprem-us-east-1-01"
+      }
     }
     dns_zone = "example.com"
   }
@@ -246,6 +250,7 @@ The following arguments are supported:
   * `wapi_version` - (Required) WAPI version (string).
   * `dns_view` - (Required) Infoblox DNS View (string).
   * `network_view` - (Required) Infoblox Network View (string).
+  * `ext_attributes` - (Optional) Infoblox Extensible Attributes (map[string][string]).
 * `dns_zone` - (Optional) Default DNS zone for DNS records creation (string).
 
 #### `compute`
