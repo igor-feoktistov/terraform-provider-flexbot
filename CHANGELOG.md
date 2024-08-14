@@ -1,4 +1,4 @@
-## 1.10.1 (August 12, 2024)
+## 1.10.1 (August 14, 2024)
 
 ENHANCEMENTS:
 * Infoblox IPAM provider now accepts `ext_attributes` parameter which defines default Extensible Attributes for each host records created.

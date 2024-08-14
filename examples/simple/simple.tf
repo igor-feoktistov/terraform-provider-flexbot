@@ -24,6 +24,11 @@ provider "flexbot" {
       wapi_version = "2.5"
       dns_view = "Internal"
       network_view = "default"
+      # Optional - Infoblox Extensible Attributes (map[string][string])
+      ext_attributes = {
+        "Region" = "us-east-1"
+        "Site" = "onprem-us-east-1-01"
+      }
     }
     # Required - Compute node FQDN is <hostname>.<dns_zone>
     dns_zone = "example.com"
