@@ -188,6 +188,10 @@ func (node *Rancher2Node) RancherAPINodeDelete() (err error) {
 	return
 }
 
+func (node *Rancher2Node) RancherAPINodeForceDelete() (err error) {
+	return
+}
+
 func (node *Rancher2Node) RancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 	var computeB, storageB []byte
 	var taints []rancherManagementClient.Taint

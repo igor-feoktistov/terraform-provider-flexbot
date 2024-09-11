@@ -191,21 +191,21 @@ func (node *RkApiNode) RancherAPINodeWaitUntilDeleted(timeout int) (err error) {
 
 func (node *RkApiNode) RancherAPINodeCordon() (err error) {
 	if node.RancherClient != nil && len(node.NodeName) > 0 {
-	        err = node.RancherClient.NodeCordon(node.NodeName)
+		err = node.RancherClient.NodeCordon(node.NodeName)
 	}
         return
 }
 
 func (node *RkApiNode) RancherAPINodeCordonDrain() (err error) {
 	if node.RancherClient != nil && len(node.NodeName) > 0 {
-	        err = node.RancherClient.NodeCordonDrain(node.NodeName, node.NodeDrainInput)
+		err = node.RancherClient.NodeCordonDrain(node.NodeName, node.NodeDrainInput)
 	}
         return
 }
 
 func (node *RkApiNode) RancherAPINodeUncordon() (err error) {
 	if node.RancherClient != nil && len(node.NodeName) > 0 {
-	        err = node.RancherClient.NodeUncordon(node.NodeName)
+		err = node.RancherClient.NodeUncordon(node.NodeName)
 	}
         return
 }
@@ -213,6 +213,19 @@ func (node *RkApiNode) RancherAPINodeUncordon() (err error) {
 func (node *RkApiNode) RancherAPINodeDelete() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		err = node.RancherClient.DeleteMachine(node.NodeID)
+	}
+        return
+}
+
+func (node *RkApiNode) RancherAPINodeForceDelete() (err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 && len(node.NodeName) > 0 {
+		if _, err = node.RancherClient.GetMachineByName(node.NodeID); err == nil {
+			err = node.RancherClient.NodeDelete(node.NodeName)
+		} else {
+			if node.RancherClient.IsMachineNotFound(err) {
+				err = nil
+			}
+		}
 	}
         return
 }

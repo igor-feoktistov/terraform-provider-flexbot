@@ -1,3 +1,10 @@
+## 1.10.2 (September 10, 2024)
+
+ENHANCEMENTS:
+* Node machine removal may cause node stuck in "Unavailable" state. This prevents new node registration with the same IP address.
+  * Enhancement in rk-api forcefully removes k8s node before powering up respective blade.
+
+
 ## 1.10.1 (August 14, 2024)
 
 ENHANCEMENTS:
