@@ -31,6 +31,7 @@ type RancherNode interface {
         RancherAPINodeCordonDrain() (error)
         RancherAPINodeUncordon() (error)
         RancherAPINodeDelete() (error)
+        RancherAPINodeForceDelete() (error)
         RancherAPINodeSetAnnotationsLabelsTaints() (error)
         RancherAPINodeGetLabels() (map[string]string, error)
         RancherAPINodeUpdateLabels(oldLabels map[string]interface{}, newLabels map[string]interface{}) (error)

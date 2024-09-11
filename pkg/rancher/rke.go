@@ -122,6 +122,10 @@ func (node *RkeNode) RancherAPINodeDelete() (err error) {
         return
 }
 
+func (node *RkeNode) RancherAPINodeForceDelete() (err error) {
+        return
+}
+
 func (node *RkeNode) RancherAPINodeSetAnnotationsLabelsTaints() (err error) {
 	var taints []v1.Taint
 	var computeB, storageB []byte

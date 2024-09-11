@@ -682,6 +682,15 @@ func resourceUpdateServerStorage(d *schema.ResourceData, meta interface{}, nodeC
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
+		// Force delete etcd/controlplane node or RKE2 worker node if still exists
+		if rancherNode.IsNodeEtcd() || rancherNode.IsNodeControlPlane() || rancherNode.IsProviderRKE2() {
+			log.Infof("Force deleting node %s from cluster", nodeConfig.Compute.HostName)
+			if err = rancherNode.RancherAPINodeForceDelete(); err != nil {
+				err = fmt.Errorf("resourceUpdateServer(storage): error: %s", err)
+				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+				return
+			}
+		}
 		log.Infof("Power on node %s", nodeConfig.Compute.HostName)
 		if err = ucsm.StartServer(nodeConfig); err != nil {
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)

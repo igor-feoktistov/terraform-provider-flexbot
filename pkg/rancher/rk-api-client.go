@@ -309,6 +309,14 @@ func (client *RkApiClient) IsTransientError(err error) (bool) {
 	return false
 }
 
+// IsNotFoundError returns true in case of "not found" error
+func (client *RkApiClient) IsNotFoundError(err error) (bool) {
+	if strings.Contains(err.Error(), "not found") {
+		return true
+	}
+	return false
+}
+
 // NodeCordon cordon Kubernetes node
 func (client *RkApiClient) NodeCordon(nodeName string) (err error) {
         var node *v1.Node
@@ -558,4 +566,28 @@ func (client *RkApiClient) NodeUpdateTaints(nodeName string, oldTaints []interfa
 		err = fmt.Errorf("rk-api-client.NodeUpdateTaints() error: %s", err)
 	}
         return
+}
+
+// NodeDelete deletes node
+func (client *RkApiClient) NodeDelete(nodeName string) (err error) {
+	if err = client.IsRancherReady(); err == nil {
+		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
+			if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
+				err = client.DownstreamClusterClient.CoreV1().Nodes().Delete(context.TODO(), nodeName, metav1.DeleteOptions{})
+				break
+			}
+			if client.IsNotFoundError(err) {
+				err = nil
+				break
+			}
+			if !client.IsTransientError(err) {
+				break
+			}
+			time.Sleep(rkApiRetriesWait * time.Second)
+		}
+	}
+	if err != nil {
+		err = fmt.Errorf("rk-api-client.NodeDelete() error: %s", err)
+	}
+	return
 }
