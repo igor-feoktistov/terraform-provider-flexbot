@@ -1305,6 +1305,7 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 		initiator := network["iscsi_initiator"].([]interface{})[i].(map[string]interface{})
 		nodeConfig.Network.IscsiInitiator = append(nodeConfig.Network.IscsiInitiator, config.IscsiInitiator{})
 		nodeConfig.Network.IscsiInitiator[i].Name = initiator["name"].(string)
+		nodeConfig.Network.IscsiInitiator[i].Macaddr = initiator["macaddr"].(string)
 		nodeConfig.Network.IscsiInitiator[i].Ip = initiator["ip"].(string)
 		nodeConfig.Network.IscsiInitiator[i].Fqdn = initiator["fqdn"].(string)
 		nodeConfig.Network.IscsiInitiator[i].Subnet = initiator["subnet"].(string)
@@ -1442,6 +1443,7 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	}
 	for i := range network["iscsi_initiator"].([]interface{}) {
 		initiator := network["iscsi_initiator"].([]interface{})[i].(map[string]interface{})
+		initiator["macaddr"] = nodeConfig.Network.IscsiInitiator[i].Macaddr
 		initiator["ip"] = nodeConfig.Network.IscsiInitiator[i].Ip
 		initiator["initiator_name"] = nodeConfig.Network.IscsiInitiator[i].InitiatorName
 		initiator["fqdn"] = nodeConfig.Network.IscsiInitiator[i].Fqdn

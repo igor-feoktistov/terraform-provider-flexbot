@@ -573,7 +573,9 @@ func (client *RkApiClient) NodeDelete(nodeName string) (err error) {
 	if err = client.IsRancherReady(); err == nil {
 		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
 			if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
-				err = client.DownstreamClusterClient.CoreV1().Nodes().Delete(context.TODO(), nodeName, metav1.DeleteOptions{})
+				if err = client.DownstreamClusterClient.CoreV1().Nodes().Delete(context.TODO(), nodeName, metav1.DeleteOptions{}); err == nil {
+					return
+				}
 			} else {
 				if client.IsNotFoundError(err) {
 					err = nil

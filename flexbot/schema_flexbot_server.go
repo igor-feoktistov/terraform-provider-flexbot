@@ -530,6 +530,11 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 									Type:     schema.TypeString,
 									Required: true,
 								},
+								"macaddr": {
+									Type:     schema.TypeString,
+									Optional: true,
+									Computed: true,
+								},
 								"ip": {
 									Type:     schema.TypeString,
 									Optional: true,
