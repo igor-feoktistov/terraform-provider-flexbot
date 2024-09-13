@@ -2,6 +2,8 @@
 
 ENHANCEMENTS:
 * Enhancements to improve resiliency in rk-api calls
+* Enhancements in `server` resource schema to add `macaddr` computed argument
+  * `macaddr` can be used in cloud-init network configuration to add iSCSI inittiator interfaces to `netplan`
 
 
 ## 1.10.2 (September 10, 2024)

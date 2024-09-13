@@ -1168,6 +1168,9 @@ func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta inte
 			return
 		}
         }
+	if err = rancherNode.RancherAPINodeForceDelete(); err != nil {
+		diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
+	}
 	if err = ucsm.DeleteServer(nodeConfig); err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
