@@ -124,6 +124,13 @@ func (node *Rancher2Node) RancherAPIClusterWaitForTransitioning(timeout int) (er
 	return
 }
 
+func (node *Rancher2Node) RancherAPINodeGetState() (state string, err error) {
+	if node.RancherClient != nil {
+		state, err = node.RancherClient.NodeGetState(node.NodeID)
+	}
+	return
+}
+
 func (node *Rancher2Node) RancherAPINodeWaitForState(state string, timeout int) (err error) {
 	if node.RancherClient != nil {
 	        err = node.RancherClient.NodeWaitForState(node.NodeID, state, timeout)
