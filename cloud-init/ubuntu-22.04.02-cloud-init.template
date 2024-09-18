@@ -18,6 +18,17 @@ write_files:
     network:
       version: 2
       ethernets:
+      {{- range .Network.IscsiInitiator}}
+        {{.Name}}:
+          link-local: []
+          match:
+            macaddress: {{.Macaddr}}
+          {{- range $paramName, $paramValue := .Parameters}}
+          {{$paramName}}: {{$paramValue}}
+          {{- end}}
+          addresses:
+          - {{.Ip}}/{{.NetLen}}
+      {{- end}}
       {{- range .Network.Node}}
         {{.Name}}:
           link-local: []

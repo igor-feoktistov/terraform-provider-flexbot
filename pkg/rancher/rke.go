@@ -89,6 +89,11 @@ func (node *RkeNode) RancherAPINodeWaitUntilDeleted(timeout int) (err error) {
 	return
 }
 
+func (node *RkeNode) RancherAPINodeGetState() (state string, err error) {
+	state = "active"
+        return
+}
+
 func (node *RkeNode) RancherAPINodeWaitForState(state string, timeout int) (err error) {
         return
 }

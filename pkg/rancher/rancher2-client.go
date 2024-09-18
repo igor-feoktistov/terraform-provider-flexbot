@@ -230,7 +230,7 @@ func (client *Rancher2Client) GetNodeMachine(node *managementClient.Node) (machi
 			for _, item := range machineList.Items {
 				u := item.UnstructuredContent()
 				labels, ok := u["metadata"].(map[string]interface{})["labels"]
-				if ok && labels.(map[string]interface{})["rke.cattle.io/node-name"].(string) == node.NodeName {
+				if ok && labels.(map[string]interface{})["rke.cattle.io/node-name"] != nil && labels.(map[string]interface{})["rke.cattle.io/node-name"].(string) == node.NodeName {
 					machine = &item
 					break
 				}

@@ -145,6 +145,13 @@ func (node *RkApiNode) RancherAPIClusterWaitForTransitioning(timeout int) (err e
         return
 }
 
+func (node *RkApiNode) RancherAPINodeGetState() (state string, err error) {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
+	        state, err = node.RancherClient.GetMachineState(node.NodeID)
+	}
+        return
+}
+
 func (node *RkApiNode) RancherAPINodeWaitForState(state string, timeout int) (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 	        err = node.RancherClient.MachineWaitForState(node.NodeID, state, timeout)

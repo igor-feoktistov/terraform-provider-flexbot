@@ -27,6 +27,7 @@ type RancherNode interface {
         RancherAPINodeWaitForState(state string, timeout int) (error)
         RancherAPINodeWaitUntilDeleted(timeout int) (error)
         RancherAPINodeWaitForGracePeriod(timeout int) (error)
+        RancherAPINodeGetState() (string, error)
         RancherAPINodeCordon() (error)
         RancherAPINodeCordonDrain() (error)
         RancherAPINodeUncordon() (error)

@@ -76,11 +76,37 @@ func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) 
 					err = fmt.Errorf("AssignBlade: SpGetVnicsEther() failure: %s", err)
 					return
 				}
-				for _, vnic := range *vnicsEther {
+				for _, vnicEther := range *vnicsEther {
 					for i := range nodeConfig.Network.Node {
-						if vnic.Name == nodeConfig.Network.Node[i].Name {
-							nodeConfig.Network.Node[i].Macaddr = vnic.Addr
+						if vnicEther.Name == nodeConfig.Network.Node[i].Name {
+							nodeConfig.Network.Node[i].Macaddr = vnicEther.Addr
 						}
+					}
+				}
+				var vnicsIScsi *[]mo.VnicIScsi
+				if vnicsIScsi, err = util.SpGetVnicsIScsi(client, nodeConfig.Compute.SpDn); err != nil {
+					err = fmt.Errorf("AssignBlade: SpGetVnicsIScsi(): %s", err)
+					return
+				}
+				if len(*vnicsIScsi) == 0 {
+					err = fmt.Errorf("AssignBlade: SpGetVnicsIScsi(): SP \"%s\" is not configured for iSCSI boot", nodeConfig.Compute.SpDn)
+					return
+				}
+				for i := range nodeConfig.Network.IscsiInitiator[:2] {
+					var found int = 0
+					for _, vnicIScsi := range *vnicsIScsi {
+						if vnicIScsi.Name == nodeConfig.Network.IscsiInitiator[i].Name {
+							for _, vnicEther := range *vnicsEther {
+								if vnicIScsi.VnicName == vnicEther.Name {
+									nodeConfig.Network.IscsiInitiator[i].Macaddr = vnicEther.Addr
+								}
+							}
+							found++
+						}
+					}
+					if found == 0 {
+						err = fmt.Errorf("AssignBlade: no iSCSI vNICs found in iscsiInitiator configuration that match iSCSI vNIC \"%s\"", nodeConfig.Network.IscsiInitiator[i].Name)
+						return
 					}
 				}
 				return
@@ -282,9 +308,9 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 	}
 	for i := range nodeConfig.Network.Node {
 		var found int = 0
-		for _, vnic := range *vnicsEther {
-			if vnic.Name == nodeConfig.Network.Node[i].Name {
-				nodeConfig.Network.Node[i].Macaddr = vnic.Addr
+		for _, vnicEther := range *vnicsEther {
+			if vnicEther.Name == nodeConfig.Network.Node[i].Name {
+				nodeConfig.Network.Node[i].Macaddr = vnicEther.Addr
 				found++
 			}
 		}
@@ -304,18 +330,23 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 	}
 	for i := range nodeConfig.Network.IscsiInitiator[:2] {
 		var found int = 0
-		for _, vnic := range *vnicsIScsi {
-			if vnic.Name == nodeConfig.Network.IscsiInitiator[i].Name {
-				if len(vnic.VnicVlan.VnicIScsiStaticTargets) > 0 {
+		for _, vnicIScsi := range *vnicsIScsi {
+			if vnicIScsi.Name == nodeConfig.Network.IscsiInitiator[i].Name {
+				for _, vnicEther := range *vnicsEther {
+					if vnicIScsi.VnicName == vnicEther.Name {
+						nodeConfig.Network.IscsiInitiator[i].Macaddr = vnicEther.Addr
+					}
+				}
+				if len(vnicIScsi.VnicVlan.VnicIScsiStaticTargets) > 0 {
 					nodeConfig.Network.IscsiInitiator[i].IscsiTarget = &config.IscsiTarget{}
-					for _, target := range vnic.VnicVlan.VnicIScsiStaticTargets {
+					for _, target := range vnicIScsi.VnicVlan.VnicIScsiStaticTargets {
 						nodeConfig.Network.IscsiInitiator[i].IscsiTarget.NodeName = target.Name
 						nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces = append(nodeConfig.Network.IscsiInitiator[i].IscsiTarget.Interfaces, target.IpAddress)
 					}
-					nodeConfig.Network.IscsiInitiator[i].Ip = vnic.VnicVlan.VnicIPv4If.VnicIPv4IscsiAddr.Addr
-					nodeConfig.Network.IscsiInitiator[i].Gateway = vnic.VnicVlan.VnicIPv4If.VnicIPv4IscsiAddr.DefGw
-					nodeConfig.Network.IscsiInitiator[i].DnsServer1 = vnic.VnicVlan.VnicIPv4If.VnicIPv4IscsiAddr.PrimDns
-					nodeConfig.Network.IscsiInitiator[i].DnsServer2 = vnic.VnicVlan.VnicIPv4If.VnicIPv4IscsiAddr.SecDns
+					nodeConfig.Network.IscsiInitiator[i].Ip = vnicIScsi.VnicVlan.VnicIPv4If.VnicIPv4IscsiAddr.Addr
+					nodeConfig.Network.IscsiInitiator[i].Gateway = vnicIScsi.VnicVlan.VnicIPv4If.VnicIPv4IscsiAddr.DefGw
+					nodeConfig.Network.IscsiInitiator[i].DnsServer1 = vnicIScsi.VnicVlan.VnicIPv4If.VnicIPv4IscsiAddr.PrimDns
+					nodeConfig.Network.IscsiInitiator[i].DnsServer2 = vnicIScsi.VnicVlan.VnicIPv4If.VnicIPv4IscsiAddr.SecDns
 				} else {
 					err = fmt.Errorf("DiscoverServer: SpGetVnicsIScsi(): iSCSI targets are not configured for interface \"%s\" in SP \"%s\"", nodeConfig.Network.IscsiInitiator[i].Name, nodeConfig.Compute.SpDn)
 					return

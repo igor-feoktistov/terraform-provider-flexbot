@@ -466,8 +466,12 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 			}
 			// Cordon/drain worker nodes
 			if rancherNode.IsNodeWorker() {
-				log.Infof("Cordon/drain node %s", nodeConfig.Compute.HostName)
-				if err = rancherNode.RancherAPINodeCordonDrain(); err != nil {
+				var nodeState string
+				if nodeState, err = rancherNode.RancherAPINodeGetState(); err == nil && nodeState == "active" {
+					log.Infof("Cordon/drain node %s", nodeConfig.Compute.HostName)
+					err = rancherNode.RancherAPINodeCordonDrain();
+				}
+				if err != nil {
 					err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 					return
@@ -1168,6 +1172,9 @@ func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta inte
 			return
 		}
         }
+	if err = rancherNode.RancherAPINodeForceDelete(); err != nil {
+		diags = diag.FromErr(fmt.Errorf("resourceDeleteServer(): error: %s", err))
+	}
 	if err = ucsm.DeleteServer(nodeConfig); err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -1305,6 +1312,7 @@ func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *conf
 		initiator := network["iscsi_initiator"].([]interface{})[i].(map[string]interface{})
 		nodeConfig.Network.IscsiInitiator = append(nodeConfig.Network.IscsiInitiator, config.IscsiInitiator{})
 		nodeConfig.Network.IscsiInitiator[i].Name = initiator["name"].(string)
+		nodeConfig.Network.IscsiInitiator[i].Macaddr = initiator["macaddr"].(string)
 		nodeConfig.Network.IscsiInitiator[i].Ip = initiator["ip"].(string)
 		nodeConfig.Network.IscsiInitiator[i].Fqdn = initiator["fqdn"].(string)
 		nodeConfig.Network.IscsiInitiator[i].Subnet = initiator["subnet"].(string)
@@ -1442,6 +1450,7 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	}
 	for i := range network["iscsi_initiator"].([]interface{}) {
 		initiator := network["iscsi_initiator"].([]interface{})[i].(map[string]interface{})
+		initiator["macaddr"] = nodeConfig.Network.IscsiInitiator[i].Macaddr
 		initiator["ip"] = nodeConfig.Network.IscsiInitiator[i].Ip
 		initiator["initiator_name"] = nodeConfig.Network.IscsiInitiator[i].InitiatorName
 		initiator["fqdn"] = nodeConfig.Network.IscsiInitiator[i].Fqdn

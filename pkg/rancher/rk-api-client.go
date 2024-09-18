@@ -303,6 +303,9 @@ func (client *RkApiClient) IsTransientError(err error) (bool) {
 	if strings.Contains(err.Error(), "connection timed out") {
 		return true
 	}
+	if strings.Contains(err.Error(), "i/o timeout") {
+		return true
+	}
 	if strings.Contains(err.Error(), "context deadline exceeded") {
 		return true
 	}
@@ -573,12 +576,14 @@ func (client *RkApiClient) NodeDelete(nodeName string) (err error) {
 	if err = client.IsRancherReady(); err == nil {
 		for retry := 0; retry < client.RancherConfig.Retries; retry++ {
 			if _, err = client.DownstreamClusterClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
-				err = client.DownstreamClusterClient.CoreV1().Nodes().Delete(context.TODO(), nodeName, metav1.DeleteOptions{})
-				break
-			}
-			if client.IsNotFoundError(err) {
-				err = nil
-				break
+				if err = client.DownstreamClusterClient.CoreV1().Nodes().Delete(context.TODO(), nodeName, metav1.DeleteOptions{}); err == nil {
+					return
+				}
+			} else {
+				if client.IsNotFoundError(err) {
+					err = nil
+					return
+				}
 			}
 			if !client.IsTransientError(err) {
 				break

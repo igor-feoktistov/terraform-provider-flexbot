@@ -33,6 +33,7 @@ Network = { //schema - network
   IscsiInitiator = [ //schema - iscsi_initiator (list)
     {
       Name          = "iscsi0"                                      //schema - name
+      Macaddr       = "00:25:b5:99:00:7f"                           //schema - macaddr, computed
       Ip            = "192.168.2.25"                                //schema - ip, computed
       Fqdn          = "k8s-node1-i1.example.com"                    //schema - fqdn, computed
       Subnet        = "192.168.2.0/24"                              //schema - subnet
@@ -47,6 +48,7 @@ Network = { //schema - network
     }
     {
       Name          = "iscsi1"                                      //schema - name
+      Macaddr       = "00:25:b5:99:09:5f"                           //schema - macaddr, computed
       Ip            = "192.168.3.25"                                //schema - ip, computed
       Fqdn          = "k8s-node1-i2.example.com"                    //schema - fqdn, computed
       Subnet        = "192.168.3.0/24"                              //schema - subnet
