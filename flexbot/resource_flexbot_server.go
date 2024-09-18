@@ -466,8 +466,12 @@ func resourceUpdateServerCompute(d *schema.ResourceData, meta interface{}, nodeC
 			}
 			// Cordon/drain worker nodes
 			if rancherNode.IsNodeWorker() {
-				log.Infof("Cordon/drain node %s", nodeConfig.Compute.HostName)
-				if err = rancherNode.RancherAPINodeCordonDrain(); err != nil {
+				var nodeState string
+				if nodeState, err = rancherNode.RancherAPINodeGetState(); err == nil && nodeState == "active" {
+					log.Infof("Cordon/drain node %s", nodeConfig.Compute.HostName)
+					err = rancherNode.RancherAPINodeCordonDrain();
+				}
+				if err != nil {
 					err = fmt.Errorf("resourceUpdateServer(compute): error: %s", err)
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 					return

@@ -125,21 +125,21 @@ func (node *Rancher2Node) RancherAPIClusterWaitForTransitioning(timeout int) (er
 }
 
 func (node *Rancher2Node) RancherAPINodeGetState() (state string, err error) {
-	if node.RancherClient != nil {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		state, err = node.RancherClient.NodeGetState(node.NodeID)
 	}
 	return
 }
 
 func (node *Rancher2Node) RancherAPINodeWaitForState(state string, timeout int) (err error) {
-	if node.RancherClient != nil {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
 	        err = node.RancherClient.NodeWaitForState(node.NodeID, state, timeout)
 	}
 	return
 }
 
 func (node *Rancher2Node) RancherAPINodeWaitForGracePeriod(timeout int) (err error) {
-	if node.RancherClient != nil {
+	if node.RancherClient != nil && len(node.NodeID) > 0 {
                 giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 		for time.Now().Before(giveupTime) {
                         nextTimeout := int(math.Round(time.Until(giveupTime).Seconds()))
