@@ -1,3 +1,12 @@
+## 1.11.0 (October 7, 2024)
+
+ENHANCEMENTS:
+* Enhancements to support RKE2 clusters for nodes management
+  * manages RKE2 standalone cluster nodes via Kubernetes API
+  * See provider documentation for more details.
+  * See Terraform HCL examples.
+
+
 ## 1.10.3 (September 18, 2024)
 
 ENHANCEMENTS:

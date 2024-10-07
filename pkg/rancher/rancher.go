@@ -68,6 +68,10 @@ func RancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
 	        if node, err = RkeAPIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
                         err = fmt.Errorf("RkeAPIInitialize(): error: %s", err)
                 }
+	case "rke2":
+	        if node, err = Rke2APIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
+                        err = fmt.Errorf("Rke2APIInitialize(): error: %s", err)
+                }
 	case "rk-api":
 	        if node, err = RkApiInitialize(d, meta, nodeConfig, waitForNode); err != nil {
                         err = fmt.Errorf("RkApiInitialize(): error: %s", err)
