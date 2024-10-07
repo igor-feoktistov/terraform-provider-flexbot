@@ -281,7 +281,8 @@ The following arguments are supported:
 * `provider` - (Optional) Rancher API provider. Currently supported `rancher2`, `rke`, and `rk-api` when in mix with respective terraform providers (string, defailt is `rancher2`).
   * `rancher2` - manages RKE1 and RKE2 downstream cluster nodes (implemeneted via legacy Norman API)
   * `rk-api` - manages RKE2 downstream cluster nodes (implemented via RK API and requires Rancher Management Server v2.8.5 or higher)
-  * `rke` - manages RKE1 or RKE2 clusters outside of Rancher Management Server (implemented via standard Kubernetes API to cordon/drain nodes and maintain annotations, labels, and taints)
+  * `rke` - manages RKE1 clusters outside of Rancher Management Server (implemented via standard Kubernetes API to cordon/drain nodes and maintain annotations, labels, and taints)
+  * `rke2` - manages RKE2 clusters outside of Rancher Management Server (implemented via standard Kubernetes API to cordon/drain/delete nodes and maintain annotations, labels, and taints)
 * `api_url` - (Required) Rancher API endpoint is either Rancher Server endpoint or Kubernetes API endpoint for RKE/Kubernetes use case (string).
 * `cluster_name` - (Required) Kubernetes cluster name (string).
 * `cluster_id` - (Required) Downstream cluster ID in case of `rancher2`, or Kubernetes cluster name (string).

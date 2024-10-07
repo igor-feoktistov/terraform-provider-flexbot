@@ -1,0 +1,185 @@
+{{define "meta-data"}}{{/* meta-data template starts here */ -}}
+instance-id: {{.Compute.HostName}}
+{{end}}{{/* meta-data template ends here */}}
+{{define "user-data"}}{{/* user-data template starts here */ -}}
+#cloud-config
+debug: true
+disable_root: false
+ssh_deletekeys: false
+ssh_pwauth: true
+hostname: {{(index .Network.Node 0).Fqdn}}
+fqdn: {{(index .Network.Node 0).Fqdn}}
+
+write_files:
+- path: /etc/netplan/50-cloud-init.yaml
+  permissions: '0644'
+  owner: root:root
+  content: |
+    network:
+      version: 2
+      ethernets:
+      {{- range .Network.IscsiInitiator}}
+        {{.Name}}:
+          link-local: []
+          match:
+            macaddress: {{.Macaddr}}
+          {{- range $paramName, $paramValue := .Parameters}}
+          {{$paramName}}: {{$paramValue}}
+          {{- end}}
+          addresses:
+          - {{.Ip}}/{{.NetLen}}
+      {{- end}}
+      {{- range .Network.Node}}
+        {{.Name}}:
+          link-local: []
+          match:
+            macaddress: {{.Macaddr}}
+          {{- range $paramName, $paramValue := .Parameters}}
+          {{$paramName}}: {{$paramValue}}
+          {{- end}}
+          addresses:
+          - {{.Ip}}/{{.NetLen}}
+          {{- if .Gateway}}
+          routes:
+          - to: default
+            via: {{.Gateway}}
+          {{- end}}
+          {{- if .DnsServer1}}
+          nameservers:
+            {{- if .DnsDomain}}
+            search: [{{.DnsDomain}}]
+            {{- end}}
+            addresses: [{{.DnsServer1}}{{if .DnsServer2}},{{.DnsServer2}}{{end}}{{if .DnsServer3}},{{.DnsServer3}}{{end}}]
+          {{- end}}
+      {{- end}}
+- path: /etc/chrony/chrony.conf
+  permissions: '0644'
+  owner: root:root
+  content: |
+    pool ntp1.example.com iburst maxsources 1
+    pool ntp2.example.com iburst maxsources 1
+    pool ntp3.example.com iburst maxsources 1
+    keyfile /etc/chrony/chrony.keys
+    driftfile /var/lib/chrony/chrony.drift
+    logdir /var/log/chrony
+    maxupdateskew 100.0
+    rtcsync
+- path: /etc/rancher/rke2/config.yaml
+  permissions: '0644'
+  owner: root:root
+  content: |
+{{- if ne (index .Network.Node 0).Ip (index .CloudArgs "rke2_server")}}
+    "server": "https://{{index .CloudArgs "rke2_server"}}:9345"
+{{- end}}
+    "bind-address": "{{(index .Network.Node 0).Ip}}"
+    "node-ip":
+    - "{{(index .Network.Node 0).Ip}}"
+    "tls-san":
+    - "{{(index .Network.Node 0).Ip}}"
+    "cluster-cidr":
+    - "172.30.0.0/16"
+    "service-cidr":
+    - "172.20.0.0/16"
+    "cni":
+    - "cilium"
+    "disable-kube-proxy": "true"
+    "debug": "true"
+    "etcd-snapshot-retention": "48"
+    "etcd-snapshot-schedule-cron": "0 */2 * * *"
+    "etcd-s3": "true"
+    "etcd-s3-skip-ssl-verify": "true"
+    "etcd-s3-endpoint": "{{index .CloudArgs "s3_endpoint"}}"
+    "etcd-s3-region": "{{index .CloudArgs "s3_region"}}"
+    "etcd-s3-bucket": "{{index .CloudArgs "s3_bucket"}}"
+    "etcd-s3-folder": "{{index .CloudArgs "s3_folder"}}"
+    "etcd-s3-access-key": "{{index .CloudArgs "s3_access_key_id"}}"
+    "etcd-s3-secret-key": "{{index .CloudArgs "s3_secret_access_key"}}"
+    "kubelet-arg":
+    - "alsologtostderr=true"
+    - "feature-gates=MemoryManager=true"
+    - "kube-reserved=cpu=400m,memory=1Gi"
+    - "system-reserved=cpu=400m,memory=1Gi"
+    - "memory-manager-policy=Static"
+    - "reserved-memory=0:memory=2Gi"
+    - "port=10250"
+    "kube-apiserver-arg":
+    - "tls-cipher-suites=TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+    "protect-kernel-defaults": "false"
+    "selinux": "false"
+    "token": "{{index .CloudArgs "rke2_token"}}"
+    "write-kubeconfig-mode": "0644"
+- path: /etc/rancher/rke2/rke2-cilium-config.yaml
+  permissions: '0644'
+  owner: root:root
+  content: |
+    apiVersion: helm.cattle.io/v1
+    kind: HelmChartConfig
+    metadata:
+      name: rke2-cilium
+      namespace: kube-system
+    spec:
+      valuesContent: |-
+        kubeProxyReplacement: true
+        k8sServiceHost: {{index .CloudArgs "rke2_server"}}
+        k8sServicePort: 6443
+        cni:
+          exclusive: false
+        l2announcements:
+          enabled: true
+
+{{if or .Storage.DataLun.Size .Storage.DataNvme.Size -}}
+remotedisk_setup:
+{{- if .Storage.DataLun.Size}}
+  - device: iscsi:{{index ((index .Network.IscsiInitiator 0).IscsiTarget.Interfaces) 0}}:6:3260:{{.Storage.DataLun.Id}}:{{(index .Network.IscsiInitiator 0).IscsiTarget.NodeName}}
+    initiator_name: {{(index .Network.IscsiInitiator 0).InitiatorName}}
+    fs_type: xfs
+    fs_label: datafs
+    mount_point: /var/lib/rancher
+    mount_opts: defaults,noatime,nodiratime,_netdev
+{{- end}}{{/* iscsi device definition ends here */}}
+{{- if and .Storage.DataNvme.Size .Network.NvmeHost}}
+  - device: nvme:/vol/{{.Storage.VolumeName}}/{{.Storage.DataNvme.Namespace}}:{{(index .Network.NvmeHost 0).Ip}}:{{index ((index .Network.NvmeHost 0).NvmeTarget.Interfaces) 0}},{{ if gt (len (index .Network.NvmeHost 0).NvmeTarget.Interfaces) 1 }}{{(index .Network.NvmeHost 0).Ip}}:{{index ((index .Network.NvmeHost 0).NvmeTarget.Interfaces) 1}},{{- end }}{{(index .Network.NvmeHost 1).Ip}}:{{index ((index .Network.NvmeHost 1).NvmeTarget.Interfaces) 0}}{{ if gt (len (index .Network.NvmeHost 1).NvmeTarget.Interfaces) 1 }},{{(index .Network.NvmeHost 1).Ip}}:{{index ((index .Network.NvmeHost 1).NvmeTarget.Interfaces) 1}}{{- end }}
+    host_nqn: {{(index .Network.NvmeHost 0).HostNqn}}
+    fs_type: xfs
+    fs_label: datafs
+    mount_point: /var/lib/rancher
+    mount_opts: defaults,noatime,nodiratime,_netdev
+{{- end}}{{/* nvme device definition ends here */}}
+{{- end}}{{/* remotedisk_setup definition ends here */}}
+
+users:
+  - name: {{index .CloudArgs "cloud_user"}}
+    gecos: Default cloud user
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups:
+      - users
+      - admin
+    lock_passwd: true
+    ssh_authorized_keys:
+      - {{index .CloudArgs "ssh_pub_key"}}
+
+random_seed:
+  file: /dev/urandom
+  command: ["pollinate", "-r", "-s", "https://entropy.ubuntu.com"]
+  command_required: true
+
+runcmd:
+  - netplan apply
+  - mkdir -p /var/lib/rancher/kubernetes/kubelet
+  - mkdir -p /var/lib/rancher/kubernetes/log
+  - mkdir -p /var/lib/rancher/rke2/server/manifests
+  - mv -f /etc/rancher/rke2/rke2-cilium-config.yaml /var/lib/rancher/rke2/server/manifests/rke2-cilium-config.yaml
+  - ln -s /var/lib/rancher/kubernetes/kubelet /var/lib/kubelet
+  - ln -s /var/lib/rancher/kubernetes/log /var/log/pods
+  - groupadd --gid 52034 etcd
+  - useradd --system --comment "etcd user" --shell /sbin/nologin --uid 52034 --gid 52034 --no-create-home etcd
+  - systemctl restart chronyd && sleep 5
+  - chronyc -a makestep || true
+  - curl -sfL https://get.rke2.io | INSTALL_RKE2_VERSION={{index .CloudArgs "rke2_version"}} sh -
+  - systemctl enable rke2-server.service
+  - systemctl start rke2-server.service
+  - touch /etc/cloud/cloud-init.disabled
+  - /usr/local/cloud-init/post-install
+  - systemctl disable cloud-config.service
+  - systemctl disable cloud-init.service
+{{end}}{{/* user-data template ends here */}}
