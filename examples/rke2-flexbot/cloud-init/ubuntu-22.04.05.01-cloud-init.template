@@ -96,11 +96,6 @@ write_files:
     "etcd-s3-secret-key": "{{index .CloudArgs "s3_secret_access_key"}}"
     "kubelet-arg":
     - "alsologtostderr=true"
-    - "feature-gates=MemoryManager=true"
-    - "kube-reserved=cpu=400m,memory=1Gi"
-    - "system-reserved=cpu=400m,memory=1Gi"
-    - "memory-manager-policy=Static"
-    - "reserved-memory=0:memory=2Gi"
     - "port=10250"
     "kube-apiserver-arg":
     - "tls-cipher-suites=TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"

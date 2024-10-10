@@ -1,4 +1,4 @@
-## 1.11.0 (October 7, 2024)
+## 1.11.0 (October 10, 2024)
 
 ENHANCEMENTS:
 * Enhancements to support RKE2 clusters for nodes management
