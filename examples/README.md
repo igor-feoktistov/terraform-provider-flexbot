@@ -8,10 +8,11 @@ Make sure to update respective `terraform.tfvars` files with your own infrastruc
 * [simple](./simple) Simple configuration with a lot of comments.
 * [repo](./repo) Uploads and manages OS images and cloud-init templates repositories.
 * [host-flexbot](./host-flexbot) Provisions and manages multiple servers the same configuration in one shot.
-* [rke-flexbot](./rke-flexbot) Provisions and manages RKE cluster with bare-metal nodes on FlexPOD.
+* [rke-flexbot](./rke-flexbot) Provisions and manages RKE1 cluster with bare-metal nodes on FlexPOD.
+* [rke2-flexbot](./rke2-flexbot) Provisions and manages RKE2 cluster with bare-metal nodes on FlexPOD.
 * [rancher-server-flexbot](./rancher-server-flexbot) Provisions and manages Rancher Management Server.
-* [rancher-workload-cluster-flexbot](./rancher-workload-cluster-flexbot) Provisions and manages Rancher Custom Cluster.
-* [rancher-rke2-workload-cluster-flexbot](./rancher-rke2-workload-cluster-flexbot) Provisions and manages Rancher RKE2 Custom Cluster.
+* [rancher-workload-cluster-flexbot](./rancher-workload-cluster-flexbot) Provisions and manages Rancher RKE1 downstream Custom Cluster.
+* [rancher-rke2-workload-cluster-flexbot](./rancher-rke2-workload-cluster-flexbot) Provisions and manages Rancher RKE2 downstream Custom Cluster.
 * [crypt](./crypt) Generate encrypted string values for various use cases.
 
 ### Note
