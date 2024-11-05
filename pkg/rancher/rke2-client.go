@@ -42,6 +42,12 @@ func (client *Rke2Client) IsTransientError(err error) (bool) {
 		if strings.Contains(err.Error(), "i/o timeout") {
 			return true
 		}
+		if strings.Contains(err.Error(), "handshake timeout") {
+			return true
+		}
+		if strings.Contains(err.Error(), "connection reset by peer") {
+			return true
+		}
 		if strings.Contains(err.Error(), "context deadline exceeded") {
 			return true
 		}
@@ -57,15 +63,15 @@ func (client *Rke2Client) IsNotFoundError(err error) (bool) {
 	return false
 }
 
-// GetNode gets RKE2 node by node IP address
-func (client *Rke2Client) GetNode(nodeIpAddr string) (nodeName string, err error) {
+// GetNode gets RKE2 node name by node IP address
+func (client *Rke2Client) GetNodeName(nodeIpAddr string) (nodeName string, err error) {
         var nodes *v1.NodeList
 	for retry := 0; retry < client.RancherConfig.Retries; retry++ {
 		if nodes, err = client.Management.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{}); err == nil {
 			for _, item := range nodes.Items {
 	        		var hostIpAddr net.IP
 	        		if hostIpAddr, err = node.GetNodeHostIP(&item); err != nil {
-		        		err = fmt.Errorf("rke2-client.GetNode().node.GetNodeHostIP() error: %s", err)
+		        		err = fmt.Errorf("rke2-client.GetNodeName().node.GetNodeHostIP() error: %s", err)
 		        		return
                 		}
                 		if hostIpAddr.String() == nodeIpAddr {
@@ -73,7 +79,7 @@ func (client *Rke2Client) GetNode(nodeIpAddr string) (nodeName string, err error
 		        		return
                 		}
         		}
-			err = fmt.Errorf("rke2-client.GetNode().node.GetNodeHostIP() error: node with IP address %s not found", nodeIpAddr)
+			err = fmt.Errorf("rke2-client.GetNodeName().node.GetNodeHostIP() error: node with IP address %s not found", nodeIpAddr)
 		        return
         	}
 		if !client.IsTransientError(err) {
@@ -82,25 +88,15 @@ func (client *Rke2Client) GetNode(nodeIpAddr string) (nodeName string, err error
 		time.Sleep(rke2RetriesWait * time.Second)
 	}
 	if err != nil {
-		err = fmt.Errorf("rke2-client.GetNode() error: %s", err)
+		err = fmt.Errorf("rke2-client.GetNodeName() error: %s", err)
 	}
 	return
 }
 
-// GetNodeRole gets RKE2 node role
-func (client *Rke2Client) GetNodeRole(nodeName string) (controlplane bool, etcd bool, worker bool, err error) {
-        var node *v1.Node
+// GetNodeByName gets RKE2 node by node name
+func (client *Rke2Client) GetNodeByName(nodeName string) (node *v1.Node, err error) {
 	for retry := 0; retry < client.RancherConfig.Retries; retry++ {
 		if node, err = client.Management.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
-			if strings.ToLower(node.Labels[Rke2NodeRoleLabelWorker]) == "true" {
-				worker = true
-			}
-			if strings.ToLower(node.Labels[Rke2NodeRoleLabelControlplane]) == "true" {
-				controlplane = true
-			}
-			if strings.ToLower(node.Labels[Rke2NodeRoleLabelEtcd]) == "true" {
-				etcd = true
-			}
 			return
 		}
 		if !client.IsTransientError(err) {
@@ -109,6 +105,25 @@ func (client *Rke2Client) GetNodeRole(nodeName string) (controlplane bool, etcd 
 		time.Sleep(rke2RetriesWait * time.Second)
 	}
 	if err != nil {
+		err = fmt.Errorf("rke2-client.GetNodeByName(%s) error: %s", nodeName, err)
+	}
+	return
+}
+
+// GetNodeRole gets RKE2 node role
+func (client *Rke2Client) GetNodeRole(nodeName string) (controlplane bool, etcd bool, worker bool, err error) {
+        var node *v1.Node
+	if node, err = client.GetNodeByName(nodeName); err == nil {
+		if strings.ToLower(node.Labels[Rke2NodeRoleLabelWorker]) == "true" {
+			worker = true
+		}
+		if strings.ToLower(node.Labels[Rke2NodeRoleLabelControlplane]) == "true" {
+			controlplane = true
+		}
+		if strings.ToLower(node.Labels[Rke2NodeRoleLabelEtcd]) == "true" {
+			etcd = true
+		}
+	} else {
 		err = fmt.Errorf("rke2-client.GetNodeRole(%s) error: %s", nodeName, err)
 	}
 	return
@@ -117,17 +132,9 @@ func (client *Rke2Client) GetNodeRole(nodeName string) (controlplane bool, etcd 
 // IsNodeReady returns true if node ready
 func (client *Rke2Client) IsNodeReady(nodeName string) (ready bool, err error) {
         var nodeObj *v1.Node
-	for retry := 0; retry < client.RancherConfig.Retries; retry++ {
-		if nodeObj, err = client.Management.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
-			ready = node.IsNodeReady(nodeObj)
-			return
-		}
-		if !client.IsTransientError(err) {
-			break
-		}
-		time.Sleep(rke2RetriesWait * time.Second)
-	}
-	if err != nil {
+	if nodeObj, err = client.GetNodeByName(nodeName); err == nil {
+		ready = node.IsNodeReady(nodeObj)
+	} else {
 		err = fmt.Errorf("rke2-client.IsNodeReady(%s) error: %s", nodeName, err)
 	}
 	return
@@ -277,10 +284,10 @@ func (client *Rke2Client) NodeSetAnnotationsLabelsTaints(nodeName string, annota
 // NodeGetLabels get RKE2 node labels
 func (client *Rke2Client) NodeGetLabels(nodeName string) (nodeLabels map[string]string, err error) {
         var node *v1.Node
-	if node, err = client.Management.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err != nil {
-		err = fmt.Errorf("rke2-client.NodeGetLabels() error: %s", err)
-	} else {
+	if node, err = client.GetNodeByName(nodeName); err == nil {
 	        nodeLabels = node.Labels
+	} else {
+		err = fmt.Errorf("rke2-client.NodeGetLabels() error: %s", err)
 	}
 	return
 }
@@ -319,17 +326,9 @@ func (client *Rke2Client) NodeUpdateLabels(nodeName string, oldLabels map[string
 // NodeGetTaints get RKE2 node taints
 func (client *Rke2Client) NodeGetTaints(nodeName string) (nodeTaints []v1.Taint, err error) {
         var node *v1.Node
-	for retry := 0; retry < client.RancherConfig.Retries; retry++ {
-		if node, err = client.Management.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{}); err == nil {
-			nodeTaints = node.Spec.Taints
-			return
-		}
-		if !client.IsTransientError(err) {
-			break
-		}
-		time.Sleep(rke2RetriesWait * time.Second)
-	}
-	if err != nil {
+	if node, err = client.GetNodeByName(nodeName); err == nil {
+		nodeTaints = node.Spec.Taints
+	} else {
 		err = fmt.Errorf("rke2-client.NodeGetTaints() error: %s", err)
 	}
 	return

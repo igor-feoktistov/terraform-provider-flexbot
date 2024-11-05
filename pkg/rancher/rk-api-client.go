@@ -306,6 +306,12 @@ func (client *RkApiClient) IsTransientError(err error) (bool) {
 	if strings.Contains(err.Error(), "i/o timeout") {
 		return true
 	}
+	if strings.Contains(err.Error(), "handshake timeout") {
+		return true
+	}
+	if strings.Contains(err.Error(), "connection reset by peer") {
+		return true
+	}
 	if strings.Contains(err.Error(), "context deadline exceeded") {
 		return true
 	}

@@ -1,3 +1,9 @@
+## 1.11.1 (November 5, 2024)
+
+ENHANCEMENTS:
+* Enhancements to improve resiliency in rke2 API provider calls
+
+
 ## 1.11.0 (October 10, 2024)
 
 ENHANCEMENTS:

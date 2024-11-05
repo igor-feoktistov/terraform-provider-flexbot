@@ -59,7 +59,7 @@ func Rke2APIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *con
 	        return
 	}
 	node.RancherClient = rke2Client
-	if node.NodeID, err = node.RancherClient.GetNode(network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
+	if node.NodeID, err = node.RancherClient.GetNodeName(network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err == nil {
 		if len(node.NodeID) > 0 {
 			node.NodeControlPlane, node.NodeEtcd, node.NodeWorker, err = node.RancherClient.GetNodeRole(node.NodeID)
 		}
@@ -80,7 +80,7 @@ func (node *Rke2Node) RancherAPINodeGetID(d *schema.ResourceData, meta interface
                 meta.(*config.FlexbotConfig).Sync.Lock()
 	        network := d.Get("network").([]interface{})[0].(map[string]interface{})
                 meta.(*config.FlexbotConfig).Sync.Unlock()
-	        if node.NodeID, err = node.RancherClient.GetNode(network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
+	        if node.NodeID, err = node.RancherClient.GetNodeName(network["node"].([]interface{})[0].(map[string]interface{})["ip"].(string)); err != nil {
 			err = fmt.Errorf("rancherAPINodeGetID(): node %s not found", node.NodeConfig.Compute.HostName)
 		}
 	}
