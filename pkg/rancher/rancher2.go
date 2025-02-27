@@ -178,7 +178,7 @@ func (node *Rancher2Node) RancherAPINodeCordonDrain() (err error) {
 func (node *Rancher2Node) RancherAPINodeUncordon() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", Wait4ClusterStateTimeout); err == nil {
-			if err = node.RancherClient.NodeWaitForState(node.NodeID, "active,drained,cordoned", Wait4NodeStateTimeout); err == nil {
+			if err = node.RancherClient.NodeWaitForState(node.NodeID, "active,drained,draining,cordoned", Wait4NodeStateTimeout); err == nil {
 				if err = node.RancherClient.NodeUncordon(node.NodeID); err == nil {
 					err = node.RancherClient.NodeWaitForState(node.NodeID, "active", Wait4NodeStateTimeout)
 				}

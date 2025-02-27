@@ -1,3 +1,9 @@
+## 1.12.0 (February 26, 2025)
+
+ENHANCEMENTS:
+* New resource harvester to build SUSE Harvester nodes
+
+
 ## 1.11.1 (November 5, 2024)
 
 ENHANCEMENTS:
