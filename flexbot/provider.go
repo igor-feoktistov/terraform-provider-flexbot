@@ -303,6 +303,7 @@ func Provider() *schema.Provider {
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"flexbot_server": resourceFlexbotServer(),
+			"flexbot_harvester_node": resourceFlexbotHarvesterNode(),
 			"flexbot_repo":   resourceFlexbotRepo(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{

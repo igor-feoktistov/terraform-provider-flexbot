@@ -31,6 +31,7 @@ const (
 const (
 	volumeNameTemplate            string = "{{.Compute.HostName}}_iboot"
 	bootLunNameTemplate           string = "{{.Compute.HostName}}_iboot"
+	bootstrapLunNameTemplate      string = "{{.Compute.HostName}}_bootstrap"
 	dataLunNameTemplate           string = "{{.Compute.HostName}}_data"
 	seedLunNameTemplate           string = "{{.Compute.HostName}}_seed"
 	igroupNameTemplate            string = "{{.Compute.HostName}}_iboot"
@@ -171,6 +172,12 @@ type Lun struct {
 	Size int    `yaml:"size,omitempty" json:"size,omitempty"`
 }
 
+// BootstrapLun is compute bootstrap LUN
+type BootstrapLun struct {
+	Lun     `yaml:",inline" json:",inline"`
+	OsImage RemoteFile `yaml:"osImage,omitempty" json:"osImage,omitempty"`
+}
+
 // BootLun is compute boot LUN
 type BootLun struct {
 	Lun     `yaml:",inline" json:",inline"`
@@ -198,6 +205,7 @@ type Storage struct {
 	TemplateRepoName string          `yaml:"templateRepoName,omitempty" json:"templateRepoName,omitempty"`
 	VolumeName       string          `yaml:"volumeName,omitempty" json:"volumeName,omitempty"`
 	IgroupName       string          `yaml:"igroupName,omitempty" json:"igroupName,omitempty"`
+	BootstrapLun     BootstrapLun    `yaml:"bootstrapLun,omitempty" json:"bootstrapLun,omitempty"`
 	BootLun          BootLun         `yaml:"bootLun,omitempty" json:"bootLun,omitempty"`
 	DataLun          Lun             `yaml:"dataLun,omitempty" json:"dataLun,omitempty"`
 	SeedLun          SeedLun         `yaml:"seedLun,omitempty" json:"seedLun,omitempty"`
@@ -244,6 +252,7 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 	}
 	if image != "" {
 		nodeConfig.Storage.BootLun.OsImage.Name = image
+		nodeConfig.Storage.BootstrapLun.OsImage.Name = image
 	}
 	if templatePath != "" {
 		nodeConfig.Storage.SeedLun.SeedTemplate.Name = filepath.Base(templatePath)
@@ -305,18 +314,18 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 		if nodeConfig.Storage.BootLun.Name == "" {
 			nodeConfig.Storage.BootLun.Name = bootLunNameTemplate
 		}
+		if nodeConfig.Storage.BootstrapLun.Name == "" {
+			nodeConfig.Storage.BootstrapLun.Name = bootstrapLunNameTemplate
+		}
 		if nodeConfig.Storage.BootLun.Size == 0 {
 			nodeConfig.Storage.BootLun.Size = 10
 		}
-		nodeConfig.Storage.BootLun.Id = 0
 		if nodeConfig.Storage.DataLun.Name == "" {
 			nodeConfig.Storage.DataLun.Name = dataLunNameTemplate
 		}
-		nodeConfig.Storage.DataLun.Id = 1
 		if nodeConfig.Storage.SeedLun.Name == "" {
 			nodeConfig.Storage.SeedLun.Name = seedLunNameTemplate
 		}
-		nodeConfig.Storage.SeedLun.Id = 2
 		if len(nodeConfig.Network.NvmeHost) > 0 {
                         if nodeConfig.Storage.DataNvme.Namespace == "" {
 			        nodeConfig.Storage.DataNvme.Namespace = dataNvmeNamespaceNameTemplate
@@ -345,6 +354,12 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 			return
 		}
 		nodeConfig.Storage.BootLun.Name = strings.Replace(tWriter.String(), "-", "_", -1)
+		t = template.Must(template.New("BootstrapLunName").Parse(nodeConfig.Storage.BootstrapLun.Name))
+		tWriter.Reset()
+		if err = t.Execute(&tWriter, nodeConfig); err != nil {
+			return
+		}
+		nodeConfig.Storage.BootstrapLun.Name = strings.Replace(tWriter.String(), "-", "_", -1)
 		t = template.Must(template.New("DataLunName").Parse(nodeConfig.Storage.DataLun.Name))
 		tWriter.Reset()
 		if err = t.Execute(&tWriter, nodeConfig); err != nil {
