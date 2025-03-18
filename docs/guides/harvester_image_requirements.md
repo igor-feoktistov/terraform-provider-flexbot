@@ -54,4 +54,5 @@ Harvester image in this project is NetApp iSCSI LUN with a content copied from m
          fi
      else
          # Symlinking /usr/bin/ntfs-3g as /sbin/mount.ntfs seems to boot
+
 ```
