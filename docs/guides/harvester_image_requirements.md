@@ -12,10 +12,9 @@ Harvester image in this project is NetApp iSCSI LUN with a content copied from m
   * Unpack `/boot/initrd`  
     Run command `mkdir initrd-iboot; cd initrd-iboot; lsinitrd --unpack ../initrd`
   * Patch `/sbin/dmsquash-live-root` (see patch below)
-* Modify `/boot/grub2/grub.cfg`   
   * Pack `/boot/initrd`  
     Run command `cd initrd-iboot; find . 2>/dev/null | cpio -o -c -R root:root > ../initrd.iboot`
-  
+
 * Modify `/boot/grub2/grub.cfg`  
   Add kernel arguments `rd.iscsi.firmware rd.iscsi.ibft`
   
