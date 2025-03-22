@@ -309,3 +309,15 @@ func (node *Rancher2Node) IsProviderRKE1() (bool) {
 func (node *Rancher2Node) IsProviderRKE2() (bool) {
         return node.ClusterProvider == "rke2"
 }
+
+func (node *Rancher2Node) RancherAPINodeWaitUntilReady(timeout int) (err error) {
+	return
+}
+
+func (node *Rancher2Node) RancherAPINodeEnableMaintainanceMode(timeout int) (err error) {
+	return
+}
+
+func (node *Rancher2Node) RancherAPINodeDisableMaintainanceMode(timeout int) (err error) {
+	return
+}

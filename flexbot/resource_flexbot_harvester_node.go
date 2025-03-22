@@ -14,6 +14,7 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ipam"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
+	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
 )
 
 const (
@@ -171,6 +172,9 @@ func resourceCreateHarvesterNode(ctx context.Context, d *schema.ResourceData, me
 		}
 	}
 	setFlexbotHarvesterNodeOutput(d, meta, nodeConfig)
+	if err == nil {
+		_, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, true)
+	}
 	if err != nil {
 		errs = append(errs, err)
 		for _, err = range errs {
@@ -343,6 +347,14 @@ func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}
 	                }
 	        }
 		if powerState == "up" {
+/*
+			var rancherNode rancher.RancherNode
+			if rancherNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, false); err != nil {
+				err = fmt.Errorf("resourceUpdateHarvesterNode(compute): error: %s", err)
+				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+				return
+			}
+*/
 			if (newCompute.([]interface{})[0].(map[string]interface{}))["safe_removal"].(bool) {
 				err = fmt.Errorf("resourceUpdateHarvesterNode(compute): server %s has power state up", nodeConfig.Compute.HostName)
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
@@ -401,7 +413,7 @@ func resourceUpdateHarvesterNodeStorage(d *schema.ResourceData, meta interface{}
 
 func resourceDeleteHarvesterNode(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
-	var powerState string
+	var powerState, operState string
 	var nodeConfig *config.NodeConfig
 	if nodeConfig, err = setFlexbotHarvesterNodeInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
@@ -415,7 +427,11 @@ func resourceDeleteHarvesterNode(ctx context.Context, d *schema.ResourceData, me
 		diags = diag.FromErr(err)
 		return
 	}
-	if powerState == "up" && compute["safe_removal"].(bool) {
+	if operState, err = ucsm.GetServerOperationalState(nodeConfig); err != nil {
+		diags = diag.FromErr(err)
+		return
+	}
+	if powerState == "up" && operState == "ok" && compute["safe_removal"].(bool) {
 		diags = diag.FromErr(fmt.Errorf("resourceDeleteHarvesterNode(): node %s has power state up", nodeConfig.Compute.HostName))
 		return
 	}

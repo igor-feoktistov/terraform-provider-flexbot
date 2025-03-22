@@ -243,3 +243,15 @@ func (node *RkeNode) IsProviderRKE1() (bool) {
 func (node *RkeNode) IsProviderRKE2() (bool) {
         return false
 }
+
+func (node *RkeNode) RancherAPINodeWaitUntilReady(timeout int) (err error) {
+	return
+}
+
+func (node *RkeNode) RancherAPINodeEnableMaintainanceMode(timeout int) (err error) {
+	return
+}
+
+func (node *RkeNode) RancherAPINodeDisableMaintainanceMode(timeout int) (err error) {
+	return
+}
