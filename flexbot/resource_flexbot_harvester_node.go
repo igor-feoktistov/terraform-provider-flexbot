@@ -390,7 +390,7 @@ func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
-			waitForSshTimeout := HarvesterInstallerStage2Timeout
+			waitForSshTimeout := meta.(*config.FlexbotConfig).WaitForNodeTimeout
 			if compute["wait_for_ssh_timeout"].(int) > 0 {
 				waitForSshTimeout = compute["wait_for_ssh_timeout"].(int)
 			}
