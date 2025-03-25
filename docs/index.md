@@ -226,6 +226,59 @@ provider "flexbot" {
 }
 ```
 
+## Example - `rancher_api` is enabled with provider type of `harvester`
+
+```hcl
+provider "flexbot" {
+  pass_phrase = "secret"
+  synchronized_updates = true
+  # IPAM
+  ipam {
+    provider = "Infoblox"
+    credentials {
+      host = "ib.example.com"
+      user = "admin"
+      password = "base64:jqdbcMI8dI5Dq<...skip...>yoskcRz9UUP+gN4v0Eo="
+      wapi_version = "2.5"
+      dns_view = "Internal"
+      network_view = "default"
+      ext_attributes = {
+        "Region" = "us-east-1"
+        "Site" = "onprem-us-east-1-01"
+      }
+    }
+    dns_zone = "example.com"
+  }
+  # UCS compute
+  compute {
+    credentials {
+      host = "ucsm.example.com"
+      user = "admin"
+      password = "base64:kEqDbvk/DwABc<...skip...>orS6UIjo21DpA6QTFDOc="
+    }
+  }
+  # cDOT storage
+  storage {
+    credentials {
+      host = "vserver.example.com"
+      user = "vsadmin"
+      password = "base64:qiZIN5H04oK15<...skip...>7k4uoBIIg/boi2n3+4kQ="
+      api_method = "rest"
+    }
+  }
+  # Rancher API (harvester provider)
+  rancher_api {
+    enabled = true
+    provider = "harvester"
+    api_url = "https://harvester.example.com"
+    token_key = "base64:wiYIN9H79fK2q<...skip...>tu5ucJDDg/swi4g1+6aQ="
+    insecure = true
+    retries = 12
+    wait_for_node_timeout = 1800
+  }
+}
+```
+
 ## Argument Reference
 
 The following arguments are supported:
@@ -235,7 +288,7 @@ The following arguments are supported:
 * `ipam` - (Required) IPAM is implemented via pluggable providers. Only "Infoblox" and "Internal" providers are supported at this time. "Internal" provider expects you to supply "ip" and "fqdn" in network configurations.
 * `compute` - (Required) UCS compute, credentials to access UCSM
 * `storage` - (Required) cDOT storage, credentials to access cDOT cluster or SVM
-* `rancher_api` - (Optional) Rancher API helps with node management in Rancher or RKE cluster to ensure graceful node updates, shutdown, restarts, and removals.
+* `rancher_api` - (Optional) Rancher API helps with node management in Rancher, RKE, or Harvester cluster to ensure graceful node updates, shutdown, restarts, and removals.
 * `synchronized_updates` - (Optional) Synchronized nodes updates. It is highly suggested to enable it when Rancher API is enabled. Enforces sequential and synchronized updates for Rancher cluster nodes.
 
 #### `ipam`

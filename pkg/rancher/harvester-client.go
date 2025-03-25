@@ -192,7 +192,11 @@ func (c *HarvesterClient) isHarvesterApiReady() (err error) {
 				break
 			}
 			if _, err = c.Do(req, nil); err == nil {
-		                time.Sleep(harvesterStabilizeWait * time.Second)
+				if retry == 0 {
+					break
+				} else {
+		                	time.Sleep(harvesterStabilizeWait * time.Second)
+		                }
 		        } else {
 		                break
 		        }
@@ -220,35 +224,51 @@ func (c *HarvesterClient) GetNode(nodeName string) (resp *HarvesterResponse, nod
 }
 
 // IsNodeReady get node KubeletReady status
-func (c *HarvesterClient) IsNodeReady(node *corev1.Node) (bool) {
+func (c *HarvesterClient) IsNodeReady(nodeName string) (ready bool, err error) {
+	var resp *HarvesterResponse
+	var node *corev1.Node
+	if resp, node, err = c.GetNode(nodeName); err != nil {
+		if resp.ErrorResponse.Status == 404 {
+			err = nil
+		}
+		return
+	}
 	for _, condition := range node.Status.Conditions {
 		if condition.Reason == "KubeletReady" && condition.Type == "Ready" {
 			if condition.Status == "True" {
-				return true
+				ready = true
+				break
 			}
 		}
 	}
-	return false
+	return
 }
 
 // IsNodeInMaintainanceMode checks if node in Maintainance mode
-func (c *HarvesterClient) IsNodeInMaintainanceMode(node *corev1.Node) (bool) {
-	if node.Spec.Unschedulable {
-		annotationValue, exists := node.Annotations[MaintainanceStatusAnnotationKey]
-		if exists && annotationValue == "completed" {
-			return true
+func (c *HarvesterClient) IsNodeInMaintainanceMode(nodeName string) (maintainance bool, err error) {
+	var node *corev1.Node
+	if _, node, err = c.GetNode(nodeName); err == nil {
+		if node.Spec.Unschedulable {
+			annotationValue, exists := node.Annotations[MaintainanceStatusAnnotationKey]
+			if exists && annotationValue == "completed" {
+				maintainance = true
+			}
 		}
 	}
-	return false
+	return
 }
 
 // NodeEnableMaintainanceMode enables node maintainance mode
 func (c *HarvesterClient) NodeEnableMaintainanceMode(nodeName string) (err error) {
 	var req *http.Request
-	nodeApi := HarvesterNodeApiURI + nodeName
-	reqParameters := []string{"action=enableMaintenanceMode"}
-	actionArgs := make(map[string]string)
+	var maintainance bool
 	if err = c.isHarvesterApiReady(); err == nil {
+		if maintainance, err = c.IsNodeInMaintainanceMode(nodeName); err != nil || maintainance {
+			return
+		}
+		nodeApi := HarvesterNodeApiURI + nodeName
+		reqParameters := []string{"action=enableMaintenanceMode"}
+		actionArgs := make(map[string]string)
 		if req, err = c.NewRequest("POST", nodeApi, reqParameters, actionArgs); err == nil {
 			if _, err = c.Do(req, nil); err != nil {
 				err = fmt.Errorf("harvester-client.NodeEnableMaintainanceMode() error: %s", err)
@@ -261,10 +281,14 @@ func (c *HarvesterClient) NodeEnableMaintainanceMode(nodeName string) (err error
 // NodeDisableMaintainanceMode disables node maintainance mode
 func (c *HarvesterClient) NodeDisableMaintainanceMode(nodeName string) (err error) {
 	var req *http.Request
-	nodeApi := HarvesterNodeApiURI + nodeName
-	reqParameters := []string{"action=disableMaintenanceMode"}
-	actionArgs := make(map[string]string)
+	var maintainance bool
 	if err = c.isHarvesterApiReady(); err == nil {
+		if maintainance, err = c.IsNodeInMaintainanceMode(nodeName); err != nil || !maintainance {
+			return
+		}
+		nodeApi := HarvesterNodeApiURI + nodeName
+		reqParameters := []string{"action=disableMaintenanceMode"}
+		actionArgs := make(map[string]string)
 		if req, err = c.NewRequest("POST", nodeApi, reqParameters, actionArgs); err == nil {
 			if _, err = c.Do(req, nil); err != nil {
 				err = fmt.Errorf("harvester-client.NodeDisableMaintainanceMode() error: %s", err)
@@ -277,11 +301,18 @@ func (c *HarvesterClient) NodeDisableMaintainanceMode(nodeName string) (err erro
 // DeleteNode deletes node
 func (c *HarvesterClient) DeleteNode(nodeName string) (err error) {
 	var req *http.Request
-	nodeApi := HarvesterNodeApiURI + nodeName
+	var resp *HarvesterResponse
 	if err = c.isHarvesterApiReady(); err == nil {
-		if req, err = c.NewRequest("DELETE", nodeApi, []string{}, nil); err == nil {
-			if _, err = c.Do(req, nil); err != nil {
-				err = fmt.Errorf("harvester-client.DeleteNode() error: %s", err)
+		if resp, _, err = c.GetNode(nodeName); err != nil {
+			if resp.ErrorResponse.Status == 404 {
+				err = nil
+			}
+		} else {
+			nodeApi := HarvesterNodeApiURI + nodeName
+			if req, err = c.NewRequest("DELETE", nodeApi, []string{}, nil); err == nil {
+				if _, err = c.Do(req, nil); err != nil {
+					err = fmt.Errorf("harvester-client.DeleteNode() error: %s", err)
+				}
 			}
 		}
 	}

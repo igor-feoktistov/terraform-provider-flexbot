@@ -22,6 +22,7 @@ const (
 	ServerPowerStateTimeout = 60
 	HarvesterInstallerStage1Timeout = 1800
 	HarvesterInstallerStage2Timeout = 1800
+	CheckNodeReadyTimeout           = 5
 )
 
 func resourceFlexbotHarvesterNode() *schema.Resource {
@@ -265,7 +266,7 @@ func resourceUpdateHarvesterNode(ctx context.Context, d *schema.ResourceData, me
 }
 
 func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
-	var powerState, newPowerState, sshPrivateKey string
+	var powerState, newPowerState, operState, sshPrivateKey string
 	var oldBladeSpec, newBladeSpec map[string]interface{}
         meta.(*config.FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
@@ -325,6 +326,9 @@ func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}
 	if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
 		return
 	}
+	if operState, err = ucsm.GetServerOperationalState(nodeConfig); err != nil {
+		return
+	}
 	nodeConfig.Compute.Powerstate = powerState
 	newPowerState = (newCompute.([]interface{})[0].(map[string]interface{}))["powerstate"].(string)
 	if newPowerState != powerState {
@@ -347,31 +351,30 @@ func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}
 	                }
 	        }
 		if powerState == "up" {
-/*
-			var rancherNode rancher.RancherNode
-			if rancherNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, false); err != nil {
-				err = fmt.Errorf("resourceUpdateHarvesterNode(compute): error: %s", err)
-				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-				return
-			}
-*/
-			if (newCompute.([]interface{})[0].(map[string]interface{}))["safe_removal"].(bool) {
-				err = fmt.Errorf("resourceUpdateHarvesterNode(compute): server %s has power state up", nodeConfig.Compute.HostName)
-				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-				return
-			}
-			if (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
-				log.Infof("Shutting down node %s", nodeConfig.Compute.HostName)
-                                if err = shutdownServer(nodeConfig, sshUser, sshPrivateKey); err != nil {
-		                        meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-		                        return
-                                }
-			} else {
-				log.Infof("Power off node %s", nodeConfig.Compute.HostName)
-				if err = ucsm.StopServer(nodeConfig); err != nil {
+			if operState == "ok" {
+				var harvesterNode rancher.RancherNode
+				if harvesterNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, true); err != nil {
+					err = fmt.Errorf("resourceUpdateHarvesterNode(compute): error: %s", err)
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 					return
 				}
+				if err = harvesterNode.RancherAPINodeEnableMaintainanceMode(meta.(*config.FlexbotConfig).WaitForNodeTimeout); err != nil {
+					err = fmt.Errorf("resourceUpdateHarvesterNode(compute): error: %s", err)
+					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+					return
+				}
+				if (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
+					log.Infof("Shutting down node %s", nodeConfig.Compute.HostName)
+                                	if err = shutdownServer(nodeConfig, sshUser, sshPrivateKey); err != nil {
+		                        	meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+		                        	return
+                                	}
+				}
+			}
+			log.Infof("Power off node %s", nodeConfig.Compute.HostName)
+			if err = ucsm.StopServer(nodeConfig); err != nil {
+				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+				return
 			}
 		}
 		if (nodeConfig.ChangeStatus & ChangeBladeSpec) > 0 {
@@ -397,6 +400,17 @@ func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 					return
 				}
+			}
+			var harvesterNode rancher.RancherNode
+			if harvesterNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, true); err != nil {
+				err = fmt.Errorf("resourceUpdateHarvesterNode(compute): error: %s", err)
+				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+				return
+			}
+			if err = harvesterNode.RancherAPINodeDisableMaintainanceMode(meta.(*config.FlexbotConfig).WaitForNodeTimeout); err != nil {
+				err = fmt.Errorf("resourceUpdateHarvesterNode(compute): error: %s", err)
+				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+				return
 			}
 		}
 	}
@@ -433,6 +447,28 @@ func resourceDeleteHarvesterNode(ctx context.Context, d *schema.ResourceData, me
 	}
 	if powerState == "up" && operState == "ok" && compute["safe_removal"].(bool) {
 		diags = diag.FromErr(fmt.Errorf("resourceDeleteHarvesterNode(): node %s has power state up", nodeConfig.Compute.HostName))
+		return
+	}
+	var harvesterNode rancher.RancherNode
+	if harvesterNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, false); err != nil {
+		err = fmt.Errorf("resourceDeleteHarvesterNode(): error: %s", err)
+		diags = diag.FromErr(err)
+		return
+	}
+	if powerState == "up" && operState == "ok" {
+		if err = harvesterNode.RancherAPINodeGetID(d, meta); err == nil {
+			if err = harvesterNode.RancherAPINodeWaitUntilReady(CheckNodeReadyTimeout); err == nil {
+				if err = harvesterNode.RancherAPINodeEnableMaintainanceMode(meta.(*config.FlexbotConfig).WaitForNodeTimeout); err != nil {
+					err = fmt.Errorf("resourceDeleteHarvesterNode(): error: %s", err)
+					diags = diag.FromErr(err)
+					return
+				}
+			}
+		}
+	}
+	if err = harvesterNode.RancherAPINodeDelete(); err != nil {
+		err = fmt.Errorf("resourceDeleteHarvesterNode(): error: %s", err)
+		diags = diag.FromErr(err)
 		return
 	}
 	if powerState == "up" {

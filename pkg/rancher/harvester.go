@@ -21,7 +21,6 @@ type HarvesterNode struct {
 }
 
 func HarvesterAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node *HarvesterNode, err error) {
-	var resp *HarvesterResponse
         node = &HarvesterNode{
 	        NodeConfig:       nodeConfig,
 	}
@@ -44,51 +43,42 @@ func HarvesterAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig
 		var harvesterNode *corev1.Node
 		giveupTime := time.Now().Add(time.Second * time.Duration(meta.(*config.FlexbotConfig).WaitForNodeTimeout))
 		for time.Now().Before(giveupTime) {
-			if resp, harvesterNode, err = node.HarvesterClient.GetNode(nodeConfig.Compute.HostName); err != nil {
-			        if resp.ErrorResponse.Status != 404 {
-				        return
-				}
+			var ready bool
+			if ready, err = node.HarvesterClient.IsNodeReady(nodeConfig.Compute.HostName); err != nil {
+				return
 			}
-			if err == nil && harvesterNode != nil {
-				if node.HarvesterClient.IsNodeReady(harvesterNode) {
+			if ready {
+				if _, harvesterNode, err = node.HarvesterClient.GetNode(nodeConfig.Compute.HostName); err == nil {
 					node.NodeID = string(harvesterNode.ObjectMeta.UID)
-					return
 				}
+				return
 			}
 			time.Sleep(harvesterWait4State * time.Second)
 		}
-	        if err == nil && len(node.NodeID) == 0 {
-			if harvesterNode == nil {
-				err = fmt.Errorf("HarvesterAPIInitialize(): node \"%s\" is not found after %d timeout", nodeConfig.Compute.HostName, meta.(*config.FlexbotConfig).WaitForNodeTimeout)
-			} else {
-				err = fmt.Errorf("HarvesterAPIInitialize(): node \"%s\" is not ready after %d timeout", nodeConfig.Compute.HostName, meta.(*config.FlexbotConfig).WaitForNodeTimeout)
-			}
-	        }
+		err = fmt.Errorf("HarvesterAPIInitialize(): node \"%s\" is not ready after %d timeout", nodeConfig.Compute.HostName, meta.(*config.FlexbotConfig).WaitForNodeTimeout)
 	}
 	return
 }
 
 func (node *HarvesterNode) RancherAPINodeGetID(d *schema.ResourceData, meta interface{}) (err error) {
 	var harvesterNode *corev1.Node
-	if node.HarvesterClient != nil {
-		if _, harvesterNode, err = node.HarvesterClient.GetNode(node.NodeConfig.Compute.HostName); err == nil {
-			node.NodeID = string(harvesterNode.ObjectMeta.UID)
-		}
+	if node.HarvesterClient == nil {
+		return
+	}
+	if _, harvesterNode, err = node.HarvesterClient.GetNode(node.NodeConfig.Compute.HostName); err == nil {
+		node.NodeID = string(harvesterNode.ObjectMeta.UID)
 	}
         return
 }
 
 func (node *HarvesterNode) RancherAPINodeWaitUntilReady(timeout int) (err error) {
-	var harvesterNode *corev1.Node
-	if err = node.HarvesterClient.NodeEnableMaintainanceMode(node.NodeConfig.Compute.HostName); err != nil {
+	if node.HarvesterClient == nil {
 		return
 	}
 	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 	for time.Now().Before(giveupTime) {
-		if _, harvesterNode, err = node.HarvesterClient.GetNode(node.NodeConfig.Compute.HostName); err != nil {
-			return
-		}
-		if node.HarvesterClient.IsNodeReady(harvesterNode) {
+		var ready bool
+		if ready, err = node.HarvesterClient.IsNodeReady(node.NodeConfig.Compute.HostName); err != nil || ready {
 			return
 		}
 		time.Sleep(harvesterWait4State * time.Second)
@@ -98,16 +88,16 @@ func (node *HarvesterNode) RancherAPINodeWaitUntilReady(timeout int) (err error)
 }
 
 func (node *HarvesterNode) RancherAPINodeEnableMaintainanceMode(timeout int) (err error) {
-	var harvesterNode *corev1.Node
-	if err = node.HarvesterClient.NodeEnableMaintainanceMode(node.NodeConfig.Compute.HostName); err != nil {
+	if node.HarvesterClient == nil {
 		return
 	}
 	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 	for time.Now().Before(giveupTime) {
-		if _, harvesterNode, err = node.HarvesterClient.GetNode(node.NodeConfig.Compute.HostName); err != nil {
+		var maintainance bool
+		if maintainance, err = node.HarvesterClient.IsNodeInMaintainanceMode(node.NodeConfig.Compute.HostName); err != nil || maintainance {
 			return
 		}
-		if node.HarvesterClient.IsNodeInMaintainanceMode(harvesterNode) {
+		if err = node.HarvesterClient.NodeEnableMaintainanceMode(node.NodeConfig.Compute.HostName); err != nil {
 			return
 		}
 		time.Sleep(harvesterWait4State * time.Second)
@@ -117,16 +107,16 @@ func (node *HarvesterNode) RancherAPINodeEnableMaintainanceMode(timeout int) (er
 }
 
 func (node *HarvesterNode) RancherAPINodeDisableMaintainanceMode(timeout int) (err error) {
-	var harvesterNode *corev1.Node
-	if err = node.HarvesterClient.NodeDisableMaintainanceMode(node.NodeConfig.Compute.HostName); err != nil {
+	if node.HarvesterClient == nil {
 		return
 	}
 	giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
 	for time.Now().Before(giveupTime) {
-		if _, harvesterNode, err = node.HarvesterClient.GetNode(node.NodeConfig.Compute.HostName); err != nil {
+		var maintainance bool
+		if maintainance, err = node.HarvesterClient.IsNodeInMaintainanceMode(node.NodeConfig.Compute.HostName); err != nil || !maintainance {
 			return
 		}
-		if !node.HarvesterClient.IsNodeInMaintainanceMode(harvesterNode) {
+		if err = node.HarvesterClient.NodeDisableMaintainanceMode(node.NodeConfig.Compute.HostName); err != nil {
 			return
 		}
 		time.Sleep(harvesterWait4State * time.Second)
@@ -148,6 +138,10 @@ func (node *HarvesterNode) RancherAPINodeWaitForGracePeriod(timeout int) (err er
 }
 
 func (node *HarvesterNode) RancherAPINodeDelete() (err error) {
+	if node.HarvesterClient == nil {
+		return
+	}
+	err = node.HarvesterClient.DeleteNode(node.NodeConfig.Compute.HostName)
         return
 }
 

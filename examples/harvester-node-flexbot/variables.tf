@@ -54,11 +54,12 @@ variable "node_config" {
   })
 }
 
-variable "cluster_config" {
+variable "harvester_config" {
   type = object({
     cluster_token = string
     cluster_vip_addr = string
     rancher_password = string
+    harvester_api_token = string
   })
 }
 

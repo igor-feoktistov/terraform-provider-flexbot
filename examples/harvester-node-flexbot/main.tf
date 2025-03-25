@@ -27,6 +27,16 @@ provider "flexbot" {
       api_method = var.node_config.storage.api_method
     }
   }
+  rancher_api {
+    enabled = true
+    provider = "harvester"
+    api_url = "https://${var.harvester_config.cluster_vip_addr}"
+    token_key = var.harvester_config.harvester_api_token
+    insecure = true
+    retries = 12
+    wait_for_node_timeout = 1800
+  }
+
 }
 
 # nodes
@@ -100,9 +110,9 @@ resource "flexbot_harvester_node" "node" {
   # Arguments for cloud-init template
   cloud_args = {
     ssh_pub_key = var.node_config.compute.ssh_public_key
-    cluster_token = var.cluster_config.cluster_token
-    rancher_password = var.cluster_config.rancher_password
-    cluster_vip_addr = var.cluster_config.cluster_vip_addr
+    cluster_token = var.harvester_config.cluster_token
+    rancher_password = var.harvester_config.rancher_password
+    cluster_vip_addr = var.harvester_config.cluster_vip_addr
     node_role = each.value.node_role
   }
 }
