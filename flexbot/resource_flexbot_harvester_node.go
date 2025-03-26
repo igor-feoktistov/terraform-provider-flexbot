@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	ServerBootTimeout = 300
+	ServerBootTimeout = 600
 	ServerPowerStateTimeout = 60
 	HarvesterInstallerStage1Timeout = 1800
 	HarvesterInstallerStage2Timeout = 1800
@@ -261,8 +261,6 @@ func resourceUpdateHarvesterNode(ctx context.Context, d *schema.ResourceData, me
 	d.Partial(false)
         meta.(*config.FlexbotConfig).Sync.Unlock()
 	return
-
-	return
 }
 
 func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
@@ -422,6 +420,154 @@ func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}
 }
 
 func resourceUpdateHarvesterNodeStorage(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
+	var powerState, operState, sshPrivateKey string
+        meta.(*config.FlexbotConfig).Sync.Lock()
+	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
+	oldStorage, newStorage := d.GetChange("storage")
+        meta.(*config.FlexbotConfig).Sync.Unlock()
+	sshUser := compute["ssh_user"].(string)
+	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
+		err = fmt.Errorf("resourceUpdateHarvesterNode(storage): failure: %s", err)
+		return
+	}
+	oldBootstrapLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["bootstrap_lun"].([]interface{})[0].(map[string]interface{})
+	newBootstrapLun := (newStorage.([]interface{})[0].(map[string]interface{}))["bootstrap_lun"].([]interface{})[0].(map[string]interface{})
+	oldBootLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
+	newBootLun := (newStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
+	oldSeedLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["seed_lun"].([]interface{})[0].(map[string]interface{})
+	newSeedLun := (newStorage.([]interface{})[0].(map[string]interface{}))["seed_lun"].([]interface{})[0].(map[string]interface{})
+	if oldBootstrapLun["os_image"].(string) != newBootstrapLun["os_image"].(string) ||
+		oldBootLun["size"].(int) != newBootLun["size"].(int) ||
+		oldSeedLun["seed_template"].(string) != newSeedLun["seed_template"].(string) {
+		if oldBootstrapLun["os_image"].(string) != newBootstrapLun["os_image"].(string) || oldBootLun["size"].(int) != newBootLun["size"].(int) {
+			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeOsImage
+		}
+		if oldSeedLun["seed_template"].(string) != newSeedLun["seed_template"].(string) {
+			nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangeSeedTemplate
+		}
+		log.Infof("Updating Harvester Storage image for node %s", nodeConfig.Compute.HostName)
+		err = meta.(*config.FlexbotConfig).UpdateManagerAcquire()
+		defer meta.(*config.FlexbotConfig).UpdateManagerRelease()
+		if err != nil {
+			err = fmt.Errorf("resourceUpdateHarvesterNode(storage): last resource instance update returned error: %s", err)
+			return
+		}
+		if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		if operState, err = ucsm.GetServerOperationalState(nodeConfig); err != nil {
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		nodeConfig.Storage.BootLun.OsImage.Name = newBootstrapLun["os_image"].(string)
+		nodeConfig.Storage.SeedLun.SeedTemplate.Location = newSeedLun["seed_template"].(string)
+		log.Infof("Running harvester storage preflight check")
+		if err = ontap.CreateHarvesterStoragePreflight(nodeConfig); err != nil {
+			err = fmt.Errorf("resourceUpdateHarvesterNode(storage): harvester storage preflight check error: %s", err)
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		log.Infof("Running seed storage preflight check")
+		if err = ontap.CreateSeedStoragePreflight(nodeConfig); err != nil {
+			err = fmt.Errorf("resourceUpdateHarvesterNode(storage): seed storage preflight check error: %s", err)
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		var harvesterNode rancher.RancherNode
+		if harvesterNode, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, false); err != nil {
+			err = fmt.Errorf("resourceUpdateHarvesterNode(storage): error: %s", err)
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		if powerState == "up" && operState == "ok" {
+			if compute["safe_removal"].(bool) {
+				err = fmt.Errorf("resourceUpdateHarvesterNode(storage): harvester node %s has power state up", nodeConfig.Compute.HostName)
+				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+				return
+			}
+			if err = harvesterNode.RancherAPINodeGetID(d, meta); err == nil {
+				if err = harvesterNode.RancherAPINodeWaitUntilReady(CheckNodeReadyTimeout); err == nil {
+					if err = harvesterNode.RancherAPINodeEnableMaintainanceMode(meta.(*config.FlexbotConfig).WaitForNodeTimeout); err != nil {
+						err = fmt.Errorf("resourceUpdateHarvesterNode(storage): error: %s", err)
+						meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+						return
+					}
+				}
+			}
+		}
+		if err = harvesterNode.RancherAPINodeDelete(); err != nil {
+			err = fmt.Errorf("resourceUpdateHarvesterNode(storage): error: %s", err)
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		if powerState == "up" {
+			log.Infof("Power off harvester node %s", nodeConfig.Compute.HostName)
+			if err = ucsm.StopServer(nodeConfig); err != nil {
+				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+				return
+			}
+		}
+		log.Infof("Re-provision Storage for harvester node %s", nodeConfig.Compute.HostName)
+		for i := 0; i < StorageRetryAttempts; i++ {
+			if err = ontap.DeleteHarvesterStorage(nodeConfig); err == nil {
+				if err = ontap.CreateHarvesterStorage(nodeConfig); err == nil {
+					if err = ontap.CreateSeedStorage(nodeConfig); err == nil {
+						break
+					}
+				}
+				time.Sleep(StorageRetryTimeout * time.Second)
+				ontap.DeleteHarvesterStorage(nodeConfig)
+				time.Sleep(time.Duration(StorageRetryTimeout * (i + 1)) * time.Second)
+			}
+		}
+		if err != nil {
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		log.Infof("Power on harvester node %s", nodeConfig.Compute.HostName)
+		if err = ucsm.StartServer(nodeConfig); err != nil {
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		if err = waitForHostNetwork(nodeConfig, ServerBootTimeout); err != nil {
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+			return
+		}
+		if err = waitForOperationalState(nodeConfig, "power-off", HarvesterInstallerStage1Timeout); err == nil {
+			ucsm.StopServer(nodeConfig)
+			if err = waitForPowerState(nodeConfig, "down", ServerPowerStateTimeout); err == nil {
+				if err = ontap.RemapHarvesterStorage(nodeConfig); err == nil {
+					err = ucsm.StartServer(nodeConfig)
+					if err == nil && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
+						waitForSshTimeout := HarvesterInstallerStage2Timeout
+						if compute["wait_for_ssh_timeout"].(int) > 0 {
+							waitForSshTimeout = compute["wait_for_ssh_timeout"].(int)
+						}
+						if err = waitForSSH(nodeConfig, waitForSshTimeout, sshUser, sshPrivateKey); err == nil {
+							for _, cmd := range compute["ssh_node_init_commands"].([]interface{}) {
+								var cmdOutput string
+								log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
+								if cmdOutput, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, cmd.(string)); err != nil {
+									break
+								}
+								if len(cmdOutput) > 0 && log.IsLevelEnabled(log.DebugLevel) {
+									log.Debugf("Completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		if err == nil {
+			_, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, true)
+		}
+		if err != nil {
+			err = fmt.Errorf("resourceUpdateHarvesterNode(storage): error: %s", err)
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+		}
+	}
 	return
 }
 
