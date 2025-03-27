@@ -1,0 +1,136 @@
+#!/bin/sh
+
+netlen_to_netmask() {
+    mask=`echo $((4294967295 ^ (1 << (32 - $1)) - 1))`
+    echo "$((($mask >> 24) % 256 )).$(( ($mask >> 16) % 256 )).$(( ($mask >> 8) % 256 )).$(($mask % 256 ))"
+}
+
+if [ ! -e /oem/harvester.config ]; then
+    RANCHER_OS_PASSWORD='{{index .CloudArgs "rancher_password"}}'
+    INSTALL_MGMT_IF_NAME=`ip -br link | awk 'toupper($3) ~ /{{(index .Network.Node 0).Macaddr}}/ {print $1}'`
+    INSTALL_MGMT_IF_NETMASK=$(netlen_to_netmask {{(index .Network.Node 0).NetLen}})
+    INSTALL_DEVICE=/dev/`lsblk -d -o NAME,SIZE | sed -n "s/^\(sd.\).*{{.Storage.BootLun.Size}}G$/\1/p" | head -n1`
+    cat <<EOF > /var/tmp/harvester-cloudconfig.yaml
+scheme_version: 1
+server_url: https://{{index .CloudArgs "cluster_vip_addr"}}:443
+token: {{index .CloudArgs "cluster_token"}}
+os:
+    hostname: {{.Compute.HostName}}
+    ntp_servers:
+        - 0.suse.pool.ntp.org
+    dns_nameservers:
+    {{- if (index .Network.Node 0).DnsServer1}}
+        - {{(index .Network.Node 0).DnsServer1}}
+    {{- end}}
+    {{- if (index .Network.Node 0).DnsServer2}}
+        - {{(index .Network.Node 0).DnsServer2}}
+    {{- end}}
+    {{- if (index .Network.Node 0).DnsServer3}}
+        - {{(index .Network.Node 0).DnsServer3}}
+    {{- end}}
+    password: ${RANCHER_OS_PASSWORD}
+    ssh_authorized_keys:
+      - {{index .CloudArgs "ssh_pub_key"}}
+      - {{index .CloudArgs "ssh_pub_key_ecdsa"}}
+    externalStorageConfig:
+        enabled: true
+        multiPathConfig:
+            - vendor: NETAPP
+              product: LUN.*
+    additionalKernelArguments: rd.iscsi.firmware rd.iscsi.ibft
+    write_files:
+      - path: /oem/91_iscsi_multipath.yaml
+        content: |
+          name: iSCSI multipath configuration
+          stages:
+            network.before:
+              - files:
+                  - path: /etc/iscsi/initiatorname.iscsi
+                    permissions: 493
+                    owner: 0
+                    group: 0
+                    content: |-
+                      InitiatorName={{(index .Network.IscsiInitiator 0).InitiatorName}}
+                    encoding: ""
+                    ownerstring: ""
+                  - path: /etc/multipath.conf
+                    permissions: 493
+                    owner: 0
+                    group: 0
+                    content: |-
+                      defaults {
+                        find_multipaths      yes
+                        user_friendly_names  no
+                        no_path_retry        queue
+                        queue_without_daemon no
+                        flush_on_last_del    yes
+                        max_fds              max
+                        dev_loss_tmo         infinity
+                        fast_io_fail_tmo     5
+                        rr_min_io            128
+                      }
+                      blacklist {
+                        device {
+                          vendor "!NETAPP"
+                          product "!LUN.*"
+                        }
+                      }
+                      devices {
+                        device {
+                          vendor                     "NETAPP"
+                          product                    "LUN.*"
+                          path_grouping_policy       "group_by_prio"
+                          path_checker               "tur"
+                          features                   "3 queue_if_no_path pg_init_retries 50"
+                          hardware_handler           "1 alua"
+                          prio                       "alua"
+                          failback                   immediate
+                          rr_weight                  "uniform"
+                          rr_min_io                  128
+                          flush_on_last_del          "yes"
+                          dev_loss_tmo               "infinity"
+                          user_friendly_names        no
+                          retain_attached_hw_handler yes
+                          detect_prio                yes
+                        }
+                      }
+                    encoding: ""
+                    ownerstring: ""
+            network.after:
+              - commands:
+                  - systemctl restart iscsid
+                  - iscsiadm --mode discoverydb --type sendtargets --portal {{index ((index .Network.IscsiInitiator 0).IscsiTarget.Interfaces) 0}}:3260 --discover --login all
+install:
+    mode: join
+    automatic: false
+    skipchecks: true
+    management_interface:
+        interfaces:
+            - name: ${INSTALL_MGMT_IF_NAME}
+              hwAddr: {{(index .Network.Node 0).Macaddr}}
+        method: static
+        ip: {{(index .Network.Node 0).Ip}}
+        subnet_mask: ${INSTALL_MGMT_IF_NETMASK}
+        gateway: {{(index .Network.Node 0).Gateway}}
+        bond_options:
+            miimon: "100"
+            mode: active-backup
+        mtu: 0
+        vlan_id: 0
+    force_efi: false
+    force_mbr: false
+    device: ${INSTALL_DEVICE}
+    silent: true
+    poweroff: true
+    no_format: false
+    debug: false
+    tty: tty1
+    role: {{index .CloudArgs "node_role"}}
+    with_net_images: false
+    wipedisks: false
+    persistent_partition_size: 150Gi
+harvesterChartVersion: 1.4.1
+system_settings:
+    ntp-servers: '{"ntpServers":["0.suse.pool.ntp.org"]}'
+EOF
+fi

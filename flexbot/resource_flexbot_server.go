@@ -1,13 +1,10 @@
 package flexbot
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"golang.org/x/crypto/ssh"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -19,30 +16,6 @@ import (
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ontap"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/ucsm"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/rancher"
-	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/util/crypt"
-)
-
-// Default timeouts
-const (
-	NodeRestartTimeout = 600
-	NodeGraceShutdownTimeout = 60
-	NodeGracePowerOffTimeout = 10
-	StorageRetryAttempts = 5
-	StorageRetryTimeout = 15
-)
-
-// Change status definition while update routine
-const (
-	ChangeBladeSpec       = 1
-	ChangePowerState      = 2
-	ChangeSnapshotCreate  = 4
-	ChangeSnapshotDelete  = 8
-	ChangeSnapshotRestore = 16
-	ChangeOsImage         = 32
-	ChangeSeedTemplate    = 64
-	ChangeBootDiskSize    = 128
-	ChangeDataDiskSize    = 256
-	ChangeDataDisk        = 512
 )
 
 func resourceFlexbotServer() *schema.Resource {
@@ -68,7 +41,7 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	var errs []error
 	var nodeConfig *config.NodeConfig
 	var sshPrivateKey string
-	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
+	if nodeConfig, err = setFlexbotServerInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
 		return
 	}
@@ -227,7 +200,7 @@ func resourceCreateServer(ctx context.Context, d *schema.ResourceData, meta inte
 func resourceReadServer(ctx context.Context, d *schema.ResourceData, meta interface{}) (diags diag.Diagnostics) {
 	var err error
 	var nodeConfig *config.NodeConfig
-	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
+	if nodeConfig, err = setFlexbotServerInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
 		return
 	}
@@ -271,7 +244,7 @@ func resourceUpdateServer(ctx context.Context, d *schema.ResourceData, meta inte
 	var nodeLabels map[string]string
 	var nodeTaints []v1.Taint
 	var isNew, isSnapshot, isCompute, isStorage, isLabels, isTaints, isRestore, isMaintenance bool
-	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
+	if nodeConfig, err = setFlexbotServerInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
 		return
 	}
@@ -1122,7 +1095,7 @@ func resourceDeleteServer(ctx context.Context, d *schema.ResourceData, meta inte
 	var err error
 	var powerState string
 	var nodeConfig *config.NodeConfig
-	if nodeConfig, err = setFlexbotInput(d, meta); err != nil {
+	if nodeConfig, err = setFlexbotServerInput(d, meta); err != nil {
 		diags = diag.FromErr(err)
 		return
 	}
@@ -1215,7 +1188,7 @@ func resourceImportServer(ctx context.Context, d *schema.ResourceData, meta inte
 	return schema.ImportStatePassthroughContext(ctx, d, meta)
 }
 
-func setFlexbotInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.NodeConfig, err error) {
+func setFlexbotServerInput(d *schema.ResourceData, meta interface{}) (nodeConfig *config.NodeConfig, err error) {
 	meta.(*config.FlexbotConfig).Sync.Lock()
 	defer meta.(*config.FlexbotConfig).Sync.Unlock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
@@ -1503,146 +1476,4 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	d.Set("storage", []interface{}{storage})
 	d.Set("labels", labels)
 	d.Set("taints", taints)
-}
-
-func decryptAttribute(meta interface{}, encrypted string) (decrypted string, err error) {
-	meta.(*config.FlexbotConfig).Sync.Lock()
-	defer meta.(*config.FlexbotConfig).Sync.Unlock()
-	if decrypted, err = crypt.DecryptString(encrypted, meta.(*config.FlexbotConfig).FlexbotProvider.Get("pass_phrase").(string)); err != nil {
-		err = fmt.Errorf("decryptAttribute(): failure to decrypt: %s", err)
-	}
-	return
-}
-
-func createSnapshot(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey string, snapshotName string) (err error) {
-	var filesystems, freezeCmds, unfreezeCmds, errs []string
-	var signer ssh.Signer
-	var conn *ssh.Client
-	var sess *ssh.Session
-	var bStdout, bStderr bytes.Buffer
-	var exists bool
-	if exists, err = ontap.SnapshotExists(nodeConfig, snapshotName); exists || err != nil {
-		return
-	}
-	if signer, err = ssh.ParsePrivateKey([]byte(sshPrivateKey)); err != nil {
-		err = fmt.Errorf("createSnapshot(): failed to parse SSH private key: %s", err)
-		return
-	}
-	config := &ssh.ClientConfig{
-		User: sshUser,
-		Auth: []ssh.AuthMethod{
-			ssh.PublicKeys(signer),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-	if conn, err = ssh.Dial("tcp", nodeConfig.Network.Node[0].Ip+":22", config); err != nil {
-		err = fmt.Errorf("createSnapshot(): failed to connect to host %s: %s", nodeConfig.Network.Node[0].Ip, err)
-		return
-	}
-	defer conn.Close()
-	if sess, err = conn.NewSession(); err != nil {
-		err = fmt.Errorf("createSnapshot(): failed to create SSH session: %s", err)
-		return
-	}
-	sess.Stdout = &bStdout
-	sess.Stderr = &bStderr
-	err = sess.Run(`cat /proc/mounts | sed -n 's/^\/dev\/mapper\/[^ ]\+[ ]\+\(\/[^ \/]\{1,64\}\).*/\1/p' | uniq`)
-	sess.Close()
-	if err != nil {
-		err = fmt.Errorf("createSnapshot(): failed to run command: %s: %s", err, bStderr.String())
-		return
-	}
-	if bStdout.Len() > 0 {
-		filesystems = strings.Split(strings.Trim(bStdout.String(), "\n"), "\n")
-	}
-	unfreezeCmds = append(unfreezeCmds, "fsfreeze -u /")
-	for _, fs := range filesystems {
-		freezeCmds = append(freezeCmds, "fsfreeze -f "+fs)
-		unfreezeCmds = append(unfreezeCmds, "fsfreeze -u "+fs)
-	}
-	freezeCmds = append(freezeCmds, "fsfreeze -f /")
-	cmd := fmt.Sprintf(`sudo -n sh -c 'sync && sleep 5 && sync && %s && (echo -n frozen && sleep 5); %s'`, strings.Join(freezeCmds, " && "), strings.Join(unfreezeCmds, "; "))
-	if sess, err = conn.NewSession(); err != nil {
-		err = fmt.Errorf("createSnapshot(): failed to create SSH session: %s", err)
-		return
-	}
-	defer sess.Close()
-	bStdout.Reset()
-	bStderr.Reset()
-	sess.Stdout = &bStdout
-	sess.Stderr = &bStderr
-	if err = sess.Start(cmd); err != nil {
-		err = fmt.Errorf("createSnapshot(): failed to start SSH command: %s", err)
-		return
-	}
-	for i := 0; i < 30; i++ {
-		if bStdout.Len() > 0 {
-			break
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-	if bStdout.String() == "frozen" {
-		if err = ontap.CreateSnapshot(nodeConfig, snapshotName, ""); err != nil {
-			errs = append(errs, err.Error())
-		}
-	} else {
-		errs = append(errs, "fsfreeze did not complete, snapshot is not created")
-	}
-	if err = sess.Wait(); err != nil {
-		errs = append(errs, fmt.Sprintf("failed to run SSH command: %s: %s", err, bStderr.String()))
-	}
-	if err != nil {
-		err = fmt.Errorf("createSnapshot(): %s", strings.Join(errs, " , "))
-	}
-	return
-}
-
-func waitForSSH(nodeConfig *config.NodeConfig, waitForSSHTimeout int, sshUser string, sshPrivateKey string) (err error) {
-	giveupTime := time.Now().Add(time.Second * time.Duration(waitForSSHTimeout))
-	restartTime := time.Now().Add(time.Second * NodeRestartTimeout)
-	for time.Now().Before(giveupTime) {
-		if checkSSHListen(nodeConfig.Network.Node[0].Ip) {
-			if len(sshUser) > 0 && len(sshPrivateKey) > 0 {
-				stabilazeTime := time.Now().Add(time.Second * 60)
-				for time.Now().Before(stabilazeTime) {
-					if err = checkSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey); err == nil {
-						break
-					}
-					time.Sleep(5 * time.Second)
-				}
-			}
-			if err == nil {
-				break
-			}
-		}
-		time.Sleep(5 * time.Second)
-		if time.Now().After(restartTime) {
-			ucsm.StopServer(nodeConfig)
-			ucsm.StartServer(nodeConfig)
-			restartTime = time.Now().Add(time.Second * NodeRestartTimeout)
-		}
-	}
-	if time.Now().After(giveupTime) && err != nil {
-		err = fmt.Errorf("waitForSsh(): exceeded timeout %d: %s", waitForSSHTimeout, err)
-	}
-	return
-}
-
-func shutdownServer(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey string) (err error) {
-        var powerState string
-        // Trying graceful node shutdown
-	if _, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, "sudo shutdown -h 0"); err == nil {
-	        waitForShutdown := time.Now().Add(time.Second * time.Duration(NodeGraceShutdownTimeout))
-	        for time.Now().Before(waitForShutdown) {
-	                if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
-			        return
-		        }
-		        if powerState == "down" {
-		                break
-		        }
-		        time.Sleep(5 * time.Second)
-	        }
-	}
-	err = ucsm.StopServer(nodeConfig)
-        return
 }

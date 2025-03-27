@@ -33,7 +33,7 @@ type RkApiNode struct {
 	NodeWorker       bool
 }
 
-func RkApiInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node *RkApiNode, err error) {
+func RkAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForNode bool) (node *RkApiNode, err error) {
 	rancherConfig := meta.(*config.FlexbotConfig).RancherConfig
         node = &RkApiNode{
 	        NodeConfig:       nodeConfig,
@@ -348,4 +348,16 @@ func (node *RkApiNode) IsProviderRKE1() (bool) {
 
 func (node *RkApiNode) IsProviderRKE2() (bool) {
         return true
+}
+
+func (node *RkApiNode) RancherAPINodeWaitUntilReady(timeout int) (err error) {
+	return
+}
+
+func (node *RkApiNode) RancherAPINodeEnableMaintainanceMode(timeout int) (err error) {
+	return
+}
+
+func (node *RkApiNode) RancherAPINodeDisableMaintainanceMode(timeout int) (err error) {
+	return
 }

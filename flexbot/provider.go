@@ -19,7 +19,7 @@ import (
 
 var (
         // Available rancher_api provides
-        RancherApiProviders = []string{"rancher2", "rke", "rke2", "rk-api"}
+        RancherApiProviders = []string{"rancher2", "rke", "rke2", "rk-api", "harvester"}
 )
 
 // Provider builds schema
@@ -247,11 +247,13 @@ func Provider() *schema.Provider {
 						},
 						"cluster_name": {
 							Type:     schema.TypeString,
-							Required: true,
+							Optional: true,
+							Default:  "",
 						},
 						"cluster_id": {
 							Type:     schema.TypeString,
-							Required: true,
+							Optional: true,
+							Default:  "",
 						},
 						"wait_for_node_timeout": {
 							Optional: true,
@@ -303,6 +305,7 @@ func Provider() *schema.Provider {
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"flexbot_server": resourceFlexbotServer(),
+			"flexbot_harvester_node": resourceFlexbotHarvesterNode(),
 			"flexbot_repo":   resourceFlexbotRepo(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
@@ -356,13 +359,16 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	d.Set("pass_phrase", passPhrase)
 	if len(d.Get("rancher_api").([]interface{})) > 0 {
 		rancherAPI := d.Get("rancher_api").([]interface{})[0].(map[string]interface{})
-		ignoreDaemonSets := rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["ignore_daemon_sets"].(bool)
-		nodeDrainInput := &config.NodeDrainInput{
-			Force:            rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["force"].(bool),
-			IgnoreDaemonSets: &ignoreDaemonSets,
-			DeleteLocalData:  rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["delete_local_data"].(bool),
-			GracePeriod:      int64(rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["grace_period"].(int)),
-			Timeout:          int64(rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["timeout"].(int)),
+		var nodeDrainInput *config.NodeDrainInput
+		if len(rancherAPI["drain_input"].([]interface{})) > 0 {
+			ignoreDaemonSets := rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["ignore_daemon_sets"].(bool)
+			nodeDrainInput = &config.NodeDrainInput{
+				Force:            rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["force"].(bool),
+				IgnoreDaemonSets: &ignoreDaemonSets,
+				DeleteLocalData:  rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["delete_local_data"].(bool),
+				GracePeriod:      int64(rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["grace_period"].(int)),
+				Timeout:          int64(rancherAPI["drain_input"].([]interface{})[0].(map[string]interface{})["timeout"].(int)),
+			}
 		}
 		var tokenKey, decrypted string
 		var serverCAData, clientCertData, clientKeyData []byte

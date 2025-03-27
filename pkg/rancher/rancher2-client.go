@@ -374,11 +374,12 @@ func (client *Rancher2Client) NodeCordonDrain(nodeID string, nodeDrainInput *man
 	_, ok = node.Actions["drain"]
 	if ok {
 		if err = client.Management.Node.ActionDrain(node, nodeDrainInput); err == nil {
-			if err = client.NodeWaitForState(nodeID, "draining,drained", int(nodeDrainInput.Timeout+nodeDrainInput.GracePeriod)); err == nil {
+			if err = client.NodeWaitForState(nodeID, "cordoned,draining,drained", int(nodeDrainInput.Timeout+nodeDrainInput.GracePeriod)); err == nil {
 				if err = client.NodeWaitForState(nodeID, "drained", int(nodeDrainInput.Timeout+nodeDrainInput.GracePeriod)); err != nil {
-				        client.Management.Node.ActionDrain(node, nodeDrainInput)
-				        client.NodeWaitForState(nodeID, "drained", int(nodeDrainInput.Timeout))
-				        return nil
+					if node, err = client.GetNodeByID(nodeID); err == nil {
+						client.Management.Node.ActionStopDrain(node)
+				        	return nil
+					}
 				}
 			}
 		}

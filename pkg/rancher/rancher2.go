@@ -178,7 +178,7 @@ func (node *Rancher2Node) RancherAPINodeCordonDrain() (err error) {
 func (node *Rancher2Node) RancherAPINodeUncordon() (err error) {
 	if node.RancherClient != nil && len(node.NodeID) > 0 {
 		if err = node.RancherClient.ClusterWaitForState(node.ClusterID, "active", Wait4ClusterStateTimeout); err == nil {
-			if err = node.RancherClient.NodeWaitForState(node.NodeID, "active,drained,cordoned", Wait4NodeStateTimeout); err == nil {
+			if err = node.RancherClient.NodeWaitForState(node.NodeID, "active,drained,draining,cordoned", Wait4NodeStateTimeout); err == nil {
 				if err = node.RancherClient.NodeUncordon(node.NodeID); err == nil {
 					err = node.RancherClient.NodeWaitForState(node.NodeID, "active", Wait4NodeStateTimeout)
 				}
@@ -308,4 +308,16 @@ func (node *Rancher2Node) IsProviderRKE1() (bool) {
 
 func (node *Rancher2Node) IsProviderRKE2() (bool) {
         return node.ClusterProvider == "rke2"
+}
+
+func (node *Rancher2Node) RancherAPINodeWaitUntilReady(timeout int) (err error) {
+	return
+}
+
+func (node *Rancher2Node) RancherAPINodeEnableMaintainanceMode(timeout int) (err error) {
+	return
+}
+
+func (node *Rancher2Node) RancherAPINodeDisableMaintainanceMode(timeout int) (err error) {
+	return
 }

@@ -1,3 +1,13 @@
+## 1.12.0 (March 27, 2025)
+
+ENHANCEMENTS:
+* New resource `harvester_node` to build and manage SUSE Harvester nodes
+  * build and manages SUSE Harvester nodes
+  * see provider documentation for more details
+  * see LiveISO [image re-pack instructions](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/docs/guides/harvester_image_requirements.md)
+  * see [Terraform HCL examples](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/harvester-node-flexbot)
+
+
 ## 1.11.1 (November 5, 2024)
 
 ENHANCEMENTS:

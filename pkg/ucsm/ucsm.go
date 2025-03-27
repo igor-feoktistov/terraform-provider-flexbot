@@ -540,3 +540,25 @@ func GetServerPowerState(nodeConfig *config.NodeConfig) (powerState string, err 
 	powerState, err = util.SpGetPowerState(client, spDn)
 	return
 }
+
+// GetServerOperationalState retrievs SP operational state
+func GetServerOperationalState(nodeConfig *config.NodeConfig) (operationalState string, err error) {
+	var client *api.Client
+	var lsServers []*mo.LsServer
+	if client, err = UcsmLogin("https://"+nodeConfig.Compute.UcsmCredentials.Host+"/", nodeConfig.Compute.UcsmCredentials.User, nodeConfig.Compute.UcsmCredentials.Password); err != nil {
+		err = fmt.Errorf("GetServerPowerState: AaaLogin() failure: %s", err)
+		return
+	}
+	defer client.AaaLogout()
+	spDn := nodeConfig.Compute.SpOrg + "/ls-" + nodeConfig.Compute.HostName
+	if lsServers, err = util.ServerGet(client, spDn, "instance"); err != nil {
+		err = fmt.Errorf("GetServerOperationalState(): ServerGet() failure: %s", err)
+		return
+	}
+	if len(lsServers) > 0 {
+		operationalState = lsServers[0].OperState
+	} else {
+		err = fmt.Errorf("GetServerOperationalState(): ServerGet(): service profile %s not found", spDn)
+	}
+	return
+}

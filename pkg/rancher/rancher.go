@@ -25,6 +25,9 @@ type RancherNode interface {
         RancherAPIClusterWaitForState(state string, timeout int) (error)
         RancherAPIClusterWaitForTransitioning(timeout int) (error)
         RancherAPINodeWaitForState(state string, timeout int) (error)
+        RancherAPINodeWaitUntilReady(timeout int) (error)
+        RancherAPINodeEnableMaintainanceMode(timeout int) (error)
+        RancherAPINodeDisableMaintainanceMode(timeout int) (error)
         RancherAPINodeWaitUntilDeleted(timeout int) (error)
         RancherAPINodeWaitForGracePeriod(timeout int) (error)
         RancherAPINodeGetState() (string, error)
@@ -73,7 +76,11 @@ func RancherAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
                         err = fmt.Errorf("Rke2APIInitialize(): error: %s", err)
                 }
 	case "rk-api":
-	        if node, err = RkApiInitialize(d, meta, nodeConfig, waitForNode); err != nil {
+	        if node, err = RkAPIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
+                        err = fmt.Errorf("RkApiInitialize(): error: %s", err)
+                }
+	case "harvester":
+	        if node, err = HarvesterAPIInitialize(d, meta, nodeConfig, waitForNode); err != nil {
                         err = fmt.Errorf("RkApiInitialize(): error: %s", err)
                 }
 	default:
