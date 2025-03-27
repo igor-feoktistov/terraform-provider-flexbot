@@ -15,6 +15,7 @@ Make sure to update respective `terraform.tfvars` files with your own infrastruc
 * [rke-flexbot](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/rke-flexbot) Provisions and manages RKE cluster with bare-metal nodes on FlexPOD.
 * [rancher-server-flexbot](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/rancher-server-flexbot) Provisions Rancher Server on top of RKE cluster.
 * [rancher-workload-cluster-flexbot](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/rancher-workload-cluster-flexbot) Provisions and manages Rancher Custom Cluster.
+* [harvester-node-flexbot](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/harvester-node-flexbot) Provisions and manages SUSE Harvester nodes.
 * [crypt](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples//crypt) Generate encrypted string values for various use cases.
 
 ### Note
