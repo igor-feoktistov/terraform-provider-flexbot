@@ -8,7 +8,28 @@ See [ubuntu-20.04.04-cloud-init.template](./ubuntu-20.04.04-cloud-init.template)
 
 ```hcl
 Compute = { //schema - compute
-  HostName = "k8s-node1" //schema - hostname
+  HostName = "k8s-node1"   //schema - hostname
+  ChassisId = "5"          //schema - chassis_id (computed)
+  Powerstate = "up"        //schema - powerstate
+  Description = "k8s node" //schema - description
+  BladeSpec = {
+    Dn                     //schema - dn
+    Model                  //schema - model
+    Serial                 //schema - serial
+    NumOfCpus              //schema - num_of_cpus
+    NumOfCores             //schema - num_of_cores
+    NumOfThreads           //schema - num_of_threads
+    TotalMemory            //schema - total_memory
+  }
+  BladeAssigned = {
+    Dn                     //schema - dn (computed)
+    Model                  //schema - model (computed)
+    Serial                 //schema - serial (computed)
+    NumOfCpus              //schema - num_of_cpus (computed)
+    NumOfCores             //schema - num_of_cores (computed)
+    NumOfThreads           //schema - num_of_threads (computed)
+    TotalMemory            //schema - total_memory (computed)
+  }
 }
 
 Network = { //schema - network

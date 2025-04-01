@@ -56,6 +56,7 @@ node_config = {
 }
 
 harvester_config = {
+  cluster_name = "onprem-us-east-01-harvester"
   cluster_token = "base64:sd6qWrbV7tdHl<reducted>"
   cluster_vip_addr = "192.168.1.129"
   rancher_password = "base64:zp9qVpaS9udHi<reducted>"
