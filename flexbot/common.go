@@ -105,14 +105,13 @@ func waitForSSH(nodeConfig *config.NodeConfig, waitForSSHTimeout int, sshUser st
 	}
 	if time.Now().After(giveupTime) {
 		if  err == nil {
-			err = fmt.Errorf("waitForSsh(): exceeded timeout %d", waitForSSHTimeout)
+			err = fmt.Errorf("waitForSsh(ip=%s): exceeded timeout %d", nodeConfig.Network.Node[0].Ip, waitForSSHTimeout)
 		} else {
-			err = fmt.Errorf("waitForSsh(): exceeded timeout %d: %s", waitForSSHTimeout, err)
+			err = fmt.Errorf("waitForSsh(ip=%s): exceeded timeout %d: %s", nodeConfig.Network.Node[0].Ip, waitForSSHTimeout, err)
 		}
-	} else {
-		if  err != nil {
-			err = fmt.Errorf("waitForSsh(): %s", err)
-		}
+	}
+	if  err != nil {
+		err = fmt.Errorf("waitForSsh(ip=%s): %s", nodeConfig.Network.Node[0].Ip, err)
 	}
 	return
 }
@@ -140,7 +139,7 @@ func runSSHCommand(sshHost string, sshUser string, sshPrivateKey string, command
 	}
 	defer conn.Close()
 	if sess, err = conn.NewSession(); err != nil {
-		err = fmt.Errorf("runSSHCommand(): failed to create SSH session: %s", err)
+		err = fmt.Errorf("runSSHCommand(host=%s): failed to create SSH session: %s", sshHost, err)
 		return
 	}
 	defer sess.Close()
@@ -148,7 +147,7 @@ func runSSHCommand(sshHost string, sshUser string, sshPrivateKey string, command
 	sess.Stderr = &bStderr
 	err = sess.Run(command)
 	if err != nil {
-		err = fmt.Errorf("runSSHCommand(): failed to run command %s: %s: %s", command, err, bStderr.String())
+		err = fmt.Errorf("runSSHCommand(host=%s): failed to run command %s: %s: %s", sshHost, command, err, bStderr.String())
 		return
 	}
 	if bStdout.Len() > 0 {
@@ -172,7 +171,9 @@ func shutdownServer(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey
 		        time.Sleep(5 * time.Second)
 	        }
 	}
-	err = ucsm.StopServer(nodeConfig)
+	if err = ucsm.StopServer(nodeConfig); err != nil {
+		err = fmt.Errorf("shutdownServer(ip=%s): %s", nodeConfig.Network.Node[0].Ip, err)
+	}
         return
 }
 
@@ -188,7 +189,7 @@ func waitForOperationalState(nodeConfig *config.NodeConfig, state string, waitTi
 		}
 		time.Sleep(5 * time.Second)
 	}
-	err = fmt.Errorf("waitForOperationalState(): exceeded timeout %d, state=%s", waitTimeout, currentState)
+	err = fmt.Errorf("waitForOperationalState(state=%s): exceeded timeout %d, current state=%s", state, waitTimeout, currentState)
 	return
 }
 
@@ -204,7 +205,7 @@ func waitForPowerState(nodeConfig *config.NodeConfig, state string, waitTimeout 
 		}
 		time.Sleep(5 * time.Second)
 	}
-	err = fmt.Errorf("waitForPowerState(): exceeded timeout %d, state=%s", waitTimeout, currentState)
+	err = fmt.Errorf("waitForPowerState(state=%s): exceeded timeout %d, state=%s", state, waitTimeout, currentState)
 	return
 }
 
@@ -216,7 +217,7 @@ func waitForHostNetwork(nodeConfig *config.NodeConfig, waitTimeout int) (err err
 		}
 		time.Sleep(5 * time.Second)
 	}
-	err = fmt.Errorf("waitForHostNetwork(): exceeded timeout %d", waitTimeout)
+	err = fmt.Errorf("waitForHostNetwork(ip=%s): exceeded timeout %d", nodeConfig.Network.Node[0].Ip, waitTimeout)
 	return
 }
 

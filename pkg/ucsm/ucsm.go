@@ -71,6 +71,7 @@ func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) 
 					NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),
 					TotalMemory:  strconv.Itoa(computeBlade.TotalMemory),
 				}
+				nodeConfig.Compute.ChassisId = computeBlade.ChassisId
 				var vnicsEther *[]mo.VnicEther
 				if vnicsEther, err = util.SpGetVnicsEther(client, nodeConfig.Compute.SpDn); err != nil {
 					err = fmt.Errorf("AssignBlade: SpGetVnicsEther() failure: %s", err)
@@ -297,6 +298,7 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 		NumOfThreads: strconv.Itoa(computeBlade.NumOfThreads),
 		TotalMemory:  strconv.Itoa(computeBlade.TotalMemory),
 	}
+	nodeConfig.Compute.ChassisId = computeBlade.ChassisId
 	var vnicsEther *[]mo.VnicEther
 	if vnicsEther, err = util.SpGetVnicsEther(client, nodeConfig.Compute.SpDn); err != nil {
 		err = fmt.Errorf("DiscoverServer: SpGetVnicsEther(): %s", err)

@@ -1367,6 +1367,7 @@ func setFlexbotOutput(d *schema.ResourceData, meta interface{}, nodeConfig *conf
 	} else {
 		compute["blade_assigned"] = append(compute["blade_assigned"].([]interface{}), bladeAssigned)
 	}
+	compute["chassis_id"] = nodeConfig.Compute.ChassisId
 	compute["powerstate"] = nodeConfig.Compute.Powerstate
 	compute["description"] = nodeConfig.Compute.Description
 	compute["label"] = nodeConfig.Compute.Label
