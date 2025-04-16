@@ -53,7 +53,7 @@ type HarvesterErrorResponse struct {
 }
 
 type HarvesterResponse struct {
-	ErrorResponse HarvesterErrorResponse
+	ErrorResponse *HarvesterErrorResponse
 	HttpResponse *http.Response
 }
 
@@ -130,7 +130,7 @@ func (c *HarvesterClient) Do(req *http.Request, v interface{}) (resp *HarvesterR
 		if resp, err = c.checkResp(c.client.Do(req.WithContext(ctx))); err == nil {
 			break
 		}
-		if !(resp.HttpResponse.StatusCode == 429 || resp.HttpResponse.StatusCode == 502 || resp.HttpResponse.StatusCode == 503) {
+		if resp.HttpResponse != nil && !(resp.HttpResponse.StatusCode == 429 || resp.HttpResponse.StatusCode == 502 || resp.HttpResponse.StatusCode == 503) {
 			return
 		}
 		time.Sleep(time.Duration(DO_RETRY_TIMEOUT * (i + 1)) * time.Second)
@@ -168,7 +168,7 @@ func (c *HarvesterClient) checkResp(resp *http.Response, err error) (*HarvesterR
 }
 
 func (c *HarvesterClient) newHTTPError(resp *http.Response) (restResp *HarvesterResponse, err error) {
-	errResponse := HarvesterErrorResponse{}
+	errResponse := &HarvesterErrorResponse{}
 	defer resp.Body.Close()
 	if err = json.NewDecoder(resp.Body).Decode(&errResponse); err == nil && errResponse.Type == "error" {
 		err = fmt.Errorf("HTTP Error: status=%d, code=\"%s\", message=\"%s\"", errResponse.Status, errResponse.Code, errResponse.Message)
@@ -228,7 +228,7 @@ func (c *HarvesterClient) IsNodeReady(nodeName string) (ready bool, err error) {
 	var resp *HarvesterResponse
 	var node *corev1.Node
 	if resp, node, err = c.GetNode(nodeName); err != nil {
-		if resp.ErrorResponse.Status == 404 {
+		if resp.ErrorResponse != nil && resp.ErrorResponse.Status == 404 {
 			err = nil
 		}
 		return
@@ -304,7 +304,7 @@ func (c *HarvesterClient) DeleteNode(nodeName string) (err error) {
 	var resp *HarvesterResponse
 	if err = c.isHarvesterApiReady(); err == nil {
 		if resp, _, err = c.GetNode(nodeName); err != nil {
-			if resp.ErrorResponse.Status == 404 {
+			if resp.ErrorResponse != nil && resp.ErrorResponse.Status == 404 {
 				err = nil
 			}
 		} else {

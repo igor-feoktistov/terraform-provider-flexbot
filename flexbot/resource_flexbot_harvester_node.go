@@ -410,6 +410,14 @@ func resourceUpdateHarvesterNodeCompute(d *schema.ResourceData, meta interface{}
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
+			if meta.(*config.FlexbotConfig).NodeGraceTimeout > 0 {
+				log.Infof("Wait for node %s grace period with timeout %d seconds", nodeConfig.Compute.HostName, meta.(*config.FlexbotConfig).NodeGraceTimeout)
+			        if err = harvesterNode.RancherAPINodeWaitForGracePeriod(meta.(*config.FlexbotConfig).NodeGraceTimeout); err != nil {
+				        err = fmt.Errorf("resourceUpdateHarvesterNode(compute): error: %s", err)
+				        meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+				        return
+				}
+			}
 		}
 	}
 	if (oldCompute.([]interface{})[0].(map[string]interface{}))["description"].(string) != (newCompute.([]interface{})[0].(map[string]interface{}))["description"].(string) ||
@@ -562,6 +570,10 @@ func resourceUpdateHarvesterNodeStorage(d *schema.ResourceData, meta interface{}
 		}
 		if err == nil {
 			_, err = rancher.RancherAPIInitialize(d, meta, nodeConfig, true)
+			if meta.(*config.FlexbotConfig).NodeGraceTimeout > 0 {
+				log.Infof("Wait for node %s grace period with timeout %d seconds", nodeConfig.Compute.HostName, meta.(*config.FlexbotConfig).NodeGraceTimeout)
+			        err = harvesterNode.RancherAPINodeWaitForGracePeriod(meta.(*config.FlexbotConfig).NodeGraceTimeout)
+			}
 		}
 		if err != nil {
 			err = fmt.Errorf("resourceUpdateHarvesterNode(storage): error: %s", err)
@@ -711,6 +723,9 @@ func setFlexbotHarvesterNodeInput(d *schema.ResourceData, meta interface{}) (nod
 		nodeConfig.Compute.BladeSpec.NumOfCores = bladeSpec["num_of_cores"].(string)
 		nodeConfig.Compute.BladeSpec.NumOfThreads = bladeSpec["num_of_threads"].(string)
 		nodeConfig.Compute.BladeSpec.TotalMemory = bladeSpec["total_memory"].(string)
+	}
+	if len(compute["chassis_id"].(string)) > 0 {
+		nodeConfig.Compute.ChassisId = compute["chassis_id"].(string)
 	}
 	storage := d.Get("storage").([]interface{})[0].(map[string]interface{})
 	nodeConfig.Storage.SvmName = storage["svm_name"].(string)

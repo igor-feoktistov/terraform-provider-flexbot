@@ -21,6 +21,14 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 	var fileReader io.Reader
 	var file *os.File
 	var b []byte
+	var calcFuncMap = template.FuncMap {
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"subtract": func(a, b int) int {
+			return a - b
+		},
+	}
 	if strings.HasPrefix(nodeConfig.Storage.SeedLun.SeedTemplate.Location, "http://") || strings.HasPrefix(nodeConfig.Storage.SeedLun.SeedTemplate.Location, "https://") {
 		var httpResponse *http.Response
 		if httpResponse, err = http.Get(nodeConfig.Storage.SeedLun.SeedTemplate.Location); err == nil {
@@ -65,7 +73,7 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 	for _, cloudInitData := range []string{"meta-data", "network-config", "user-data"} {
 		var cloudInitBuf bytes.Buffer
 		var t *template.Template
-		if t, err = template.New(cloudInitData).Parse(string(b)); err != nil {
+		if t, err = template.New(cloudInitData).Funcs(calcFuncMap).Parse(string(b)); err != nil {
 			err = fmt.Errorf("CreateSeedStorage(): failure to parse cloud-init template: %s", err)
 			return
 		}
