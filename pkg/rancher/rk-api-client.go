@@ -315,6 +315,9 @@ func (client *RkApiClient) IsTransientError(err error) (bool) {
 	if strings.Contains(err.Error(), "context deadline exceeded") {
 		return true
 	}
+	if strings.Contains(err.Error(), "error trying to reach service") {
+		return true
+	}
 	return false
 }
 
