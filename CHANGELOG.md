@@ -1,3 +1,11 @@
+## 1.12.1 (April 28, 2025)
+
+ENHANCEMENTS:
+* New computed type attribute `ChassisId` in `node.compute`
+  * exposed in cloud-init template as `{{.Compute.ChassisId}}`
+  * can be set in node labels to be used in workload affinity / anti-affinity rules
+
+
 ## 1.12.0 (March 27, 2025)
 
 ENHANCEMENTS:

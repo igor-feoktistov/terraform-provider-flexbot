@@ -3,6 +3,7 @@ package rancher
 import (
 	"fmt"
 	"time"
+	"math"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/igor-feoktistov/terraform-provider-flexbot/pkg/config"
@@ -134,6 +135,17 @@ func (node *HarvesterNode) RancherAPINodeWaitForState(state string, timeout int)
 }
 
 func (node *HarvesterNode) RancherAPINodeWaitForGracePeriod(timeout int) (err error) {
+	if node.HarvesterClient != nil {
+                giveupTime := time.Now().Add(time.Second * time.Duration(timeout))
+		for time.Now().Before(giveupTime) {
+                        nextTimeout := int(math.Round(time.Until(giveupTime).Seconds()))
+                        if nextTimeout > 0 {
+	                        if err = node.RancherAPINodeWaitUntilReady(nextTimeout); err == nil {
+			                time.Sleep(rancher2Wait4State * time.Second)
+			        }
+			}
+		}
+        }
         return
 }
 

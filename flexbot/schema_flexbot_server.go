@@ -196,6 +196,11 @@ func schemaFlexbotServer() map[string]*schema.Schema {
 							},
 						},
 					},
+					"chassis_id": {
+						Type:     schema.TypeString,
+						Optional: true,
+						Computed: true,
+					},
 					"powerstate": {
 						Type:     schema.TypeString,
 						Optional: true,

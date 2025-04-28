@@ -56,6 +56,7 @@ variable "node_config" {
 
 variable "harvester_config" {
   type = object({
+    cluster_name = string
     cluster_token = string
     cluster_vip_addr = string
     rancher_password = string

@@ -31,6 +31,8 @@ provider "flexbot" {
     enabled = true
     provider = "harvester"
     api_url = "https://${var.harvester_config.cluster_vip_addr}"
+    cluster_name = var.harvester_config.cluster_name
+    cluster_id = var.harvester_config.cluster_name
     token_key = var.harvester_config.harvester_api_token
     insecure = true
     retries = 12
@@ -113,6 +115,7 @@ resource "flexbot_harvester_node" "node" {
     cluster_token = var.harvester_config.cluster_token
     rancher_password = var.harvester_config.rancher_password
     cluster_vip_addr = var.harvester_config.cluster_vip_addr
+    cluster_name = var.harvester_config.cluster_name
     node_role = each.value.node_role
   }
 }

@@ -30,6 +30,8 @@ os:
     password: ${RANCHER_OS_PASSWORD}
     ssh_authorized_keys:
       - {{index .CloudArgs "ssh_pub_key"}}
+    labels:
+      topology.kubernetes.io/zone: {{index .CloudArgs "cluster_name"}}-{{.Compute.ChassisId}}
     externalStorageConfig:
         enabled: true
         multiPathConfig:

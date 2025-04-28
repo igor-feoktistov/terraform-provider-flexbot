@@ -154,6 +154,7 @@ type Compute struct {
 	SpDn            string         `yaml:"spDn,omitempty" json:"spDn,omitempty"`
 	BladeSpec       util.BladeSpec `yaml:"bladeSpec,omitempty" json:"bladeSpec,omitempty"`
 	BladeAssigned   util.BladeSpec `yaml:"bladeAssigned,omitempty" json:"bladeAssigned,omitempty"`
+	ChassisId       string         `yaml:"chassisId,omitempty" json:"chassisId,omitempty"`
 	Powerstate      string         `yaml:"powerState,omitempty" json:"powerState,omitempty"`
 	Description     string         `yaml:"description,omitempty" json:"description,omitempty"`
 	Label           string         `yaml:"label,omitempty" json:"label,omitempty"`
