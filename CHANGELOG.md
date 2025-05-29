@@ -1,3 +1,11 @@
+## 1.12.2 (May 28, 2025)
+
+ENHANCEMENTS:
+* Enhancements to improve resiliency in harvester API calls
+* Added darwin_arm64 provider platform
+* GoLang v1.24
+
+
 ## 1.12.1 (April 1, 2025)
 
 ENHANCEMENTS:

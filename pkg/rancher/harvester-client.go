@@ -130,7 +130,7 @@ func (c *HarvesterClient) Do(req *http.Request, v interface{}) (resp *HarvesterR
 		if resp, err = c.checkResp(c.client.Do(req.WithContext(ctx))); err == nil {
 			break
 		}
-		if resp.HttpResponse != nil && !(resp.HttpResponse.StatusCode == 429 || resp.HttpResponse.StatusCode == 502 || resp.HttpResponse.StatusCode == 503) {
+		if resp.HttpResponse != nil && !(resp.HttpResponse.StatusCode == 429 || resp.HttpResponse.StatusCode == 500 || resp.HttpResponse.StatusCode == 502 || resp.HttpResponse.StatusCode == 503) {
 			return
 		}
 		time.Sleep(time.Duration(DO_RETRY_TIMEOUT * (i + 1)) * time.Second)
@@ -182,6 +182,23 @@ func (c *HarvesterClient) newHTTPError(resp *http.Response) (restResp *Harvester
 	return
 }
 
+// IsTransientError returns true in case of transient error
+func (c *HarvesterClient) IsTransientError(err error) (bool) {
+	if strings.Contains(err.Error(), "connection timed out") {
+		return true
+	}
+	if strings.Contains(err.Error(), "i/o timeout") {
+		return true
+	}
+	if strings.Contains(err.Error(), "handshake timeout") {
+		return true
+	}
+	if strings.Contains(err.Error(), "context deadline exceeded") {
+		return true
+	}
+	return false
+}
+
 // Retry Harvester API probe number of "Retries" attempts or until ready
 func (c *HarvesterClient) isHarvesterApiReady() (err error) {
 	var req *http.Request
@@ -216,7 +233,7 @@ func (c *HarvesterClient) GetNode(nodeName string) (resp *HarvesterResponse, nod
 	if err = c.isHarvesterApiReady(); err == nil {
 		if req, err = c.NewRequest("GET", nodeApi, []string{}, nil); err == nil {
 			if resp, err = c.Do(req, &node); err != nil {
-				err = fmt.Errorf("harvester-client.GetNode() error: %s", err)
+				err = fmt.Errorf("harvester-client.GetNode(node=%s) error: %s", nodeName, err)
 			}
 		}
 	}
@@ -260,19 +277,30 @@ func (c *HarvesterClient) IsNodeInMaintainanceMode(nodeName string) (maintainanc
 
 // NodeEnableMaintainanceMode enables node maintainance mode
 func (c *HarvesterClient) NodeEnableMaintainanceMode(nodeName string) (err error) {
-	var req *http.Request
-	var maintainance bool
 	if err = c.isHarvesterApiReady(); err == nil {
-		if maintainance, err = c.IsNodeInMaintainanceMode(nodeName); err != nil || maintainance {
-			return
-		}
 		nodeApi := HarvesterNodeApiURI + nodeName
 		reqParameters := []string{"action=enableMaintenanceMode"}
 		actionArgs := make(map[string]string)
-		if req, err = c.NewRequest("POST", nodeApi, reqParameters, actionArgs); err == nil {
-			if _, err = c.Do(req, nil); err != nil {
-				err = fmt.Errorf("harvester-client.NodeEnableMaintainanceMode() error: %s", err)
+		for retry := 0; retry < c.Retries; retry++ {
+			var req *http.Request
+			var maintainance bool
+			if maintainance, err = c.IsNodeInMaintainanceMode(nodeName); err == nil && maintainance {
+				break
 			}
+			if err == nil {
+				if req, err = c.NewRequest("POST", nodeApi, reqParameters, actionArgs); err != nil {
+					err = fmt.Errorf("harvester-client.NodeEnableMaintainanceMode(NewRequest, node=%s) error: %s", nodeName, err)
+					break
+				}
+				if _, err = c.Do(req, nil); err == nil {
+					break
+				}
+			}
+			if err != nil && !c.IsTransientError(err) {
+				err = fmt.Errorf("harvester-client.NodeEnableMaintainanceMode(Do, node=%s) error: %s", nodeName, err)
+                                break
+			}
+			time.Sleep(harvesterRetriesWait * time.Second)
 		}
 	}
 	return
@@ -280,19 +308,30 @@ func (c *HarvesterClient) NodeEnableMaintainanceMode(nodeName string) (err error
 
 // NodeDisableMaintainanceMode disables node maintainance mode
 func (c *HarvesterClient) NodeDisableMaintainanceMode(nodeName string) (err error) {
-	var req *http.Request
-	var maintainance bool
 	if err = c.isHarvesterApiReady(); err == nil {
-		if maintainance, err = c.IsNodeInMaintainanceMode(nodeName); err != nil || !maintainance {
-			return
-		}
 		nodeApi := HarvesterNodeApiURI + nodeName
 		reqParameters := []string{"action=disableMaintenanceMode"}
 		actionArgs := make(map[string]string)
-		if req, err = c.NewRequest("POST", nodeApi, reqParameters, actionArgs); err == nil {
-			if _, err = c.Do(req, nil); err != nil {
-				err = fmt.Errorf("harvester-client.NodeDisableMaintainanceMode() error: %s", err)
+		for retry := 0; retry < c.Retries; retry++ {
+			var req *http.Request
+			var maintainance bool
+			if maintainance, err = c.IsNodeInMaintainanceMode(nodeName); err == nil && !maintainance {
+				break
 			}
+			if err == nil {
+				if req, err = c.NewRequest("POST", nodeApi, reqParameters, actionArgs); err != nil {
+					err = fmt.Errorf("harvester-client.NodeDisableMaintainanceMode(NewRequest, node=%s) error: %s", nodeName, err)
+					break
+				}
+				if _, err = c.Do(req, nil); err == nil {
+					break
+				}
+			}
+			if err != nil  && !c.IsTransientError(err) {
+				err = fmt.Errorf("harvester-client.NodeDisableMaintainanceMode(node=%s) error: %s", nodeName, err)
+				break
+			}
+			time.Sleep(harvesterRetriesWait * time.Second)
 		}
 	}
 	return
@@ -309,10 +348,20 @@ func (c *HarvesterClient) DeleteNode(nodeName string) (err error) {
 			}
 		} else {
 			nodeApi := HarvesterNodeApiURI + nodeName
-			if req, err = c.NewRequest("DELETE", nodeApi, []string{}, nil); err == nil {
-				if _, err = c.Do(req, nil); err != nil {
-					err = fmt.Errorf("harvester-client.DeleteNode() error: %s", err)
+			for retry := 0; retry < c.Retries; retry++ {
+				if req, err = c.NewRequest("DELETE", nodeApi, []string{}, nil); err != nil {
+					err = fmt.Errorf("harvester-client.DeleteNode(NewRequest, node=%s) error: %s", nodeName, err)
+					break
 				}
+				_, err = c.Do(req, nil)
+				if err == nil {
+					break
+				}
+				if err != nil  && !c.IsTransientError(err) {
+					err = fmt.Errorf("harvester-client.DeleteNode(Do, node=%s) error: %s", nodeName, err)
+					break
+				}
+				time.Sleep(harvesterRetriesWait * time.Second)
 			}
 		}
 	}

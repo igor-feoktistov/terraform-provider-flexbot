@@ -1,8 +1,6 @@
 module github.com/igor-feoktistov/terraform-provider-flexbot
 
-go 1.22.0
-
-toolchain go1.22.1
+go 1.24.3
 
 require (
 	github.com/denisbrodbeck/machineid v1.0.1
