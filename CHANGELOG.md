@@ -1,4 +1,4 @@
-## 1.12.2 (May 28, 2025)
+## 1.12.2 (June 4, 2025)
 
 ENHANCEMENTS:
 * Enhancements to improve resiliency in harvester API calls
