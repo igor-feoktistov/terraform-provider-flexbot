@@ -21,7 +21,9 @@ Harvester image in this project is NetApp iSCSI LUN with a content copied from m
 * Modify `rootfs.squashfs`
   * Unpack `rootfs.squashfs`  
     Run command `unsquashfs -d rootfs.squashfs-iboot rootfs.squashfs`
-  * Compile adapted to `cloud-init` `nocloud` [harvester-installer](https://github.com/igor-feoktistov/harvester-installer-v1.4.1)
+  * Patch and compile [harvester-installer](https://github.com/harvester/harvester-installer.git)
+    The patch can be downloaded from [here](https://github.com/igor-feoktistov/harvester-installer)
+    Make sure to clone specific version to patch: `git clone --branch v1.5.0  --single-branch --depth 1 https://github.com/harvester/harvester-installer.git`
   * Copy compiled [harvester-installer](https://github.com/igor-feoktistov/harvester-installer-v1.4.1) to `/usr/local/bin` in `rootfs.squashfs`
   * Pack `rootfs.squashfs`  
     Run command `mksquashfs rootfs.squashfs-iboot rootfs.squashfs.iboot`
