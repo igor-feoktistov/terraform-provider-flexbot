@@ -7,6 +7,7 @@ import (
 	"strings"
 	"io/ioutil"
 	"time"
+	"sort"
 
         v1 "k8s.io/api/core/v1"
         metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -133,7 +134,15 @@ func (client *Rke2Client) GetNodeRole(nodeName string) (controlplane bool, etcd 
 func (client *Rke2Client) IsNodeReady(nodeName string) (ready bool, err error) {
         var nodeObj *v1.Node
 	if nodeObj, err = client.GetNodeByName(nodeName); err == nil {
-		ready = node.IsNodeReady(nodeObj)
+		sort.SliceStable(nodeObj.Status.Conditions, func(i, j int) bool {
+			return nodeObj.Status.Conditions[i].LastTransitionTime.After(nodeObj.Status.Conditions[j].LastTransitionTime.Time)
+		})
+		for _, condition := range nodeObj.Status.Conditions {
+			if condition.Type == v1.NodeReady {
+				ready = (condition.Status == v1.ConditionTrue)
+				break
+			}
+		}
 	} else {
 		err = fmt.Errorf("rke2-client.IsNodeReady(%s) error: %s", nodeName, err)
 	}
