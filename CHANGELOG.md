@@ -1,3 +1,9 @@
+## 1.12.3 (September 8, 2025)
+
+ENHANCEMENTS:
+* More accurate method to identify node readiness in RKE2 rancher_api provider
+
+
 ## 1.12.2 (June 4, 2025)
 
 ENHANCEMENTS:
