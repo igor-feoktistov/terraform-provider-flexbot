@@ -1,3 +1,9 @@
+## 1.12.4 (October 15, 2025)
+
+ENHANCEMENTS:
+* Increased timeout to handle transient errors in API calls to UCSM
+* GoLang v1.25
+
 ## 1.12.3 (September 8, 2025)
 
 ENHANCEMENTS:

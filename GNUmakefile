@@ -1,5 +1,5 @@
 DISTFILE=terraform-provider-flexbot
-VERSION=1.12.3
+VERSION=1.12.4
 OSFLAG=$(shell go env GOHOSTOS)
 
 default: build
