@@ -16,7 +16,7 @@ import (
 const (
 	assignTryMax  = 5
 	assignWaitMax = 3600
-	transientWaitMax = 300
+	transientWaitMax = 600
 )
 
 // UcsmLogin return client with the authentication cookie
