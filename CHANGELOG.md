@@ -1,3 +1,9 @@
+## 1.12.5 (February 18, 2026)
+
+ENHANCEMENTS:
+* Enhancements to improve resiliency in  rk-API calls
+
+
 ## 1.12.4 (October 15, 2025)
 
 ENHANCEMENTS:
