@@ -318,6 +318,9 @@ func (client *RkApiClient) IsTransientError(err error) (bool) {
 	if strings.Contains(err.Error(), "error trying to reach service") {
 		return true
 	}
+	if strings.Contains(err.Error(), "unable to create impersonator account") {
+		return true
+	}
 	return false
 }
 

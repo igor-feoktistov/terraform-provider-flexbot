@@ -14,15 +14,15 @@ import (
 )
 
 const (
-	assignTryMax  = 5
-	assignWaitMax = 3600
+	assignTryMax     = 5
+	assignWaitMax    = 3600
 	transientWaitMax = 600
 )
 
 // UcsmLogin return client with the authentication cookie
 func UcsmLogin(endPoint string, username string, password string) (client *api.Client, err error) {
 	giveupTime := time.Now().Add(time.Second * time.Duration(transientWaitMax))
-        for time.Now().Before(giveupTime) {
+	for time.Now().Before(giveupTime) {
 		if client, err = util.AaaLogin(endPoint, username, password); err == nil {
 			break
 		}
@@ -35,6 +35,7 @@ func UcsmLogin(endPoint string, username string, password string) (client *api.C
 func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) {
 	var computeBlades *[]mo.ComputeBlade
 	var assignErr error
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < assignTryMax; i++ {
 		var pnDn string
 		bladeSpec := nodeConfig.Compute.BladeSpec
@@ -43,8 +44,7 @@ func AssignBlade(client *api.Client, nodeConfig *config.NodeConfig) (err error) 
 			return
 		}
 		if len(*computeBlades) > 0 {
-			rand.Seed(time.Now().UnixNano())
-			pnDn = (*computeBlades)[rand.Intn(len(*computeBlades))].Dn
+			pnDn = (*computeBlades)[rng.Intn(len(*computeBlades))].Dn
 		} else {
 			err = fmt.Errorf("AssignBlade: ComputeBladeGetAvailable(): no blades found per BladeSpec")
 			return
@@ -179,13 +179,13 @@ func CreateServer(nodeConfig *config.NodeConfig) (sp *mo.LsServer, err error) {
 		}
 	}
 	if len(nodeConfig.Network.NvmeHost) > 0 {
-	        if lsServers, err = util.ServerGet(client, nodeConfig.Compute.SpDn, "instance"); err != nil {
-		        err = fmt.Errorf("CreateServer: ServerGet() failure: %s", err)
-		        return
-	        }
-	        for i := range nodeConfig.Network.NvmeHost {
-	                nodeConfig.Network.NvmeHost[i].HostNqn = "nqn.2014-08.org.nvmexpress:uuid:" + lsServers[0].Uuid
-	        }
+		if lsServers, err = util.ServerGet(client, nodeConfig.Compute.SpDn, "instance"); err != nil {
+			err = fmt.Errorf("CreateServer: ServerGet() failure: %s", err)
+			return
+		}
+		for i := range nodeConfig.Network.NvmeHost {
+			nodeConfig.Network.NvmeHost[i].HostNqn = "nqn.2014-08.org.nvmexpress:uuid:" + lsServers[0].Uuid
+		}
 	}
 	err = AssignBlade(client, nodeConfig)
 	return
@@ -362,7 +362,7 @@ func DiscoverServer(nodeConfig *config.NodeConfig) (serverExists bool, err error
 		}
 	}
 	for i := range nodeConfig.Network.NvmeHost {
-	        nodeConfig.Network.NvmeHost[i].HostNqn = "nqn.2014-08.org.nvmexpress:uuid:" + lsServers[0].Uuid
+		nodeConfig.Network.NvmeHost[i].HostNqn = "nqn.2014-08.org.nvmexpress:uuid:" + lsServers[0].Uuid
 	}
 	nodeConfig.Compute.Description = lsServers[0].Descr
 	nodeConfig.Compute.Label = lsServers[0].UsrLbl
