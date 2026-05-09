@@ -42,7 +42,7 @@ func CreateNvmeStorage(nodeConfig *config.NodeConfig) (err error) {
 		                return
 	                }
 	        }
-	        if c.NvmeNamespaceCreate(dataNvmeNamespacePath, nodeConfig.Storage.DataNvme.Size); err != nil {
+	        if c.NvmeNamespaceCreate(dataNvmeNamespacePath, nodeConfig.Storage.DataNvme.Size, "linux"); err != nil {
 		        err = fmt.Errorf(errorFormat, err)
 		        return
                 }
@@ -56,7 +56,7 @@ func CreateNvmeStorage(nodeConfig *config.NodeConfig) (err error) {
 		                return
 		        }
 	        }
-	        if err = c.NvmeSubsystemCreate(nodeConfig.Storage.DataNvme.Subsystem); err != nil {
+	        if err = c.NvmeSubsystemCreate(nodeConfig.Storage.DataNvme.Subsystem, "linux"); err != nil {
 	                err = fmt.Errorf(errorFormat, err)
 		        return
 	        }

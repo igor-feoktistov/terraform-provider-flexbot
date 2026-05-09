@@ -155,6 +155,7 @@ type Compute struct {
 	BladeSpec       util.BladeSpec `yaml:"bladeSpec,omitempty" json:"bladeSpec,omitempty"`
 	BladeAssigned   util.BladeSpec `yaml:"bladeAssigned,omitempty" json:"bladeAssigned,omitempty"`
 	ChassisId       string         `yaml:"chassisId,omitempty" json:"chassisId,omitempty"`
+	Firmware        string         `yaml:"firmware,omitempty" json:"firmware,omitempty"`
 	Powerstate      string         `yaml:"powerState,omitempty" json:"powerState,omitempty"`
 	Description     string         `yaml:"description,omitempty" json:"description,omitempty"`
 	Label           string         `yaml:"label,omitempty" json:"label,omitempty"`
@@ -181,8 +182,8 @@ type BootstrapLun struct {
 
 // BootLun is compute boot LUN
 type BootLun struct {
-	Lun     `yaml:",inline" json:",inline"`
-	OsImage RemoteFile `yaml:"osImage,omitempty" json:"osImage,omitempty"`
+	Lun                     `yaml:",inline" json:",inline"`
+	OsImage      RemoteFile `yaml:"osImage,omitempty" json:"osImage,omitempty"`
 }
 
 // SeedLun is compute clout-init configuration LUN
@@ -252,8 +253,10 @@ func SetDefaults(nodeConfig *NodeConfig, hostName string, image string, template
 		nodeConfig.Compute.HostName = hostName
 	}
 	if image != "" {
-		nodeConfig.Storage.BootLun.OsImage.Name = image
-		nodeConfig.Storage.BootstrapLun.OsImage.Name = image
+		nodeConfig.Storage.BootLun.OsImage.Name = filepath.Base(image)
+		nodeConfig.Storage.BootLun.OsImage.Location = image
+		nodeConfig.Storage.BootstrapLun.OsImage.Name = filepath.Base(image)
+		nodeConfig.Storage.BootstrapLun.OsImage.Location = image
 	}
 	if templatePath != "" {
 		nodeConfig.Storage.SeedLun.SeedTemplate.Name = filepath.Base(templatePath)
@@ -524,12 +527,29 @@ type RancherConfig struct {
 	NodeDrainInput     *NodeDrainInput
 }
 
+// VMwareConfig is VMware generic client config
+type VMwareConfig struct {
+        Provider           string
+	URL                string
+	ApiUsername        string
+	ApiPassword        string
+	HostUsername       string
+	HostPassword       string
+	ClusterName        string
+	LicenseKey         string
+	Insecure           bool
+	WaitForHostTimeout int
+	Sync               sync.Mutex
+}
+
 // FlexbotConfig is main provider configration
 type FlexbotConfig struct {
 	Sync                  *sync.Mutex
 	FlexbotProvider       *schema.ResourceData
 	RancherApiEnabled     bool
+	VMwareApiEnabled      bool
 	RancherConfig         *RancherConfig
+	VMwareConfig          *VMwareConfig
 	RancherNodeDrainInput *NodeDrainInput
 	NodeGraceTimeout      int
 	WaitForNodeTimeout    int

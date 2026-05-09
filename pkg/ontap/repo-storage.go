@@ -99,7 +99,7 @@ func CreateRepoImage(nodeConfig *config.NodeConfig, imageName string, imagePath 
 		imageSize = int64(fileInfo.Size())
 		defer file.Close()
 	}
-	if err = c.LunCreateAndUpload(nodeConfig.Storage.ImageRepoName, "/_"+imageName, imageSize, fileReader, "/vol/"+nodeConfig.Storage.ImageRepoName+"/"+imageName, imageName); err != nil {
+	if err = c.LunCreateAndUpload(nodeConfig.Storage.ImageRepoName, "/_"+imageName, imageSize, fileReader, "/vol/"+nodeConfig.Storage.ImageRepoName+"/"+imageName, imageName, "linux"); err != nil {
 		err = fmt.Errorf("CreateRepoImage(): %s", err)
 		return
         }

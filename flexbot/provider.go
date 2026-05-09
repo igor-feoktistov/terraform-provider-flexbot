@@ -20,6 +20,7 @@ import (
 var (
         // Available rancher_api provides
         RancherApiProviders = []string{"rancher2", "rke", "rke2", "rk-api", "harvester"}
+        VMwareApiProviders = []string{"host"}
 )
 
 // Provider builds schema
@@ -302,10 +303,74 @@ func Provider() *schema.Provider {
 					},
 				},
 			},
+			"vmware_api": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"enabled": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+						"provider": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "host",
+							ValidateFunc: validation.StringInSlice(VMwareApiProviders, true),
+						},
+						"api_url": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+						"api_user": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+						"api_user_password": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+						"host_sdk_user": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"host_sdk_user_password": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"cluster_name": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+						"license_key": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+						"insecure": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+						"wait_for_host_timeout": {
+							Optional: true,
+							Type:     schema.TypeInt,
+							Default:  0,
+						},
+					},
+				},
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"flexbot_server": resourceFlexbotServer(),
 			"flexbot_harvester_node": resourceFlexbotHarvesterNode(),
+			"flexbot_esx_host": resourceFlexbotEsxHost(),
 			"flexbot_repo":   resourceFlexbotRepo(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
@@ -436,6 +501,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			Sync:               &sync.Mutex{},
 			FlexbotProvider:    d,
 			RancherApiEnabled:  rancherAPI["enabled"].(bool),
+			VMwareApiEnabled:   false,
 			RancherConfig:      rancherConfig,
 			WaitForNodeTimeout: rancherAPI["wait_for_node_timeout"].(int),
 			NodeGraceTimeout:   rancherAPI["node_grace_timeout"].(int),
@@ -446,8 +512,49 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 			Sync:              &sync.Mutex{},
 			FlexbotProvider:   d,
 			RancherApiEnabled: false,
+			VMwareApiEnabled:  false,
 			NodeConfig:        make(map[string]*nodeConfig.NodeConfig),
 		}
+	}
+	if len(d.Get("vmware_api").([]interface{})) > 0 {
+		vmwareAPI := d.Get("vmware_api").([]interface{})[0].(map[string]interface{})
+		var apiUserPassword, hostSdkUserPassword string
+                if len(vmwareAPI["api_user_password"].(string)) > 0 {
+		        if apiUserPassword, err = crypt.DecryptString(vmwareAPI["api_user_password"].(string), passPhrase); err != nil {
+		                diags = append(diags, diag.Diagnostic{
+			                Severity: diag.Error,
+			                Summary:  "providerConfigure(): DecryptString(api_user_password) failure",
+			                Detail:   err.Error(),
+		                })
+		                return nil, diags
+		        }
+		}
+                if len(vmwareAPI["host_sdk_user_password"].(string)) > 0 {
+		        if hostSdkUserPassword, err = crypt.DecryptString(vmwareAPI["host_sdk_user_password"].(string), passPhrase); err != nil {
+		                diags = append(diags, diag.Diagnostic{
+			                Severity: diag.Error,
+			                Summary:  "providerConfigure(): DecryptString(host_sdk_user_password) failure",
+			                Detail:   err.Error(),
+		                })
+		                return nil, diags
+		        }
+		}
+		vmwareConfig := &config.VMwareConfig{
+		        Provider:           vmwareAPI["provider"].(string),
+			URL:                vmwareAPI["api_url"].(string),
+			ApiUsername:        vmwareAPI["api_user"].(string),
+			ApiPassword:        apiUserPassword,
+			HostUsername:       vmwareAPI["host_sdk_user"].(string),
+			HostPassword:       hostSdkUserPassword,
+			ClusterName:        vmwareAPI["cluster_name"].(string),
+			LicenseKey:         vmwareAPI["license_key"].(string),
+			Insecure:           vmwareAPI["insecure"].(bool),
+			WaitForHostTimeout: vmwareAPI["wait_for_host_timeout"].(int),
+		}
+		flexbotConfig.VMwareApiEnabled = vmwareAPI["enabled"].(bool)
+		flexbotConfig.VMwareConfig = vmwareConfig
+		flexbotConfig.WaitForNodeTimeout = vmwareAPI["wait_for_node_timeout"].(int)
+		flexbotConfig.NodeGraceTimeout = vmwareAPI["node_grace_timeout"].(int)
 	}
 	return flexbotConfig, diags
 }

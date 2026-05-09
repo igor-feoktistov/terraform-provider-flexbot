@@ -18,11 +18,8 @@ import (
 )
 
 const (
-	ServerBootTimeout = 600
-	ServerPowerStateTimeout = 60
 	HarvesterInstallerStage1Timeout = 1800
 	HarvesterInstallerStage2Timeout = 1800
-	CheckNodeReadyTimeout           = 5
 )
 
 func resourceFlexbotHarvesterNode() *schema.Resource {

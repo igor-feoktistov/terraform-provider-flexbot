@@ -23,6 +23,9 @@ const (
 	NodeGracePowerOffTimeout = 10
 	StorageRetryAttempts = 5
 	StorageRetryTimeout = 15
+	ServerBootTimeout = 600
+	ServerPowerStateTimeout = 60
+	CheckNodeReadyTimeout = 5
 )
 
 // Change status definition while update routine
@@ -147,7 +150,7 @@ func runSSHCommand(sshHost string, sshUser string, sshPrivateKey string, command
 	sess.Stderr = &bStderr
 	err = sess.Run(command)
 	if err != nil {
-		err = fmt.Errorf("runSSHCommand(host=%s): failed to run command %s: %s: %s", sshHost, command, err, bStderr.String())
+		err = fmt.Errorf("runSSHCommand(host=%s): failed to run command %s: %s: stderr=\"%s\", stdout=\"%s\"", sshHost, command, err, bStderr.String(), bStdout.String())
 		return
 	}
 	if bStdout.Len() > 0 {

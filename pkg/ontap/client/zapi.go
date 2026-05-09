@@ -172,8 +172,8 @@ func (c *OntapZAPI) IgroupExists(igroupName string) (exists bool, err error) {
 }
 
 // IgroupCreate creates iGroup
-func (c *OntapZAPI) IgroupCreate(igroupName string) (err error) {
-	if _, _, err = c.Client.IgroupCreateAPI(igroupName, "iscsi", "linux", ""); err != nil {
+func (c *OntapZAPI) IgroupCreate(igroupName string, osType string) (err error) {
+	if _, _, err = c.Client.IgroupCreateAPI(igroupName, "iscsi", osType, ""); err != nil {
 		err = fmt.Errorf("IgroupCreateAPI() failure: %s", err)
 	}
 	return
@@ -258,11 +258,11 @@ func (c *OntapZAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 }
 
 // LunCreate creates LUN
-func (c *OntapZAPI) LunCreate(lunPath string, lunSize int) (err error) {
+func (c *OntapZAPI) LunCreate(lunPath string, lunSize int, osType string) (err error) {
 	lunOptions := &ontap.LunCreateBySizeOptions{
 		Path:                    lunPath,
 		Size:                    lunSize * 1024 * 1024 * 1024,
-		OsType:                  "linux",
+		OsType:                  osType,
 		SpaceAllocationEnabled:  false,
 		SpaceReservationEnabled: false,
 	}
@@ -273,12 +273,12 @@ func (c *OntapZAPI) LunCreate(lunPath string, lunSize int) (err error) {
 }
 
 // LunCreateFromFile creates LUN from file
-func (c *OntapZAPI) LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string) (err error) {
+func (c *OntapZAPI) LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string, osType string) (err error) {
 	lunCreateOptions := &ontap.LunCreateFromFileOptions{
 		Comment:                 lunComment,
 		FileName:                "/vol/" + volumeName + filePath,
 		Path:                    lunPath,
-		OsType:                  "linux",
+		OsType:                  osType,
 		SpaceAllocationEnabled:  false,
 		SpaceReservationEnabled: false,
 	}
@@ -526,7 +526,7 @@ func (c *OntapZAPI) SnapshotRestore(volumeName string, snapshotName string) (err
 }
 
 // Create LUN and upload data
-func (c *OntapZAPI) LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string) (err error) {
+func (c *OntapZAPI) LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string, osType string) (err error) {
         if filePath == "/seed" {
 	        err = c.FileUploadAPI(volumeName, filePath, fileReader)
 	} else {
@@ -534,12 +534,17 @@ func (c *OntapZAPI) LunCreateAndUpload(volumeName string, filePath string, fileS
 	}
 	if err == nil {
 		time.Sleep(10 * time.Second)
-	        err = c.LunCreateFromFile(volumeName, filePath, lunPath, lunComment)
+	        err = c.LunCreateFromFile(volumeName, filePath, lunPath, lunComment, osType)
 	}
 	if err != nil {
 	        err = fmt.Errorf("LunCreateAndUpload(): %s", err)
         }
         return
+}
+
+// Upload data to existent LUN (not implemented in ZAPI)
+func (c *OntapZAPI) LunUpload(lunPath string, fileReader io.Reader, fileSize int64) (err error) {
+	return
 }
 
 // Check if NVME Subsystem exists
@@ -548,7 +553,7 @@ func (c *OntapZAPI) NvmeSubsystemExists(subsystemName string) (exists bool, err 
 }
 
 // Create NVME Subsystem
-func (c *OntapZAPI) NvmeSubsystemCreate(subsystemName string) (err error) {
+func (c *OntapZAPI) NvmeSubsystemCreate(subsystemName string, osType string) (err error) {
         return
 }
 
@@ -593,7 +598,7 @@ func (c *OntapZAPI) NvmeNamespaceUnmap(namespacePath string) (err error) {
 }
 
 // Create NVME Namespace
-func (c *OntapZAPI) NvmeNamespaceCreate(namespacePath string, namespaceSize int) (err error) {
+func (c *OntapZAPI) NvmeNamespaceCreate(namespacePath string, namespaceSize int, osType string) (err error) {
         return
 }
 
