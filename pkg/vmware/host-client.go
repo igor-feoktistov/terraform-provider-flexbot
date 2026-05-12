@@ -60,7 +60,7 @@ func isInMaintenanceMode(ctx context.Context, hostSystem *object.HostSystem) (in
 	return
 }
 
-func enterMaintainanceMode(ctx context.Context, hostSystem *object.HostSystem, timeout int) (err error) {
+func enterMaintenanceMode(ctx context.Context, hostSystem *object.HostSystem, timeout int) (err error) {
 	var inMaintenanceMode bool
 	var task *object.Task
 	if inMaintenanceMode, err = isInMaintenanceMode(ctx, hostSystem); err != nil {
@@ -79,7 +79,7 @@ func enterMaintainanceMode(ctx context.Context, hostSystem *object.HostSystem, t
 	return
 }
 
-func exitMaintainanceMode(ctx context.Context, hostSystem *object.HostSystem, timeout int) (err error) {
+func exitMaintenanceMode(ctx context.Context, hostSystem *object.HostSystem, timeout int) (err error) {
 	var inMaintenanceMode bool
 	var task *object.Task
 	if inMaintenanceMode, err = isInMaintenanceMode(ctx, hostSystem); err != nil {

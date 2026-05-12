@@ -19,8 +19,12 @@ import (
 )
 
 const (
-	EsxInstallerTimeout = 1800
-	VMwareApiTimeout    = 15
+	EsxBootTimeout           = 600
+	EsxShutdownTimeout       = 180
+	EsxInstallerTimeout      = 1800
+	EsxEnterMaintModeTimeout = 900
+	EsxExitMaintModeTimeout =  60
+	VMwareApiTimeout         = 15
 )
 
 func resourceFlexbotEsxHost() *schema.Resource {
@@ -107,13 +111,13 @@ func resourceCreateEsxHost(ctx context.Context, d *schema.ResourceData, meta int
 	}
 	if err == nil {
 		setFlexbotEsxHostOutput(d, meta, nodeConfig)
-		var waitForHostTimeout int
-		if meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostTimeout > 0 {
-			waitForHostTimeout = meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostTimeout
+		var waitForHostInstallerTimeout int
+		if meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout > 0 {
+			waitForHostInstallerTimeout = meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout
 		} else {
-			waitForHostTimeout = EsxInstallerTimeout
+			waitForHostInstallerTimeout = EsxInstallerTimeout
 		}
-		_, err = waitForEsxHost(d, meta, nodeConfig, waitForHostTimeout)
+		_, err = waitForEsxHost(d, meta, nodeConfig, waitForHostInstallerTimeout)
 	}
 	if err != nil {
 		errs = append(errs, err)
@@ -213,17 +217,12 @@ func resourceUpdateEsxHost(ctx context.Context, d *schema.ResourceData, meta int
 }
 
 func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
-	var powerState, newPowerState, operState, sshPrivateKey, shutdownReason string
+	var powerState, newPowerState, operState string
 	var oldBladeSpec, newBladeSpec map[string]interface{}
         meta.(*config.FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	oldCompute, newCompute := d.GetChange("compute")
         meta.(*config.FlexbotConfig).Sync.Unlock()
-	sshUser := compute["ssh_user"].(string)
-	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
-		err = fmt.Errorf("resourceUpdateEsxHost(compute): failure: %s", err)
-		return
-	}
 	if len((oldCompute.([]interface{})[0].(map[string]interface{}))["blade_spec"].([]interface{})) > 0 {
 		oldBladeSpec = (oldCompute.([]interface{})[0].(map[string]interface{}))["blade_spec"].([]interface{})[0].(map[string]interface{})
 	} else {
@@ -269,7 +268,6 @@ func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, node
 	}
 	if (nodeConfig.ChangeStatus & ChangeBladeSpec) > 0 {
 		nodeConfig.Compute.BladeSpec.Dn = newBladeSpec["dn"].(string)
-		shutdownReason = "requested BladeSpec change"
 	}
 	if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
 		return
@@ -281,7 +279,6 @@ func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, node
 	newPowerState = (newCompute.([]interface{})[0].(map[string]interface{}))["powerstate"].(string)
 	if newPowerState != powerState {
 		nodeConfig.ChangeStatus = nodeConfig.ChangeStatus | ChangePowerState
-		shutdownReason = "requested PowerState change"
 	}
 	if (nodeConfig.ChangeStatus & (ChangeBladeSpec | ChangePowerState)) > 0 {
 		err = meta.(*config.FlexbotConfig).UpdateManagerAcquire()
@@ -301,12 +298,11 @@ func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, node
 	        }
 		if powerState == "up" {
 			if operState == "ok" {
-				if (newCompute.([]interface{})[0].(map[string]interface{}))["wait_for_ssh_timeout"].(int) > 0 && len(sshUser) > 0 && len(sshPrivateKey) > 0 {
-					log.Infof("Shutting down ESX host %s", nodeConfig.Compute.HostName)
-                                	if err = shutdownEsxHost(nodeConfig, sshUser, sshPrivateKey, shutdownReason); err != nil {
-		                        	meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-		                        	return
-                                	}
+				log.Infof("Shutting down ESX host %s", nodeConfig.Compute.HostName)
+				if err = shutdownEsxHost(d, meta, nodeConfig); err != nil {
+					err = fmt.Errorf("resourceUpdateEsxHost(compute): error: %s", err)
+					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+					return
 				}
 			}
 			log.Infof("Power off node %s", nodeConfig.Compute.HostName)
@@ -328,13 +324,14 @@ func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, node
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
-			waitForSshTimeout := meta.(*config.FlexbotConfig).WaitForNodeTimeout
-			if compute["wait_for_ssh_timeout"].(int) > 0 {
-				waitForSshTimeout = compute["wait_for_ssh_timeout"].(int)
+			waitForHostBootTimeout := meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostBootTimeout
+			if waitForHostBootTimeout == 0 {
+				waitForHostBootTimeout = EsxBootTimeout
 			}
-			if len(sshUser) > 0 && len(sshPrivateKey) > 0 {
-				log.Infof("Waiting for node %s on network", nodeConfig.Compute.HostName)
-				if err = waitForSSH(nodeConfig, waitForSshTimeout, sshUser, sshPrivateKey); err != nil {
+			var vmwareAPI vmware.VMwareAPI
+			if vmwareAPI, err = waitForEsxHost(d, meta, nodeConfig, waitForHostBootTimeout); err == nil && vmwareAPI != nil {
+				if err = vmwareAPI.VMwareAPIExitMaintenanceMode(EsxExitMaintModeTimeout); err != nil {
+					err = fmt.Errorf("resourceUpdateEsxHost(compute): error: %s", err)
 					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 					return
 				}
@@ -349,16 +346,11 @@ func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, node
 }
 
 func resourceUpdateEsxHostStorage(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
-	var powerState, operState, sshPrivateKey string
+	var powerState, operState string
         meta.(*config.FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
 	oldStorage, newStorage := d.GetChange("storage")
         meta.(*config.FlexbotConfig).Sync.Unlock()
-	sshUser := compute["ssh_user"].(string)
-	if sshPrivateKey, err = decryptAttribute(meta, compute["ssh_private_key"].(string)); err != nil {
-		err = fmt.Errorf("resourceUpdateEsxHost(storage): failure: %s", err)
-		return
-	}
 	oldBootLun := (oldStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
 	newBootLun := (newStorage.([]interface{})[0].(map[string]interface{}))["boot_lun"].([]interface{})[0].(map[string]interface{})
 	if oldBootLun["installer_image"].(string) != newBootLun["installer_image"].(string) || oldBootLun["size"].(int) != newBootLun["size"].(int) || oldBootLun["kickstart_template"].(string) != newBootLun["kickstart_template"].(string) {
@@ -401,6 +393,14 @@ func resourceUpdateEsxHostStorage(d *schema.ResourceData, meta interface{}, node
 			}
 		}
 		if powerState == "up" {
+			if operState == "ok" {
+				log.Infof("Shutting down ESX host %s", nodeConfig.Compute.HostName)
+				if err = shutdownEsxHost(d, meta, nodeConfig); err != nil {
+					err = fmt.Errorf("resourceUpdateEsxHost(storage): error: %s", err)
+					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
+					return
+				}
+			}
 			log.Infof("Power off ESX host %s", nodeConfig.Compute.HostName)
 			if err = ucsm.StopServer(nodeConfig); err != nil {
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
@@ -429,21 +429,15 @@ func resourceUpdateEsxHostStorage(d *schema.ResourceData, meta interface{}, node
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
-		waitForSshTimeout := EsxInstallerTimeout
-		if compute["wait_for_ssh_timeout"].(int) > 0 {
-			waitForSshTimeout = compute["wait_for_ssh_timeout"].(int)
+		var waitForHostInstallerTimeout int
+		if meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout > 0 {
+			waitForHostInstallerTimeout = meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout
+		} else {
+			waitForHostInstallerTimeout = EsxInstallerTimeout
 		}
-		if err = waitForSSH(nodeConfig, waitForSshTimeout, sshUser, sshPrivateKey); err == nil {
-			for _, cmd := range compute["ssh_node_init_commands"].([]interface{}) {
-				var cmdOutput string
-				log.Infof("Running SSH command on node %s: %s", nodeConfig.Compute.HostName, cmd.(string))
-				if cmdOutput, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, cmd.(string)); err != nil {
-					break
-				}
-				if len(cmdOutput) > 0 && log.IsLevelEnabled(log.DebugLevel) {
-					log.Debugf("Completed SSH command: exec: %s, output: %s", cmd.(string), cmdOutput)
-				}
-			}
+		_, err = waitForEsxHost(d, meta, nodeConfig, waitForHostInstallerTimeout)
+		if err != nil {
+			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 		}
 	}
 	return
@@ -474,6 +468,15 @@ func resourceDeleteEsxHost(ctx context.Context, d *schema.ResourceData, meta int
 		return
 	}
 	if powerState == "up" {
+		if operState == "ok" {
+			log.Infof("Shutting down ESX host %s", nodeConfig.Compute.HostName)
+			if err = shutdownEsxHost(d, meta, nodeConfig); err != nil {
+				err = fmt.Errorf("resourceDeleteEsxHost(): error: %s", err)
+				diags = diag.FromErr(err)
+				return
+			}
+		}
+		log.Infof("Power off ESX host %s", nodeConfig.Compute.HostName)
 		if err = ucsm.StopServer(nodeConfig); err != nil {
 			diags = diag.FromErr(err)
 			return
@@ -707,20 +710,31 @@ func setFlexbotEsxHostOutput(d *schema.ResourceData, meta interface{}, nodeConfi
 	d.Set("storage", []interface{}{storage})
 }
 
-func shutdownEsxHost(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKey string, reason string) (err error) {
+func shutdownEsxHost(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (err error) {
         var operState string
-        // Trying graceful host shutdown
-	if _, err = runSSHCommand(nodeConfig.Network.Node[0].Ip, sshUser, sshPrivateKey, "esxcli system shutdown poweroff --reason \"" + reason + "\""); err == nil {
-	        waitForShutdown := time.Now().Add(time.Second * time.Duration(NodeGraceShutdownTimeout))
-	        for time.Now().Before(waitForShutdown) {
-	        	if operState, err = ucsm.GetServerOperationalState(nodeConfig); err != nil {
-			        return
-		        }
-		        if operState == "power-off" {
-		                break
-		        }
-		        time.Sleep(5 * time.Second)
-	        }
+	var vmwareAPI vmware.VMwareAPI
+	if vmwareAPI, err = vmware.VMwareAPIInitialize(d, meta, nodeConfig); err == nil && vmwareAPI != nil {
+		if err = vmwareAPI.VMwareAPIEnterMaintenanceMode(EsxEnterMaintModeTimeout); err == nil {
+			if err = vmwareAPI.VMwareAPIShutdownHost(EsxShutdownTimeout); err == nil {
+				giveupTime := time.Now().Add(time.Second * time.Duration(EsxShutdownTimeout))
+				for time.Now().Before(giveupTime) {
+					if operState, err = ucsm.GetServerOperationalState(nodeConfig); err != nil {
+						return
+					}
+					if operState == "power-off" {
+						break
+					}
+					time.Sleep(5 * time.Second)
+				}
+				if time.Now().After(giveupTime) {
+					if  err == nil {
+						err = fmt.Errorf("exceeded timeout %d", EsxShutdownTimeout)
+					} else {
+						err = fmt.Errorf("exceeded timeout %d: %s", EsxShutdownTimeout, err)
+					}
+				}
+			}
+		}
 	}
 	if err != nil {
 		err = fmt.Errorf("shutdownEsxHost(%s): %s", nodeConfig.Compute.HostName, err)
@@ -729,14 +743,13 @@ func shutdownEsxHost(nodeConfig *config.NodeConfig, sshUser string, sshPrivateKe
 }
 
 func waitForEsxHost(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig, waitForHostTimeout int) (vmwareAPI vmware.VMwareAPI, err error) {
-	if meta.(*config.FlexbotConfig).VMwareConfig == nil || !meta.(*config.FlexbotConfig).VMwareApiEnabled {
-		vmwareAPI, err = vmware.VMwareAPIInitialize(d, meta, nodeConfig)
+	var hostState string
+	if vmwareAPI, err = vmware.VMwareAPIInitialize(d, meta, nodeConfig); vmwareAPI == nil && err == nil {
 		return
 	}
 	giveupTime := time.Now().Add(time.Second * time.Duration(waitForHostTimeout))
 	for time.Now().Before(giveupTime) {
-		if vmwareAPI, err = vmware.VMwareAPIInitialize(d, meta, nodeConfig); err == nil {
-			var hostState string
+		if vmwareAPI, err = vmware.VMwareAPIInitialize(d, meta, nodeConfig); err == nil && vmwareAPI != nil {
 			if hostState, err = vmwareAPI.VMwareAPIGetHostState(VMwareApiTimeout); err == nil && hostState == "connected" {
 				break
 			}
@@ -745,7 +758,7 @@ func waitForEsxHost(d *schema.ResourceData, meta interface{}, nodeConfig *config
 	}
 	if time.Now().After(giveupTime) {
 		if  err == nil {
-			err = fmt.Errorf("waitForEsxHost(ip=%s): exceeded timeout %d", nodeConfig.Network.Node[0].Ip, waitForHostTimeout)
+			err = fmt.Errorf("waitForEsxHost(ip=%s): exceeded timeout %d, host state=%s", nodeConfig.Network.Node[0].Ip, waitForHostTimeout, hostState)
 		} else {
 			err = fmt.Errorf("waitForEsxHost(ip=%s): exceeded timeout %d: %s", nodeConfig.Network.Node[0].Ip, waitForHostTimeout, err)
 		}

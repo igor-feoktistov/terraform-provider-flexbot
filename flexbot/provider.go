@@ -358,7 +358,12 @@ func Provider() *schema.Provider {
 							Optional: true,
 							Default:  false,
 						},
-						"wait_for_host_timeout": {
+						"wait_for_host_installer_timeout": {
+							Optional: true,
+							Type:     schema.TypeInt,
+							Default:  0,
+						},
+						"wait_for_host_boot_timeout": {
 							Optional: true,
 							Type:     schema.TypeInt,
 							Default:  0,
@@ -540,21 +545,20 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		        }
 		}
 		vmwareConfig := &config.VMwareConfig{
-		        Provider:           vmwareAPI["provider"].(string),
-			URL:                vmwareAPI["api_url"].(string),
-			ApiUsername:        vmwareAPI["api_user"].(string),
-			ApiPassword:        apiUserPassword,
-			HostUsername:       vmwareAPI["host_sdk_user"].(string),
-			HostPassword:       hostSdkUserPassword,
-			ClusterName:        vmwareAPI["cluster_name"].(string),
-			LicenseKey:         vmwareAPI["license_key"].(string),
-			Insecure:           vmwareAPI["insecure"].(bool),
-			WaitForHostTimeout: vmwareAPI["wait_for_host_timeout"].(int),
+		        Provider:                    vmwareAPI["provider"].(string),
+			URL:                         vmwareAPI["api_url"].(string),
+			ApiUsername:                 vmwareAPI["api_user"].(string),
+			ApiPassword:                 apiUserPassword,
+			HostUsername:                vmwareAPI["host_sdk_user"].(string),
+			HostPassword:                hostSdkUserPassword,
+			ClusterName:                 vmwareAPI["cluster_name"].(string),
+			LicenseKey:                  vmwareAPI["license_key"].(string),
+			Insecure:                    vmwareAPI["insecure"].(bool),
+			WaitForHostBootTimeout:      vmwareAPI["wait_for_host_boot_timeout"].(int),
+			WaitForHostInstallerTimeout: vmwareAPI["wait_for_host_installer_timeout"].(int),
 		}
 		flexbotConfig.VMwareApiEnabled = vmwareAPI["enabled"].(bool)
 		flexbotConfig.VMwareConfig = vmwareConfig
-		flexbotConfig.WaitForNodeTimeout = vmwareAPI["wait_for_node_timeout"].(int)
-		flexbotConfig.NodeGraceTimeout = vmwareAPI["node_grace_timeout"].(int)
 	}
 	return flexbotConfig, diags
 }

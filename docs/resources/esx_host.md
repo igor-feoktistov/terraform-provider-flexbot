@@ -1,28 +1,28 @@
 ---
-page_title: "harvester_node resource"
+page_title: "esx_host resource"
 ---
 
-# harvester_node resource
+# esx_host resource
 
-Provides functionality to build SUSE Harvester node on FlexPod.
+Provides functionality to build VMware ESXi hosts on FlexPod.
 
 ## Example Usage
 
 ```hcl
-resource "flexbot_harvester_node" "harvester-node1" {
+resource "flexbot_esx_host" "esxi-host1" {
 
   # Required - UCS compute
   compute {
-    # Required - node name
-    hostname = "harvester-node1"
-    # Required - UCS Service Profile (server) is to be created here
-    sp_org = "org-root/org-Kubernetes"
+    # Required - host name
+    hostname = "esxi-host1"
+    # Required - UCS Service Profile (host) is to be created here
+    sp_org = "org-root/org-ESXi"
     # Required - Reference to Service Profile Template (SPT)
-    sp_template = "org-root/org-Harvester/ls-Harvester-01"
+    sp_template = "org-root/org-ESXi/ls-ESXi-01"
     # Optional - Service Profile label
-    label = "harvester-node1"
+    label = "esxi-host1"
     # Optional - Service Profile description
-    description = "Harvester node harvester-node1"
+    description = "VMware ESXi host esxi-host1"
     # Optional - Blade spec to find blade (all specs are optional)
     blade_spec {
       # Blade Dn, supports regexp
@@ -44,36 +44,26 @@ resource "flexbot_harvester_node" "harvester-node1" {
     }
     # Optional - Blade powerstate management.
     # Default is "up".
-    # Would try to execute graceful shutdown for "down" state following HW shutdown after 60s timeout.
+    # Would try to execute graceful shutdown for "down" state following HW shutdown.
     powerstate = "up"
-    # Optional - By default "destroy" will fail if node has powerstate "on".
+    # Optional - By default "destroy" will fail if host has powerstate "on".
     safe_removal = false
-    # Optional - Wait for SSH is accessible (seconds)
-    wait_for_ssh_timeout = 1800
     # Optional - SSH user name.
-    # Should match the user defined in cloud-init, typically rancher.
-    ssh_user = "rancher"
+    ssh_user = "root"
     # Optional - SSH private key. Same as above. Can be encrypted (built-in decrypt support).
     ssh_private_key = file("~/.ssh/id_rsa")
   }
 
   # Required - cDOT storage
   storage {
-    # Required - Bootstrap LUN
-    bootstrap_lun {
-      # Required - LiveISO image name
-      os_image = "harvester-v1.4.1-amd64-iboot"
-    }
     # Required - Boot LUN
     boot_lun {
+      # Required - VMware ESXi ISO installer location
+      installer_image = "images/VMware-VMvisor-Installer-8.0U3e-24677879.x86_64.iso"
+      # Required - VMware ESXi kickstart template location
+      kickstart_template = "templates/ESXi-v8-kickstart.template"
       # Required - Boot LUN size, GB
-      size = 400
-    }
-    # Required - Seed LUN for cloud-init
-    seed_lun {
-      # Required - cloud-init template name (see examples/cloud-init in this project).
-      # Remove directory path if template uploaded to cDOT storage template repository.
-      seed_template = "../../../cloud-init/harvester-v1.4.1-cloud-init-create.template"
+      size = 32
     }
     # Optional - SVM name, required for cluster scope provider credentials (rest only)
     svm_name = "vserver"
@@ -84,11 +74,11 @@ resource "flexbot_harvester_node" "harvester-node1" {
     # Required - Generic network (multiple nodes are allowed)
     node {
       # Required - Name should match respective vNIC name in Service Profile Template
-      name = "eth2"
+      name = "vmnic0"
       # Optional - if IP needs to be assigned statically, not allocated by IPAM from subnet or IP range
       #ip = "192.168.1.25"
       # Optional - Supply FQDN here only for "Internal" provider
-      #fqdn = "harvester-node1.example.com"
+      #fqdn = "esxi-host1.example.com"
       # IPAM allocates IP for node interface
       # Required - Subnet in CIDR format for IPAM IP allocation
       subnet = "192.168.1.0/24"
@@ -111,7 +101,7 @@ resource "flexbot_harvester_node" "harvester-node1" {
       # Optional - if IP needs to be assigned statically, not allocated by IPAM from subnet or IP range
       #ip = "192.168.2.25"
       # Optional - Supply FQDN here only for "Internal" provider
-      #fqdn = "k8s-node1-i1.example.com"
+      #fqdn = "esxi-host1-i1.example.com"
       # IPAM allocates IP for iSCSI interface
       # Required - Subnet in CIDR format for IPAM IP allocation
       subnet = "192.168.2.0/24"
@@ -127,7 +117,7 @@ resource "flexbot_harvester_node" "harvester-node1" {
       # Optional - if IP needs to be assigned statically, not allocated by IPAM from subnet or IP range
       #ip = "192.168.3.25"
       # Optional - Supply FQDN here only for "Internal" provider
-      #fqdn = "k8s-node1-i2.example.com"
+      #fqdn = "esxi-host1-i2.example.com"
       # IPAM allocates IP for iSCSI interface
       # Required - Subnet in CIDR format for IPAM IP allocation
       subnet = "192.168.3.0/24"
@@ -138,14 +128,14 @@ resource "flexbot_harvester_node" "harvester-node1" {
     }
   }
 
-  # Optional - Cloud Arguments are user defined key/value pairs to resolve in cloud-init template
+  # Optional - Cloud Arguments are user defined key/value pairs to resolve in kickstart template
   # Values can be encrypted (built-in decrypt support)
   cloud_args = {
+    ssh_user = "root"
+    ssh_user_password = "<encrypted passsword>"
     ssh_pub_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAxxxxxxxxxxxxxxxxxxxxxxx"
-    cluster_token = "harvester-secret"
-    rancher_password = "<password in unix password hash format>"
-    cluster_vip_addr = "192.168.1.129"
-    node_role = "management"
+    host_sdk_user = "svc-maintenance"
+    host_sdk_user_password = "<encrypted passsword>"
   }
 }
 ```

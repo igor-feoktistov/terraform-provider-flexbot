@@ -8,18 +8,15 @@ import (
 )
 
 type VMwareAPI interface {
-        VMwareAPIEnterMaintainanceMode(timeout int) (error)
-        VMwareAPIExitMaintainanceMode(timeout int) (error)
-        VMwareAPIIsInMaintainanceMode(timeout int) (bool, error)
+        VMwareAPIEnterMaintenanceMode(timeout int) (error)
+        VMwareAPIExitMaintenanceMode(timeout int) (error)
+        VMwareAPIIsInMaintenanceMode(timeout int) (bool, error)
         VMwareAPIShutdownHost(timeout int) (error)
         VMwareAPIGetHostState(timeout int) (string, error)
 }
 
 func VMwareAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *config.NodeConfig) (vmwareAPI VMwareAPI, err error) {
 	if meta.(*config.FlexbotConfig).VMwareConfig == nil || !meta.(*config.FlexbotConfig).VMwareApiEnabled {
-	        vmwareAPI = &EsxHost{
-		        NodeConfig: nodeConfig,
-	        }
 		return
 	}
 	switch meta.(*config.FlexbotConfig).VMwareConfig.Provider {

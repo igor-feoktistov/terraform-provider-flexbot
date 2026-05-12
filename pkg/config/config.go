@@ -529,17 +529,18 @@ type RancherConfig struct {
 
 // VMwareConfig is VMware generic client config
 type VMwareConfig struct {
-        Provider           string
-	URL                string
-	ApiUsername        string
-	ApiPassword        string
-	HostUsername       string
-	HostPassword       string
-	ClusterName        string
-	LicenseKey         string
-	Insecure           bool
-	WaitForHostTimeout int
-	Sync               sync.Mutex
+        Provider                    string
+	URL                         string
+	ApiUsername                 string
+	ApiPassword                 string
+	HostUsername                string
+	HostPassword                string
+	ClusterName                 string
+	LicenseKey                  string
+	Insecure                    bool
+	WaitForHostBootTimeout      int
+	WaitForHostInstallerTimeout int
+	Sync                        sync.Mutex
 }
 
 // FlexbotConfig is main provider configration

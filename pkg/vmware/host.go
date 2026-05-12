@@ -27,12 +27,6 @@ func EsxHostAPIInitialize(d *schema.ResourceData, meta interface{}, nodeConfig *
         var hostSystem *object.HostSystem
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(ApiInitTimeout) * time.Second)
 	defer cancel()
-	host = &EsxHost{
-		NodeConfig: nodeConfig,
-	}
-        if meta.(*config.FlexbotConfig).VMwareConfig == nil || !meta.(*config.FlexbotConfig).VMwareApiEnabled {
-                return
-        }
         vmwareConfig := meta.(*config.FlexbotConfig).VMwareConfig
 	if hostClient, hostSystem, err = initializeHostClient(ctx, nodeConfig.Network.Node[0].Ip, vmwareConfig.HostUsername, vmwareConfig.HostPassword); err == nil {
 		host = &EsxHost{
@@ -55,25 +49,25 @@ func (host *EsxHost) VMwareAPIGetHostState(timeout int) (state string, err error
 	return
 }
 
-func (host *EsxHost) VMwareAPIEnterMaintainanceMode(timeout int) (err error) {
+func (host *EsxHost) VMwareAPIEnterMaintenanceMode(timeout int) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout) * time.Second)
 	defer cancel()
 	if host.HostClient != nil && host.HostSystem != nil {
-		err = enterMaintainanceMode(ctx, host.HostSystem, timeout)
+		err = enterMaintenanceMode(ctx, host.HostSystem, timeout)
 	}
 	return
 }
 
-func (host *EsxHost) VMwareAPIExitMaintainanceMode(timeout int) (err error) {
+func (host *EsxHost) VMwareAPIExitMaintenanceMode(timeout int) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout) * time.Second)
 	defer cancel()
 	if host.HostClient != nil && host.HostSystem != nil {
-		err = exitMaintainanceMode(ctx, host.HostSystem, timeout)
+		err = exitMaintenanceMode(ctx, host.HostSystem, timeout)
 	}
 	return
 }
 
-func (host *EsxHost) VMwareAPIIsInMaintainanceMode(timeout int) (inMaintenance bool, err error) {
+func (host *EsxHost) VMwareAPIIsInMaintenanceMode(timeout int) (inMaintenance bool, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout) * time.Second)
 	defer cancel()
 	if host.HostClient != nil && host.HostSystem != nil {
