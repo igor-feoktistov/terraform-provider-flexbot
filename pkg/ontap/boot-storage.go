@@ -41,7 +41,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 		return
 	}
 	if !igroupExists {
-		if c.IgroupCreate(nodeConfig.Storage.IgroupName); err != nil {
+		if c.IgroupCreate(nodeConfig.Storage.IgroupName, "linux"); err != nil {
 			err = fmt.Errorf(errorFormat, err)
 			return
 		}
@@ -84,7 +84,7 @@ func CreateBootStorage(nodeConfig *config.NodeConfig) (err error) {
 			return
 		}
 		if !lunExists {
-			if err = c.LunCreate(dataLunPath, nodeConfig.Storage.DataLun.Size); err != nil {
+			if err = c.LunCreate(dataLunPath, nodeConfig.Storage.DataLun.Size, "linux"); err != nil {
 				err = fmt.Errorf(errorFormat, err)
 				return
 			}

@@ -17,7 +17,7 @@ type OntapClient interface {
 	VolumeResize(volumeName string, volumeSize int) error
 	ExportPolicyCreate(exportPolicyName string) error
 	IgroupExists(volumeName string) (bool, error)
-	IgroupCreate(igroupName string) error
+	IgroupCreate(igroupName string, osType string) error
 	IgroupAddInitiator(igroupName string, initiatorName string) error
 	IgroupDestroy(igroupName string) error
 	LunExists(lunPath string) (bool, error)
@@ -28,9 +28,10 @@ type OntapClient interface {
 	LunResize(lunPath string, lunSize int) error
 	LunMap(lunPath string, lunID int, igroupName string) error
 	LunUnmap(lunPath string, igroupName string) error
-	LunCreate(lunPath string, lunSize int) error
-	LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string) error
-	LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string) error
+	LunCreate(lunPath string, lunSize int, osType string) error
+	LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string, osType string) error
+	LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string, osType string) error
+	LunUpload(lunPath string, fileReader io.Reader, fileSize int64) error
 	LunDestroy(lunPath string) error
 	IscsiTargetGetName() (string, error)
 	DiscoverIscsiLIFs(lunPath string, initiatorSubnet string) ([]string, error)
@@ -46,7 +47,7 @@ type OntapClient interface {
 	SnapshotRestore(volumeName string, snapshotName string) error
 	NvmeTargetGetNqn(subsystemName string) (string, error)
         NvmeSubsystemExists(subsystemName string) (bool, error)
-        NvmeSubsystemCreate(subsystemName string) error
+        NvmeSubsystemCreate(subsystemName string, osType string) error
         NvmeSubsystemDestroy(subsystemName string) error
         NvmeSubsystemAddHost(subsystemName string, hostNqn string) error
 	NvmeNamespaceExists(namespacePath string) (bool, error)
@@ -55,7 +56,7 @@ type OntapClient interface {
 	NvmeNamespaceResize(namespacePath string, namespaceSize int) error
 	NvmeNamespaceMap(namespacePath string, subsystemName string) error
 	NvmeNamespaceUnmap(namespacePath string) error
-	NvmeNamespaceCreate(namespacePath string, namespaceSize int) error
+	NvmeNamespaceCreate(namespacePath string, namespaceSize int, osType string) error
 	NvmeNamespaceDestroy(namespacePath string) error
         GetNvmeLIFs() ([]string, error)
 	DiscoverNvmeLIFs(namespacePath string, hostSubnet string) ([]string, error)

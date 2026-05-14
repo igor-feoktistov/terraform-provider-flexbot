@@ -279,6 +279,59 @@ provider "flexbot" {
 }
 ```
 
+## Example - `vmware_api` is enabled with provider type of `host`
+
+```hcl
+provider "flexbot" {
+  pass_phrase = "secret"
+  synchronized_updates = true
+  # IPAM
+  ipam {
+    provider = "Infoblox"
+    credentials {
+      host = "ib.example.com"
+      user = "admin"
+      password = "base64:jqdbcMI8dI5Dq<...skip...>yoskcRz9UUP+gN4v0Eo="
+      wapi_version = "2.5"
+      dns_view = "Internal"
+      network_view = "default"
+      ext_attributes = {
+        "Region" = "us-east-1"
+        "Site" = "onprem-us-east-1-01"
+      }
+    }
+    dns_zone = "example.com"
+  }
+  # UCS compute
+  compute {
+    credentials {
+      host = "ucsm.example.com"
+      user = "admin"
+      password = "base64:kEqDbvk/DwABc<...skip...>orS6UIjo21DpA6QTFDOc="
+    }
+  }
+  # cDOT storage
+  storage {
+    credentials {
+      host = "vserver.example.com"
+      user = "vsadmin"
+      password = "base64:qiZIN5H04oK15<...skip...>7k4uoBIIg/boi2n3+4kQ="
+    }
+  }
+  # VMware API (host SDK provider)
+  vmware_api {
+    enabled = true
+    provider = "host"
+    host_sdk_user = "svc-maintenance"
+    host_sdk_user_password = "base64:sHjs<...skip...>4zgdlf9dF="
+    insecure = true
+    wait_for_host_installer_timeout = 1800
+    wait_for_host_boot_timeout = 600
+    wait_for_maintenance_mode_timeout = 900
+  }
+}
+```
+
 ## Argument Reference
 
 The following arguments are supported:
@@ -323,7 +376,7 @@ The following arguments are supported:
   * `host` - (Required) SVM host name (IP address) for SVM scope or cDOT cluster name (IP address) for cluster scope (cluster scope is supported for `rest` only)
   * `user` - (Required) Username, can be encrypted by `flexbot-crypt` (string).
   * `password` - (Required) Password, can be encrypted by `flexbot-crypt` (string).
-  * `api_method` - (Optional) ONTAP API method is either `zapi` or `rest`. Method `rest` requires ONTAP v9.12 or higher (string, default is `zapi`).
+  * `api_method` - (Optional) ONTAP API method is either `zapi` or `rest`. Method `rest` requires ONTAP v9.12 or higher (string, default is `rest`).
   * `zapi_version` - (Optional) Typically not required except some old ONTAP releases. Will be deprecated in the future (string).
 
 #### `rancher_api`
@@ -348,3 +401,16 @@ The following arguments are supported:
 * `node_grace_timeout` - (Optional) Wait after node update is completed (int, seconds, default is 0).
 * `wait_for_node_timeout` - (Optional) MAX wait time until node is available (int, seconds, default is 0).
 * `drain_input` - (Optional) Drain operation parameters (map).
+
+#### `vmware_api`
+
+##### Arguments
+
+* `enabled` - (Optional) Quickly enable/disable rancher API support (bool, default is `false`)
+* `provider` - (Optional) VMware API provider. Currently supported `host` provider only (string, defailt is `host`).
+  * `host` - VMware ESXi host SDK
+* `host_sdk_user` - (Required) ESXi host local user account.
+* `host_sdk_user_password` - (Required) ESXi host local user account password.
+* `insecure` - (Optional) Disable certificate verification (bool, default is `false`).
+* `wait_for_host_installer_timeout` - (Optional) Wait until ESXi host installation is completed (int, seconds, default is 0).
+* `wait_for_host_boot_timeout` - (Optional) Wait until ESXi host boot is completed (int, seconds, default is 0).

@@ -118,7 +118,7 @@ func CreateSeedStorage(nodeConfig *config.NodeConfig) (err error) {
 			return
 		}
 	}
-	if err = c.LunCreateAndUpload(nodeConfig.Storage.VolumeName, "/seed", int64(isoBuffer.Len()), isoReader, seedLunPath, nodeConfig.Storage.SeedLun.SeedTemplate.Location); err != nil {
+	if err = c.LunCreateAndUpload(nodeConfig.Storage.VolumeName, "/seed", int64(isoBuffer.Len()), isoReader, seedLunPath, nodeConfig.Storage.SeedLun.SeedTemplate.Location, "linux"); err != nil {
 		err = fmt.Errorf("CreateSeedStorage(): %s", err)
 		return
         }

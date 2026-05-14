@@ -1,0 +1,81 @@
+accepteula
+clearpart --firstdisk=remote --overwritevmfs
+install --firstdisk=remote --overwritevmfs --ignoreprereqwarnings
+
+# Root password
+rootpw {{index .CloudArgs "ssh_user_password"}}
+
+# Management network
+network --bootproto=static --device=vmnic0 --ip={{(index .Network.Node 0).Ip}} --netmask=255.255.255.0 --gateway={{(index .Network.Node 0).Gateway}} --nameserver={{(index .Network.Node 0).DnsServer1}} --hostname={{.Compute.HostName}} --addvmportgroup=0
+
+# Reboot after install
+reboot
+
+# Post-install configuration
+%firstboot --interpreter=busybox
+
+# Add iSCSI-A portgroup
+esxcli network vswitch standard uplink add --uplink-name=vmnic2 --vswitch-name=vSwitch0
+esxcli network vswitch standard set --vswitch-name=vSwitch0 --mtu=1500
+esxcli network vswitch standard portgroup add --portgroup-name="iSCSI-A" --vswitch-name=vSwitch0
+esxcli network vswitch standard portgroup policy failover set --portgroup-name="iSCSI-A" --active-uplinks=vmnic2 --standby-uplinks=
+esxcli network ip interface add --interface-name=vmk1 --portgroup-name="iSCSI-A" --mtu=1500
+esxcli network ip interface ipv4 set --interface-name=vmk1 --ipv4={{(index .Network.IscsiInitiator 0).Ip}} --netmask=255.255.255.0 --type=static
+
+# Add iSCSI-B portgroup
+esxcli network vswitch standard uplink add --uplink-name=vmnic3 --vswitch-name=vSwitch0
+esxcli network vswitch standard set --vswitch-name=vSwitch0 --mtu=1500
+esxcli network vswitch standard portgroup add --portgroup-name="iSCSI-B" --vswitch-name=vSwitch0
+esxcli network vswitch standard portgroup policy failover set --portgroup-name="iSCSI-B" --active-uplinks=vmnic3 --standby-uplinks=
+esxcli network ip interface add --interface-name=vmk2 --portgroup-name="iSCSI-B" --mtu=1500
+esxcli network ip interface ipv4 set --interface-name=vmk2 --ipv4={{(index .Network.IscsiInitiator 1).Ip}} --netmask=255.255.255.0 --type=static
+
+# Add configured interfaces to iSCSI HBA and re-discover all paths
+ISCSI_HBA=$(esxcli iscsi adapter list | grep "iSCSI Software Adapter" | awk '{print $1}')
+if [ -n "${ISCSI_HBA}" ]; then
+  # Bind VMkernel ports to the iSCSI adapter
+  esxcli iscsi networkportal add --adapter=${ISCSI_HBA} --nic=vmk1
+  esxcli iscsi networkportal add --adapter=${ISCSI_HBA} --nic=vmk2
+  # Re-discover all iSCSI paths
+  esxcli iscsi adapter discovery sendtarget add --adapter ${ISCSI_HBA} --address {{index ((index .Network.IscsiInitiator 0).IscsiTarget.Interfaces) 0}}:3260
+  esxcli iscsi adapter discovery sendtarget add --adapter ${ISCSI_HBA} --address {{index ((index .Network.IscsiInitiator 1).IscsiTarget.Interfaces) 0}}:3260
+  # Rescan the adapter
+  esxcli storage core adapter rescan --adapter ${ISCSI_HBA}
+fi
+
+# Set hostname
+esxcli system hostname set --fqdn={{(index .Network.Node 0).Fqdn}}
+
+# Rename local datastore
+vim-cmd hostsvc/datastore/rename datastore1 "{{.Compute.HostName}}-local"
+
+# Provide public key for ssh authentication
+mkdir -p /etc/ssh/keys-root
+echo {{index .CloudArgs "ssh_pub_key"}} >> /etc/ssh/keys-root/authorized_keys
+chmod 600 /etc/ssh/keys-root/authorized_keys
+
+# Enable SSH & ESXi Shell
+vim-cmd hostsvc/enable_ssh
+vim-cmd hostsvc/start_ssh
+vim-cmd hostsvc/enable_esx_shell
+vim-cmd hostsvc/start_esx_shell
+
+# Suppress SSH warning
+esxcli system settings advanced set -o /UserVars/SuppressShellWarning -i 1
+
+# Apply VMware license
+#vim-cmd vimsvc/license --set=XXXXX-XXXXX-XXXXX-XXXXX-XXXXX
+
+# Create user svc-maintenance for Terraform lifecycle management operations
+esxcli system account add --id={{index .CloudArgs "host_sdk_user"}} --password='{{index .CloudArgs "host_sdk_user_password"}}' --password-confirmation='{{index .CloudArgs "host_sdk_user_password"}}' --description="Terraform lifecycle management operations"
+
+# Create a custom role with only the permissions needed
+# Host.Config.Maintenance covers Enter/Exit maintenance mode
+# System.Read allows reading host status
+vim-cmd vimsvc/auth/role_add MaintenanceOperator Host.Config.Maintenance Host.Config.Power System.Read System.View System.Anonymous
+
+# Assign the role at the root folder level
+vim-cmd vimsvc/auth/entity_permission_add vim.Folder:ha-folder-root {{index .CloudArgs "host_sdk_user"}} false MaintenanceOperator true
+
+reboot
+%end

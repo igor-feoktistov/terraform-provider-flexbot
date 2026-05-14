@@ -263,7 +263,7 @@ func (c *OntapRestAPI) IgroupGet(igroupName string) (igroup *ontap.Igroup, res *
 }
 
 // IgroupCreate creates iGroup
-func (c *OntapRestAPI) IgroupCreate(igroupName string) (err error) {
+func (c *OntapRestAPI) IgroupCreate(igroupName string, osType string) (err error) {
 	igroup := ontap.Igroup{
 		Resource: ontap.Resource{
 			Name: igroupName,
@@ -271,7 +271,7 @@ func (c *OntapRestAPI) IgroupCreate(igroupName string) (err error) {
 		Svm: &ontap.Resource{
 			Name: c.Svm,
 		},
-		OsType:   "linux",
+		OsType:   osType,
 		Protocol: "iscsi",
 	}
 	if _, err = c.Client.IgroupCreate(&igroup, []string{}); err != nil {
@@ -472,7 +472,7 @@ func (c *OntapRestAPI) LunUnmap(lunPath string, igroupName string) (err error) {
 }
 
 // LunCreate creates LUN
-func (c *OntapRestAPI) LunCreate(lunPath string, lunSize int) (err error) {
+func (c *OntapRestAPI) LunCreate(lunPath string, lunSize int, osType string) (err error) {
 	volumeName := filepath.Base(filepath.Dir(lunPath))
 	lunName := filepath.Base(lunPath)
 	sizeBytes := int64(lunSize) * 1024 * 1024 * 1024
@@ -489,7 +489,7 @@ func (c *OntapRestAPI) LunCreate(lunPath string, lunSize int) (err error) {
 		Svm: &ontap.Resource{
 			Name: c.Svm,
 		},
-		OsType: "linux",
+		OsType: osType,
 		Space: &ontap.LunSpace{
 			Size: &sizeBytes,
 		},
@@ -501,8 +501,8 @@ func (c *OntapRestAPI) LunCreate(lunPath string, lunSize int) (err error) {
 }
 
 // LunCreateFromFile creates LUN from file
-func (c *OntapRestAPI) LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string) (err error) {
-	if err = util.LunCreateFromFile(c.Client, lunPath, "/vol/"+volumeName+filePath, "linux"); err != nil {
+func (c *OntapRestAPI) LunCreateFromFile(volumeName string, filePath string, lunPath string, lunComment string, osType string) (err error) {
+	if err = util.LunCreateFromFile(c.Client, lunPath, "/vol/"+volumeName+filePath, osType); err != nil {
 		err = fmt.Errorf("LunCreateFromFile() failure: %s", err)
 	}
 	return
@@ -766,7 +766,7 @@ func (c *OntapRestAPI) SnapshotRestore(volumeName string, snapshotName string) (
 }
 
 // Create LUN and upload data
-func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string) (err error) {
+func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fileSize int64, fileReader io.Reader, lunPath string, lunComment string, osType string) (err error) {
         var sizeBytes, bytesWritten int64
 	sizeBytes = fileSize + int64(LUN_SIZE_BASE + LUN_SIZE_OVERHEAD)
 	lunName := filepath.Base(lunPath)
@@ -784,7 +784,7 @@ func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fi
 		Svm: &ontap.Resource{
 			Name: c.Svm,
 		},
-		OsType: "linux",
+		OsType: osType,
 		Space: &ontap.LunSpace{
 			Size: &sizeBytes,
 		},
@@ -801,6 +801,24 @@ func (c *OntapRestAPI) LunCreateAndUpload(volumeName string, filePath string, fi
 	}
 	if bytesWritten < fileSize {
 		err = fmt.Errorf("LunCreateAndUpload(): LunWrite() short write: expected to write \"%d\" bytes, written \"%d\" bytes", fileSize, bytesWritten)
+	}
+	return
+}
+
+// Upload data to existent LUN
+func (c *OntapRestAPI) LunUpload(lunPath string, fileReader io.Reader, fileSize int64) (err error) {
+        var bytesWritten int64
+	var lun *ontap.Lun
+	if lun, _, err = c.LunGet(lunPath); err != nil {
+		err = fmt.Errorf("LunUpload().LunGet(): failure: %s", err)
+		return
+	}
+	if bytesWritten, _, err = c.Client.LunWrite(lun.GetRef(), 0, fileReader); err != nil {
+		err = fmt.Errorf("LunUpload(): LunWrite() failure: %s", err)
+		return
+	}
+	if bytesWritten < fileSize {
+		err = fmt.Errorf("LunUpload(): LunWrite() short write: expected to write \"%d\" bytes, written \"%d\" bytes", fileSize, bytesWritten)
 	}
 	return
 }
@@ -838,7 +856,7 @@ func (c *OntapRestAPI) NvmeSubsystemExists(subsystemName string) (exists bool, e
 }
 
 // Create NVME Subsystem
-func (c *OntapRestAPI) NvmeSubsystemCreate(subsystemName string) (err error) {
+func (c *OntapRestAPI) NvmeSubsystemCreate(subsystemName string, osType string) (err error) {
 	deleteOnUnmap := false
 	subsystem := ontap.NvmeSubsystem{
 	        DeleteOnUnmap: &deleteOnUnmap,
@@ -846,7 +864,7 @@ func (c *OntapRestAPI) NvmeSubsystemCreate(subsystemName string) (err error) {
 		Svm: &ontap.Resource{
 			Name: c.Svm,
 		},
-		OsType: "linux",
+		OsType: osType,
 	}
 	if _, _, err := c.Client.NvmeSubsystemCreate(&subsystem, []string{}); err != nil {
 		err = fmt.Errorf("NvmeSubsystemCreate() failure: %s", err)
@@ -998,7 +1016,7 @@ func (c *OntapRestAPI) NvmeNamespaceUnmap(namespacePath string) (err error) {
 }
 
 // Create NVME Namespace
-func (c *OntapRestAPI) NvmeNamespaceCreate(namespacePath string, namespaceSize int) (err error) {
+func (c *OntapRestAPI) NvmeNamespaceCreate(namespacePath string, namespaceSize int, osType string) (err error) {
 	volumeName := filepath.Base(filepath.Dir(namespacePath))
 	namespaceName := filepath.Base(namespacePath)
 	sizeBytes := int64(namespaceSize) * 1024 * 1024 * 1024
@@ -1012,7 +1030,7 @@ func (c *OntapRestAPI) NvmeNamespaceCreate(namespacePath string, namespaceSize i
 		Svm: &ontap.Resource{
 			Name: c.Svm,
 		},
-		OsType: "linux",
+		OsType: osType,
 		Space: &ontap.NvmeNamespaceSpace{
 			Size: &sizeBytes,
 		},

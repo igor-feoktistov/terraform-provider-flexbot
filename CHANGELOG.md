@@ -1,3 +1,12 @@
+## 1.14.2 (May 14, 2026)
+
+ENHANCEMENTS:
+* New resource `esx_host` to build and manage VMware ESXi hosts
+  * build and manages VMware ESXi hosts
+  * see provider documentation for more details
+  * see [Terraform HCL examples](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/master/examples/esx-host-flexbot)
+
+
 ## 1.12.5 (February 18, 2026)
 
 ENHANCEMENTS:
@@ -9,6 +18,7 @@ ENHANCEMENTS:
 ENHANCEMENTS:
 * Increased timeout to handle transient errors in API calls to UCSM
 * GoLang v1.25
+
 
 ## 1.12.3 (September 8, 2025)
 
