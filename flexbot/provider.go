@@ -177,6 +177,7 @@ func Provider() *schema.Provider {
 									"api_method": {
 										Type:     schema.TypeString,
 										Optional: true,
+										Default:  "rest",
 										ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 											v := val.(string)
 											if !(v == "zapi" || v == "rest") {
@@ -331,24 +332,21 @@ func Provider() *schema.Provider {
 							Default:  "",
 						},
 						"api_user_password": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "",
+							Type:      schema.TypeString,
+							Optional:  true,
+							Sensitive: true,
+							Default:   "",
 						},
 						"host_sdk_user": {
 							Type:     schema.TypeString,
-							Required: true,
+							Required:  true,
 						},
 						"host_sdk_user_password": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:      schema.TypeString,
+							Required:  true,
+							Sensitive: true,
 						},
 						"cluster_name": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "",
-						},
-						"license_key": {
 							Type:     schema.TypeString,
 							Optional: true,
 							Default:  "",
@@ -361,12 +359,17 @@ func Provider() *schema.Provider {
 						"wait_for_host_installer_timeout": {
 							Optional: true,
 							Type:     schema.TypeInt,
-							Default:  0,
+							Default:  1800,
 						},
 						"wait_for_host_boot_timeout": {
 							Optional: true,
 							Type:     schema.TypeInt,
-							Default:  0,
+							Default:  600,
+						},
+						"wait_for_maintenance_mode_timeout": {
+							Optional: true,
+							Type:     schema.TypeInt,
+							Default:  900,
 						},
 					},
 				},
@@ -545,17 +548,17 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		        }
 		}
 		vmwareConfig := &config.VMwareConfig{
-		        Provider:                    vmwareAPI["provider"].(string),
-			URL:                         vmwareAPI["api_url"].(string),
-			ApiUsername:                 vmwareAPI["api_user"].(string),
-			ApiPassword:                 apiUserPassword,
-			HostUsername:                vmwareAPI["host_sdk_user"].(string),
-			HostPassword:                hostSdkUserPassword,
-			ClusterName:                 vmwareAPI["cluster_name"].(string),
-			LicenseKey:                  vmwareAPI["license_key"].(string),
-			Insecure:                    vmwareAPI["insecure"].(bool),
-			WaitForHostBootTimeout:      vmwareAPI["wait_for_host_boot_timeout"].(int),
-			WaitForHostInstallerTimeout: vmwareAPI["wait_for_host_installer_timeout"].(int),
+		        Provider:                      vmwareAPI["provider"].(string),
+			URL:                           vmwareAPI["api_url"].(string),
+			ApiUsername:                   vmwareAPI["api_user"].(string),
+			ApiPassword:                   apiUserPassword,
+			HostUsername:                  vmwareAPI["host_sdk_user"].(string),
+			HostPassword:                  hostSdkUserPassword,
+			ClusterName:                   vmwareAPI["cluster_name"].(string),
+			Insecure:                      vmwareAPI["insecure"].(bool),
+			WaitForHostBootTimeout:        vmwareAPI["wait_for_host_boot_timeout"].(int),
+			WaitForHostInstallerTimeout:   vmwareAPI["wait_for_host_installer_timeout"].(int),
+			WaitForMaintenanceModeTimeout: vmwareAPI["wait_for_maintenance_mode_timeout"].(int),
 		}
 		flexbotConfig.VMwareApiEnabled = vmwareAPI["enabled"].(bool)
 		flexbotConfig.VMwareConfig = vmwareConfig

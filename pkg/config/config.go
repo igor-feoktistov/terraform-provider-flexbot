@@ -156,6 +156,7 @@ type Compute struct {
 	BladeAssigned   util.BladeSpec `yaml:"bladeAssigned,omitempty" json:"bladeAssigned,omitempty"`
 	ChassisId       string         `yaml:"chassisId,omitempty" json:"chassisId,omitempty"`
 	Firmware        string         `yaml:"firmware,omitempty" json:"firmware,omitempty"`
+	KernelOpt       string         `yaml:"kernelopt,omitempty" json:"kernelopt,omitempty"`
 	Powerstate      string         `yaml:"powerState,omitempty" json:"powerState,omitempty"`
 	Description     string         `yaml:"description,omitempty" json:"description,omitempty"`
 	Label           string         `yaml:"label,omitempty" json:"label,omitempty"`
@@ -529,18 +530,18 @@ type RancherConfig struct {
 
 // VMwareConfig is VMware generic client config
 type VMwareConfig struct {
-        Provider                    string
-	URL                         string
-	ApiUsername                 string
-	ApiPassword                 string
-	HostUsername                string
-	HostPassword                string
-	ClusterName                 string
-	LicenseKey                  string
-	Insecure                    bool
-	WaitForHostBootTimeout      int
-	WaitForHostInstallerTimeout int
-	Sync                        sync.Mutex
+        Provider                      string
+	URL                           string
+	ApiUsername                   string
+	ApiPassword                   string
+	HostUsername                  string
+	HostPassword                  string
+	ClusterName                   string
+	Insecure                      bool
+	WaitForHostBootTimeout        int
+	WaitForHostInstallerTimeout   int
+	WaitForMaintenanceModeTimeout int
+	Sync                          sync.Mutex
 }
 
 // FlexbotConfig is main provider configration

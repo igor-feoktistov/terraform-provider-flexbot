@@ -19,11 +19,8 @@ import (
 )
 
 const (
-	EsxBootTimeout           = 600
 	EsxShutdownTimeout       = 180
-	EsxInstallerTimeout      = 1800
-	EsxEnterMaintModeTimeout = 900
-	EsxExitMaintModeTimeout =  60
+	EsxExitMaintModeTimeout  = 60
 	VMwareApiTimeout         = 15
 )
 
@@ -53,14 +50,14 @@ func resourceCreateEsxHost(ctx context.Context, d *schema.ResourceData, meta int
 		diags = diag.FromErr(err)
 		return
 	}
-	log.Infof("Creating ESX Node %s", nodeConfig.Compute.HostName)
+	log.Infof("Creating ESX host %s", nodeConfig.Compute.HostName)
 	var nodeExists bool
 	if nodeExists, err = ucsm.DiscoverServer(nodeConfig); err != nil {
 		diags = diag.FromErr(err)
 		return
 	}
 	if nodeExists {
-		diags = diag.FromErr(fmt.Errorf("resourceCreateEsxHost(): node %s already exists", nodeConfig.Compute.HostName))
+		diags = diag.FromErr(fmt.Errorf("resourceCreateEsxHost(): host %s already exists", nodeConfig.Compute.HostName))
 		return
 	}
 	var ipamProvider ipam.IpamProvider
@@ -96,38 +93,23 @@ func resourceCreateEsxHost(ctx context.Context, d *schema.ResourceData, meta int
 		diags = diag.FromErr(fmt.Errorf("resourceCreateEsxHost(): %s", err))
 		return
 	}
-        meta.(*config.FlexbotConfig).Sync.Lock()
-	d.SetId(nodeConfig.Compute.HostName)
-        meta.(*config.FlexbotConfig).Sync.Unlock()
 	if err = ontap.CreateEsxStorage(nodeConfig); err == nil {
 		_, err = ucsm.CreateServer(nodeConfig)
 	}
 	if err == nil {
+		meta.(*config.FlexbotConfig).Sync.Lock()
+		d.SetId(nodeConfig.Compute.HostName)
+		meta.(*config.FlexbotConfig).Sync.Unlock()
 		err = ucsm.StartServer(nodeConfig)
 	} else {
+		errs = append(errs, err)
 		ontap.DeleteEsxStorage(nodeConfig)
 		ucsm.DeleteServer(nodeConfig)
 		ipamProvider.Release(nodeConfig)
 	}
 	if err == nil {
 		setFlexbotEsxHostOutput(d, meta, nodeConfig)
-		var waitForHostInstallerTimeout int
-		if meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout > 0 {
-			waitForHostInstallerTimeout = meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout
-		} else {
-			waitForHostInstallerTimeout = EsxInstallerTimeout
-		}
-		_, err = waitForEsxHost(d, meta, nodeConfig, waitForHostInstallerTimeout)
-	}
-	if err != nil {
-		errs = append(errs, err)
-		for _, err = range errs {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "resourceCreateEsxHost()",
-				Detail:   err.Error(),
-			})
-		}
+		_, err = waitForEsxHost(d, meta, nodeConfig, meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout)
 	}
 	if err != nil {
 		errs = append(errs, err)
@@ -149,7 +131,7 @@ func resourceReadEsxHost(ctx context.Context, d *schema.ResourceData, meta inter
 		diags = diag.FromErr(err)
 		return
 	}
-	log.Infof("Refreshing ESX Node %s", nodeConfig.Compute.HostName)
+	log.Infof("Refreshing ESX host %s", nodeConfig.Compute.HostName)
 	var nodeExists bool
 	if nodeExists, err = ucsm.DiscoverServer(nodeConfig); err != nil {
 		diags = diag.FromErr(err)
@@ -287,7 +269,7 @@ func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, node
 			err = fmt.Errorf("resourceUpdateEsxHost(compute): last resource instance update returned error: %s", err)
 			return
 		}
-		log.Infof("Updating ESX node %s", nodeConfig.Compute.HostName)
+		log.Infof("Updating ESX host %s", nodeConfig.Compute.HostName)
 	        if (nodeConfig.ChangeStatus & ChangeBladeSpec) > 0 {
 	        	log.Infof("Running compute  preflight check")
 	                if err = ucsm.UpdateServerPreflight(nodeConfig); err != nil {
@@ -305,14 +287,14 @@ func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, node
 					return
 				}
 			}
-			log.Infof("Power off node %s", nodeConfig.Compute.HostName)
+			log.Infof("Power off host %s", nodeConfig.Compute.HostName)
 			if err = ucsm.StopServer(nodeConfig); err != nil {
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
 			}
 		}
 		if (nodeConfig.ChangeStatus & ChangeBladeSpec) > 0 {
-			log.Infof("Changing blade specification for node %s", nodeConfig.Compute.HostName)
+			log.Infof("Changing blade specification for host %s", nodeConfig.Compute.HostName)
 			if err = ucsm.UpdateServer(nodeConfig); err != nil {
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
@@ -320,21 +302,16 @@ func resourceUpdateEsxHostCompute(d *schema.ResourceData, meta interface{}, node
 		}
 		if newPowerState == "up" {
 			log.Infof("Power on ESX host %s", nodeConfig.Compute.HostName)
-			if err = ucsm.StartServer(nodeConfig); err != nil {
+			if err = ucsm.StartServer(nodeConfig); err == nil {
+				var vmwareAPI vmware.VMwareAPI
+				if vmwareAPI, err = waitForEsxHost(d, meta, nodeConfig, meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostBootTimeout); err == nil && vmwareAPI != nil {
+					err = vmwareAPI.VMwareAPIExitMaintenanceMode(EsxExitMaintModeTimeout)
+				}
+			}
+			if err != nil {
+				err = fmt.Errorf("resourceUpdateEsxHost(compute): error: %s", err)
 				meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 				return
-			}
-			waitForHostBootTimeout := meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostBootTimeout
-			if waitForHostBootTimeout == 0 {
-				waitForHostBootTimeout = EsxBootTimeout
-			}
-			var vmwareAPI vmware.VMwareAPI
-			if vmwareAPI, err = waitForEsxHost(d, meta, nodeConfig, waitForHostBootTimeout); err == nil && vmwareAPI != nil {
-				if err = vmwareAPI.VMwareAPIExitMaintenanceMode(EsxExitMaintModeTimeout); err != nil {
-					err = fmt.Errorf("resourceUpdateEsxHost(compute): error: %s", err)
-					meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-					return
-				}
 			}
 		}
 	}
@@ -378,10 +355,12 @@ func resourceUpdateEsxHostStorage(d *schema.ResourceData, meta interface{}, node
 			return
 		}
 		if powerState, err = ucsm.GetServerPowerState(nodeConfig); err != nil {
+			err = fmt.Errorf("resourceUpdateEsxHost(storage): error: %s", err)
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
 		if operState, err = ucsm.GetServerOperationalState(nodeConfig); err != nil {
+			err = fmt.Errorf("resourceUpdateEsxHost(storage): error: %s", err)
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 			return
 		}
@@ -418,25 +397,14 @@ func resourceUpdateEsxHostStorage(d *schema.ResourceData, meta interface{}, node
 				time.Sleep(time.Duration(StorageRetryTimeout * (i + 1)) * time.Second)
 			}
 		}
+		if err == nil {
+			log.Infof("Power on ESX host %s", nodeConfig.Compute.HostName)
+			if err = ucsm.StartServer(nodeConfig); err == nil {
+				_, err = waitForEsxHost(d, meta, nodeConfig, meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout)
+			}
+		}
 		if err != nil {
-			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			return
-		}
-		log.Infof("Power on ESX host %s", nodeConfig.Compute.HostName)
-		if err = ucsm.StartServer(nodeConfig); err == nil {
-			err = waitForHostNetwork(nodeConfig, EsxInstallerTimeout)
-		} else {
-			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
-			return
-		}
-		var waitForHostInstallerTimeout int
-		if meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout > 0 {
-			waitForHostInstallerTimeout = meta.(*config.FlexbotConfig).VMwareConfig.WaitForHostInstallerTimeout
-		} else {
-			waitForHostInstallerTimeout = EsxInstallerTimeout
-		}
-		_, err = waitForEsxHost(d, meta, nodeConfig, waitForHostInstallerTimeout)
-		if err != nil {
+			err = fmt.Errorf("resourceUpdateEsxHost(storage): error: %s", err)
 			meta.(*config.FlexbotConfig).UpdateManagerSetError(err)
 		}
 	}
@@ -451,7 +419,7 @@ func resourceDeleteEsxHost(ctx context.Context, d *schema.ResourceData, meta int
 		diags = diag.FromErr(err)
 		return
 	}
-	log.Infof("Deleting ESX Node %s", nodeConfig.Compute.HostName)
+	log.Infof("Deleting ESX host %s", nodeConfig.Compute.HostName)
         meta.(*config.FlexbotConfig).Sync.Lock()
 	compute := d.Get("compute").([]interface{})[0].(map[string]interface{})
         meta.(*config.FlexbotConfig).Sync.Unlock()
@@ -464,7 +432,7 @@ func resourceDeleteEsxHost(ctx context.Context, d *schema.ResourceData, meta int
 		return
 	}
 	if powerState == "up" && operState == "ok" && compute["safe_removal"].(bool) {
-		diags = diag.FromErr(fmt.Errorf("resourceDeleteEsxHost(): node %s has power state up", nodeConfig.Compute.HostName))
+		diags = diag.FromErr(fmt.Errorf("resourceDeleteEsxHost(): host %s has power state up", nodeConfig.Compute.HostName))
 		return
 	}
 	if powerState == "up" {
@@ -563,6 +531,7 @@ func setFlexbotEsxHostInput(d *schema.ResourceData, meta interface{}) (nodeConfi
 	nodeConfig.Compute.Description = compute["description"].(string)
 	nodeConfig.Compute.Label = compute["label"].(string)
 	nodeConfig.Compute.Firmware = compute["firmware"].(string)
+	nodeConfig.Compute.KernelOpt = compute["kernel_opt"].(string)
 	if len(compute["blade_spec"].([]interface{})) > 0 {
 		bladeSpec := compute["blade_spec"].([]interface{})[0].(map[string]interface{})
 		nodeConfig.Compute.BladeSpec.Dn = bladeSpec["dn"].(string)
@@ -665,6 +634,7 @@ func setFlexbotEsxHostOutput(d *schema.ResourceData, meta interface{}, nodeConfi
 	compute["description"] = nodeConfig.Compute.Description
 	compute["label"] = nodeConfig.Compute.Label
 	compute["firmware"] = nodeConfig.Compute.Firmware
+	compute["kernel_opt"] = nodeConfig.Compute.KernelOpt
 	storage["svm_name"] = nodeConfig.Storage.SvmName
 	storage["volume_name"] = nodeConfig.Storage.VolumeName
 	storage["igroup_name"] = nodeConfig.Storage.IgroupName
@@ -714,7 +684,7 @@ func shutdownEsxHost(d *schema.ResourceData, meta interface{}, nodeConfig *confi
         var operState string
 	var vmwareAPI vmware.VMwareAPI
 	if vmwareAPI, err = vmware.VMwareAPIInitialize(d, meta, nodeConfig); err == nil && vmwareAPI != nil {
-		if err = vmwareAPI.VMwareAPIEnterMaintenanceMode(EsxEnterMaintModeTimeout); err == nil {
+		if err = vmwareAPI.VMwareAPIEnterMaintenanceMode(meta.(*config.FlexbotConfig).VMwareConfig.WaitForMaintenanceModeTimeout); err == nil {
 			if err = vmwareAPI.VMwareAPIShutdownHost(EsxShutdownTimeout); err == nil {
 				giveupTime := time.Now().Add(time.Second * time.Duration(EsxShutdownTimeout))
 				for time.Now().Before(giveupTime) {
@@ -749,14 +719,22 @@ func waitForEsxHost(d *schema.ResourceData, meta interface{}, nodeConfig *config
 	}
 	giveupTime := time.Now().Add(time.Second * time.Duration(waitForHostTimeout))
 	for time.Now().Before(giveupTime) {
-		if vmwareAPI, err = vmware.VMwareAPIInitialize(d, meta, nodeConfig); err == nil && vmwareAPI != nil {
-			if hostState, err = vmwareAPI.VMwareAPIGetHostState(VMwareApiTimeout); err == nil && hostState == "connected" {
-				break
+		stabilazeTime := time.Now().Add(time.Second * 60)
+		// we wait for 60 seconds in "connected" state to make sure it's not kickstart "%post" or "%firstboot"
+		for time.Now().Before(stabilazeTime) {
+			if vmwareAPI, err = vmware.VMwareAPIInitialize(d, meta, nodeConfig); err == nil && vmwareAPI != nil {
+				if hostState, err = vmwareAPI.VMwareAPIGetHostState(VMwareApiTimeout); err != nil || hostState != "connected" {
+					break
+				}
 			}
+			time.Sleep(5 * time.Second)
+		}
+		if time.Now().After(stabilazeTime) && err == nil && hostState == "connected" {
+			break
 		}
 		time.Sleep(5 * time.Second)
 	}
-	if time.Now().After(giveupTime) {
+	if time.Now().After(giveupTime) && hostState != "connected" {
 		if  err == nil {
 			err = fmt.Errorf("waitForEsxHost(ip=%s): exceeded timeout %d, host state=%s", nodeConfig.Network.Node[0].Ip, waitForHostTimeout, hostState)
 		} else {

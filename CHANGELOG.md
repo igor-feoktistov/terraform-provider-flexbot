@@ -1,3 +1,12 @@
+## 1.14.2 (May 12, 2026)
+
+ENHANCEMENTS:
+* New resource `esx_host` to build and manage VMware ESXi hosts
+  * build and manages VMware ESXi hosts
+  * see provider documentation for more details
+  * see [Terraform HCL examples](https://github.com/igor-feoktistov/terraform-provider-flexbot/tree/dev/examples/esx-host-flexbot)
+
+
 ## 1.12.5 (February 18, 2026)
 
 ENHANCEMENTS:

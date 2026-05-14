@@ -9,6 +9,15 @@ provider "flexbot" {
       wapi_version = var.host_config.infoblox.wapi_version
       dns_view = var.host_config.infoblox.dns_view
       network_view = var.host_config.infoblox.network_view
+      ext_attributes = {
+        "Application_Code" = "gat"
+        "Application_Name" = "Rancher"
+        "IP_Allotment" = "NetApp"
+        "Is_Public" = "Private"
+        "Requester_DL1" = "ng-it-rancher-engsup@netapp.com"
+        "Requester_SSO" = "ibapi"
+        "Who_Created" = "terraform"
+      }
     }
     dns_zone = var.host_config.infoblox.dns_zone
   }
@@ -24,17 +33,14 @@ provider "flexbot" {
       host = var.flexbot_credentials.cdot.host
       user = var.flexbot_credentials.cdot.user
       password = var.flexbot_credentials.cdot.password
-      api_method = var.host_config.storage.api_method
     }
   }
   vmware_api {
     enabled = true
     provider = "host"
-    host_sdk_user = var.vmware_config.host_sdk_user
-    host_sdk_user_password = var.vmware_config.host_sdk_user_password
+    host_sdk_user = var.host_config.cloud_args.host_sdk_user
+    host_sdk_user_password = var.host_config.cloud_args.host_sdk_user_password
     insecure = true
-    wait_for_host_installer_timeout = 1800
-    wait_for_host_boot_timeout = 600
   }
 }
 
@@ -50,11 +56,9 @@ resource "flexbot_esx_host" "host" {
       dn = each.value.blade_spec.dn
     }
     firmware = "bios"
+    kernel_opt = var.host_config.compute.kernel_opt
     powerstate = each.value.powerstate
     safe_removal = true
-    wait_for_ssh_timeout = 1800
-    ssh_user = var.host_config.compute.ssh_user
-    ssh_private_key = var.host_config.compute.ssh_private_key
   }
   # cDOT storage
   storage {
@@ -104,12 +108,12 @@ resource "flexbot_esx_host" "host" {
       }
     }
   }
-  # Arguments for cloud-init template
+  # Arguments for kickstart template
   cloud_args = {
-    ssh_user = var.host_config.compute.ssh_user
-    ssh_user_password = var.host_config.compute.ssh_user_password
-    ssh_pub_key = var.host_config.compute.ssh_public_key
-    host_sdk_user = var.vmware_config.host_sdk_user
-    host_sdk_user_password = var.vmware_config.host_sdk_user_password
+    ssh_user = var.host_config.cloud_args.ssh_user
+    ssh_user_password = var.host_config.cloud_args.ssh_user_password
+    ssh_pub_key = var.host_config.cloud_args.ssh_public_key
+    host_sdk_user = var.host_config.cloud_args.host_sdk_user
+    host_sdk_user_password = var.host_config.cloud_args.host_sdk_user_password
   }
 }

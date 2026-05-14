@@ -29,8 +29,8 @@ resource "flexbot_esx_host" "esxi-host1" {
       #dn = "sys/chassis-4/blade-3"
       #dn = "sys/chassis-9/blade-[0-9]+"
       # Blade model, supports regexp
-      model = "UCSB-B200-M3"
-      #model = "UCSB-B200-M[45]"
+      model = "UCSB-B200-M5"
+      #model = "UCSB-B200-M[56]"
       # Number of CPUs, supports range
       #num_of_cpus = "2"
       # Number of cores, supports range
@@ -48,10 +48,10 @@ resource "flexbot_esx_host" "esxi-host1" {
     powerstate = "up"
     # Optional - By default "destroy" will fail if host has powerstate "on".
     safe_removal = false
-    # Optional - SSH user name.
-    ssh_user = "root"
-    # Optional - SSH private key. Same as above. Can be encrypted (built-in decrypt support).
-    ssh_private_key = file("~/.ssh/id_rsa")
+    # Optional - Default is "bios" (legacy BIOS boot)
+    firmware = "efi"
+    # Optional - Default is "ks=file:///ks.cfg"
+    kernel_opt = "ks=file:///ks.cfg allowLegacyCPU=true"
   }
 
   # Required - cDOT storage
@@ -59,13 +59,17 @@ resource "flexbot_esx_host" "esxi-host1" {
     # Required - Boot LUN
     boot_lun {
       # Required - VMware ESXi ISO installer location
+      #installer_image = "https://repo.example.com:/vmware-images/VMware-VMvisor-Installer-8.0U3e-24677879.x86_64.iso"
+      #installer_image = "file:///var/lib/vmware-images/VMware-VMvisor-Installer-8.0U3e-24677879.x86_64.iso"
       installer_image = "images/VMware-VMvisor-Installer-8.0U3e-24677879.x86_64.iso"
       # Required - VMware ESXi kickstart template location
+      #kickstart_template = "https://repo.example.com:/vmware-templates/ESXi-v8-kickstart.template"
+      #kickstart_template = "file:///var/lib/vmware-templates/vmware-templates/ESXi-v8-kickstart.template"
       kickstart_template = "templates/ESXi-v8-kickstart.template"
       # Required - Boot LUN size, GB
       size = 32
     }
-    # Optional - SVM name, required for cluster scope provider credentials (rest only)
+    # Optional - SVM name, required for cluster scope provider credentials (REST only)
     svm_name = "vserver"
   }
 
@@ -128,8 +132,8 @@ resource "flexbot_esx_host" "esxi-host1" {
     }
   }
 
-  # Optional - Cloud Arguments are user defined key/value pairs to resolve in kickstart template
-  # Values can be encrypted (built-in decrypt support)
+  # Optional - Cloud Arguments are user defined key/value pairs to resolve in kickstart template.
+  # Values can be encrypted (built-in decrypt support).
   cloud_args = {
     ssh_user = "root"
     ssh_user_password = "<encrypted passsword>"

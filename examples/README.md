@@ -14,6 +14,7 @@ Make sure to update respective `terraform.tfvars` files with your own infrastruc
 * [rancher-workload-cluster-flexbot](./rancher-workload-cluster-flexbot) Provisions and manages Rancher RKE1 downstream Custom Cluster.
 * [rancher-rke2-workload-cluster-flexbot](./rancher-rke2-workload-cluster-flexbot) Provisions and manages Rancher RKE2 downstream Custom Cluster.
 * [harvester-node-flexbot](./harvester-node-flexbot) Provisions and manages SUSE Harvester nodes.
+* [esx-host-flexbot](./esx-host-flexbot) Provisions and manages VMware ESXi hosts.
 * [crypt](./crypt) Generate encrypted string values for various use cases.
 
 ### Note

@@ -316,10 +316,9 @@ provider "flexbot" {
       host = "vserver.example.com"
       user = "vsadmin"
       password = "base64:qiZIN5H04oK15<...skip...>7k4uoBIIg/boi2n3+4kQ="
-      api_method = "rest"
     }
   }
-  # VMware API (host provider)
+  # VMware API (host SDK provider)
   vmware_api {
     enabled = true
     provider = "host"
@@ -328,6 +327,7 @@ provider "flexbot" {
     insecure = true
     wait_for_host_installer_timeout = 1800
     wait_for_host_boot_timeout = 600
+    wait_for_maintenance_mode_timeout = 900
   }
 }
 ```
@@ -376,7 +376,7 @@ The following arguments are supported:
   * `host` - (Required) SVM host name (IP address) for SVM scope or cDOT cluster name (IP address) for cluster scope (cluster scope is supported for `rest` only)
   * `user` - (Required) Username, can be encrypted by `flexbot-crypt` (string).
   * `password` - (Required) Password, can be encrypted by `flexbot-crypt` (string).
-  * `api_method` - (Optional) ONTAP API method is either `zapi` or `rest`. Method `rest` requires ONTAP v9.12 or higher (string, default is `zapi`).
+  * `api_method` - (Optional) ONTAP API method is either `zapi` or `rest`. Method `rest` requires ONTAP v9.12 or higher (string, default is `rest`).
   * `zapi_version` - (Optional) Typically not required except some old ONTAP releases. Will be deprecated in the future (string).
 
 #### `rancher_api`

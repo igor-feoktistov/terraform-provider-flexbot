@@ -26,15 +26,12 @@ host_config = {
   compute = {
     sp_org = "org-root/org-ESXi"
     sp_template = "org-root/org-ESXi/ls-ESXi-template"
-    ssh_user = "root"
-    ssh_user_password = "base64:Ghtk<reducted>"
-    ssh_public_key = "base64:KINnLzalKy<reducted>"
-    ssh_private_key = "base64:3KzGZkFijM<reducted>"
+    kernel_opt = "ks=file:///ks.cfg allowLegacyCPU=true"
   }
   network = {
     node = [
       {
-        name = "eth2"
+        name = "vmnic0"
         subnet = "192.168.1.0/24"
         gateway = "192.168.1.1"
         dns_server1 = "192.168.1.10"
@@ -54,9 +51,11 @@ host_config = {
       }
     ]
   }
-}
-
-vmware_config = {
-  host_sdk_user = "svc-maintenance"
-  host_sdk_user_password = "base64:<reducted>"
+  cloud_args = {
+    ssh_user = "root"
+    ssh_user_password = "base64:sTDJKRHGF<reducted>"
+    ssh_public_key = "base64:RtFnLs<reducted>"
+    host_sdk_user = "svc-maintenance"
+    host_sdk_user_password = "base64:dSTfHGF9<reducted>"
+  }
 }
